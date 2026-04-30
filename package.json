@@ -1,0 +1,19 @@
+{
+  "name": "revenge-quick-switcher",
+  "version": "3.9.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js",
+    "test": "jest"
+  },
+  "author": "Danny Clark, Gemini, Grok",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "esbuild": "^0.20.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "@revenge-mod/types": "npm:vendetta-types@latest"
+  }
+}
