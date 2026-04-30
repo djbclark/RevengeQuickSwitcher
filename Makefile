@@ -5,7 +5,7 @@ all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.6) - FOSS Standard Release"
+	@echo "RevengeQuickSwitcher (v3.9.7) - The AI Crowd-Source"
 	@echo "============================================================"
 	@echo "[AI COLLABORATION WORKFLOW]"
 	@echo "  1. Download AI output and run it (make explode)."

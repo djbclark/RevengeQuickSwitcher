@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 r"""
-# RevengeQuickSwitcher Polyglot (v3.9.6 "The FOSS Standard")
+# RevengeQuickSwitcher Polyglot (v3.9.7 "The AI Crowd-Source")
 
 ### BOOTSTRAP: `chmod +x whatever.md && ./whatever.md explode`
 --- PASTE EVERYTHING BELOW INTO ANOTHER AI ---
-Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.6).
+Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.7).
 AUDITOR STATE: Node: v25 | OS: MacOS | Mod: Revenge (Native).
-CRITICAL: Validate the inclusion of GNU/FOSS standard files (LICENSE, AUTHORS) 
-and standardized Makefile targets. Ensure esbuild pipeline remains intact.
+CRITICAL: Validate the new crowd-sourcing links in the README.md. Ensure 
+the esbuild pipeline remains intact and human-readable TSX is preserved.
 AI INSTRUCTION: Use backtick/tilde code blocks in your reply.
 
 ### PROJECT SOURCE:
@@ -21,7 +21,7 @@ all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.6) - FOSS Standard Release"
+	@echo "RevengeQuickSwitcher (v3.9.7) - The AI Crowd-Source"
 	@echo "============================================================"
 	@echo "[AI COLLABORATION WORKFLOW]"
 	@echo "  1. Download AI output and run it (make explode)."
@@ -94,7 +94,7 @@ package-lock.json
 ~~~json
 {
   "name": "revenge-quick-switcher",
-  "version": "3.9.6",
+  "version": "3.9.7",
   "main": "dist/index.js",
   "scripts": {
     "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js"
@@ -137,7 +137,7 @@ package-lock.json
     { "name": "Grok", "id": "2" }
   ],
   "main": "dist/index.js",
-  "version": "3.9.6"
+  "version": "3.9.7"
 }
 ~~~
 
@@ -186,6 +186,14 @@ A high-performance server navigation utility built natively for the **Revenge** 
 * **Fuzzy-Search Navigation**: Jump instantly to any server via subsequence matching (e.g., typing `wsh` will successfully find `Wayland High School`).
 * **Flat Sidebar Mode**: Overrides Discord's native UI to present an alphabetically sorted, folder-free guild list.
 * **Smart Pagination**: Automatically chunks outputs into 40-server pages to comply with Discord's strict 2000-character limits, complete with numeric aliases (`/servers 2`).
+
+## 🤖 AI Crowd-Sourcing
+This project is built using a continuous human-AI collaboration loop, and we want to see what your AI can do with it!
+
+1. Grab the raw **[Polyglot Source File (PROMPT_FOR_SECOND_OPINION.md)](https://github.com/djbclark/RevengeQuickSwitcher/blob/main/PROMPT_FOR_SECOND_OPINION.md)**.
+2. Feed the entire text into your favorite LLM (Gemini, Claude, GPT-4, Grok, etc.).
+3. Ask it for an architectural review, a bug hunt, or a new feature implementation.
+4. **[Open a GitHub Issue](https://github.com/djbclark/RevengeQuickSwitcher/issues/new)** and paste the AI's suggestions or code output!
 
 ## 🛠 Developer Pipeline
 This project is powered by a custom "Polyglot" architecture that completely abstracts Git and NPM. Developers can bootstrap, compile (via `esbuild`), and push changes using a single command:
@@ -254,9 +262,9 @@ export const isSubsequence = (query: string, text: string) => {
 ~~~tsx
 /**
  * PROJECT_PULSE: {
- * "version": "3.9.6",
+ * "version": "3.9.7",
  * "env": { "node": "25.x", "os": "macos", "mod": "revenge" },
- * "hacks": [ "decoupled-esbuild", "abstracted-git", "foss-compliant" ],
+ * "hacks": [ "decoupled-esbuild", "abstracted-git", "human-readable" ],
  * "limit": "2000-char-discord-pagination"
  * }
  */

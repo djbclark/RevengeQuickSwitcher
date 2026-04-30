@@ -1,8 +1,8 @@
 /**
  * PROJECT_PULSE: {
- * "version": "3.9.6",
+ * "version": "3.9.7",
  * "env": { "node": "25.x", "os": "macos", "mod": "revenge" },
- * "hacks": [ "decoupled-esbuild", "abstracted-git", "foss-compliant" ],
+ * "hacks": [ "decoupled-esbuild", "abstracted-git", "human-readable" ],
  * "limit": "2000-char-discord-pagination"
  * }
  */
