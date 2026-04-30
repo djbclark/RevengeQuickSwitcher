@@ -17,4 +17,5 @@ This project is powered by a custom "Polyglot" architecture that completely abst
 3. Tap the **+** icon and paste the URL.
 4. Reload the client.
 
-*Built by Danny Clark, Gemini, and Grok.*
+## 📝 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

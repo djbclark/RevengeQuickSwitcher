@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 r"""
-# RevengeQuickSwitcher Polyglot (v3.9.5 "The AI Sync")
+# RevengeQuickSwitcher Polyglot (v3.9.6 "The FOSS Standard")
 
 ### BOOTSTRAP: `chmod +x whatever.md && ./whatever.md explode`
 --- PASTE EVERYTHING BELOW INTO ANOTHER AI ---
-Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.5).
+Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.6).
 AUDITOR STATE: Node: v25 | OS: MacOS | Mod: Revenge (Native).
-CRITICAL: Validate the human-readable TSX logic and the esbuild pipeline. 
-Ensure the Polyglot correctly acts as the synchronization layer for the 
-AI-to-Local workflow.
+CRITICAL: Validate the inclusion of GNU/FOSS standard files (LICENSE, AUTHORS) 
+and standardized Makefile targets. Ensure esbuild pipeline remains intact.
 AI INSTRUCTION: Use backtick/tilde code blocks in your reply.
 
 ### PROJECT SOURCE:
@@ -17,12 +16,12 @@ AI INSTRUCTION: Use backtick/tilde code blocks in your reply.
 ~~~makefile
 SOURCE_FILE = PROMPT_FOR_SECOND_OPINION.md
 REPO_URL = git@github.com:djbclark/RevengeQuickSwitcher.git
-.PHONY: help explode implode build clean ship push pull init-repo
+.PHONY: help explode implode build clean distclean ship push pull init-repo
 all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.5) - The AI Sync Workflow"
+	@echo "RevengeQuickSwitcher (v3.9.6) - FOSS Standard Release"
 	@echo "============================================================"
 	@echo "[AI COLLABORATION WORKFLOW]"
 	@echo "  1. Download AI output and run it (make explode)."
@@ -37,6 +36,7 @@ help:
 	@echo "  make push       - Implodes, builds, and pushes to GitHub."
 	@echo "  make pull       - Downloads updates and explodes them."
 	@echo "  make clean      - Wipe node_modules and build artifacts."
+	@echo "  make distclean  - (GNU Standard) Same as clean."
 	@echo "============================================================"
 
 # Development Pipeline
@@ -78,6 +78,8 @@ pull:
 
 clean:
 	rm -rf dist/ node_modules/ package-lock.json
+
+distclean: clean
 ~~~
 
 #### .gitignore
@@ -92,7 +94,7 @@ package-lock.json
 ~~~json
 {
   "name": "revenge-quick-switcher",
-  "version": "3.9.5",
+  "version": "3.9.6",
   "main": "dist/index.js",
   "scripts": {
     "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js"
@@ -135,8 +137,43 @@ package-lock.json
     { "name": "Grok", "id": "2" }
   ],
   "main": "dist/index.js",
-  "version": "3.9.5"
+  "version": "3.9.6"
 }
+~~~
+
+#### LICENSE
+~~~text
+MIT License
+
+Copyright (c) 2026 Danny Clark, Gemini, Grok
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+~~~
+
+#### AUTHORS
+~~~text
+RevengeQuickSwitcher was built through human-AI collaboration.
+
+Primary Authors:
+- Danny Clark (Human / Project Lead)
+- Gemini (AI Assistant / Architecture & Code Generation)
+- Grok (AI Assistant / Initial Prototyping)
 ~~~
 
 #### README.md
@@ -160,7 +197,8 @@ This project is powered by a custom "Polyglot" architecture that completely abst
 3. Tap the **+** icon and paste the URL.
 4. Reload the client.
 
-*Built by Danny Clark, Gemini, and Grok.*
+## 📝 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 ~~~
 
 #### src/utils.ts
@@ -216,9 +254,9 @@ export const isSubsequence = (query: string, text: string) => {
 ~~~tsx
 /**
  * PROJECT_PULSE: {
- * "version": "3.9.5",
+ * "version": "3.9.6",
  * "env": { "node": "25.x", "os": "macos", "mod": "revenge" },
- * "hacks": [ "decoupled-esbuild", "abstracted-git", "human-readable" ],
+ * "hacks": [ "decoupled-esbuild", "abstracted-git", "foss-compliant" ],
  * "limit": "2000-char-discord-pagination"
  * }
  */
@@ -458,7 +496,6 @@ def prep(p):
 def explode(p):
     src, folder = prep(p); print(f"Exploding {src}...")
     
-    # Pre-clean the old tests directory if it exists since we dropped Jest
     if os.path.exists("__tests__"): shutil.rmtree("__tests__")
         
     with open(src, 'r') as f: content = f.read()
