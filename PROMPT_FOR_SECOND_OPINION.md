@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 r"""
-# RevengeQuickSwitcher Polyglot (v3.9.0 "The Git Abstraction")
+# RevengeQuickSwitcher Polyglot (v3.9.1 "The Forceful Init")
 
 ### BOOTSTRAP: `chmod +x whatever.md && ./whatever.md explode`
 --- PASTE EVERYTHING BELOW INTO ANOTHER AI ---
-Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.0).
+Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.1).
 AUDITOR STATE: Node: v25 | OS: MacOS | Mod: Revenge (Native).
-CRITICAL: Verify 'make push' forces 'implode' prior to 'git commit'. 
-Ensure .gitignore DOES NOT ignore 'dist/' so the plugin deploys correctly.
+CRITICAL: Verify 'make init-repo' uses 'git push -u origin main -f' to 
+bypass initial GitHub repo conflicts. 
 AI INSTRUCTION: Use backtick/tilde code blocks in your reply.
 
 ### PROJECT SOURCE:
@@ -21,14 +21,14 @@ all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.0) - The Git Abstraction"
+	@echo "RevengeQuickSwitcher (v3.9.1) - The Forceful Init"
 	@echo "============================================================"
 	@echo "[DEVELOPMENT]"
 	@echo "  make explode    - Bootstrap (Extract files, install deps)."
 	@echo "  make build      - Run tests, then bundle via esbuild."
 	@echo ""
 	@echo "[VERSION CONTROL (No Git Knowledge Required)]"
-	@echo "  make init-repo  - (ONE-TIME) Link local folder to GitHub & upload."
+	@echo "  make init-repo  - (ONE-TIME) Link local folder to GitHub & force-upload."
 	@echo "  make push       - (SAFE) Implodes, tests, builds, and uploads changes."
 	@echo "  make pull       - Downloads updates from GitHub and explodes them."
 	@echo ""
@@ -60,7 +60,8 @@ init-repo:
 	git add .
 	git commit -m "Initial commit" || true
 	git remote add origin $(REPO_URL) || echo "Remote already exists."
-	git push -u origin main
+	@echo "🚀 Force-pushing to establish local as source of truth..."
+	git push -u origin main -f
 	@echo "✅ Project initialized and uploaded."
 
 push: ship
@@ -93,7 +94,7 @@ package-lock.json
 ~~~json
 {
   "name": "revenge-quick-switcher",
-  "version": "3.9.0",
+  "version": "3.9.1",
   "main": "dist/index.js",
   "scripts": {
     "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js",
@@ -140,7 +141,7 @@ package-lock.json
     { "name": "Grok", "id": "2" }
   ],
   "main": "dist/index.js",
-  "version": "3.9.0"
+  "version": "3.9.1"
 }
 ~~~
 
@@ -169,9 +170,9 @@ export const isSubsequence = (q: string, t: string) => {
 ~~~tsx
 /**
  * PROJECT_PULSE: {
- * "version": "3.9.0",
+ * "version": "3.9.1",
  * "env": { "node": "25.x", "os": "macos", "mod": "revenge" },
- * "hacks": [ "decoupled-esbuild", "abstracted-git-makefile" ],
+ * "hacks": [ "decoupled-esbuild", "abstracted-git-makefile", "forceful-init" ],
  * "limit": "2000-char-discord-pagination"
  * }
  */

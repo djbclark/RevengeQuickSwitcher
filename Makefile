@@ -5,14 +5,14 @@ all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.0) - The Git Abstraction"
+	@echo "RevengeQuickSwitcher (v3.9.1) - The Forceful Init"
 	@echo "============================================================"
 	@echo "[DEVELOPMENT]"
 	@echo "  make explode    - Bootstrap (Extract files, install deps)."
 	@echo "  make build      - Run tests, then bundle via esbuild."
 	@echo ""
 	@echo "[VERSION CONTROL (No Git Knowledge Required)]"
-	@echo "  make init-repo  - (ONE-TIME) Link local folder to GitHub & upload."
+	@echo "  make init-repo  - (ONE-TIME) Link local folder to GitHub & force-upload."
 	@echo "  make push       - (SAFE) Implodes, tests, builds, and uploads changes."
 	@echo "  make pull       - Downloads updates from GitHub and explodes them."
 	@echo ""
@@ -44,7 +44,8 @@ init-repo:
 	git add .
 	git commit -m "Initial commit" || true
 	git remote add origin $(REPO_URL) || echo "Remote already exists."
-	git push -u origin main
+	@echo "🚀 Force-pushing to establish local as source of truth..."
+	git push -u origin main -f
 	@echo "✅ Project initialized and uploaded."
 
 push: ship
