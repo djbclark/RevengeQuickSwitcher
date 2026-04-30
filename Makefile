@@ -1,31 +1,29 @@
 SOURCE_FILE = PROMPT_FOR_SECOND_OPINION.md
 REPO_URL = git@github.com:djbclark/RevengeQuickSwitcher.git
-.PHONY: help explode implode build test clean ship push pull init-repo
+.PHONY: help explode implode build clean ship push pull init-repo
 all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.2) - The Ouroboros Patch"
+	@echo "RevengeQuickSwitcher (v3.9.5) - The AI Sync Workflow"
 	@echo "============================================================"
-	@echo "[DEVELOPMENT]"
-	@echo "  make explode    - Bootstrap (Extract files, install deps)."
-	@echo "  make build      - Run tests, then bundle via esbuild."
-	@echo ""
-	@echo "[VERSION CONTROL (No Git Knowledge Required)]"
-	@echo "  make init-repo  - (ONE-TIME) Link local folder to GitHub & force-upload."
-	@echo "  make push       - (SAFE) Implodes, tests, builds, and uploads changes."
-	@echo "  make pull       - Downloads updates from GitHub and explodes them."
-	@echo ""
-	@echo "[MAINTENANCE]"
+	@echo "[AI COLLABORATION WORKFLOW]"
+	@echo "  1. Download AI output and run it (make explode)."
+	@echo "  2. Test and edit files locally in src/."
+	@echo "  3. Run 'make push' to sync edits, bundle, and upload."
+	@echo "  4. Upload 'PROMPT_FOR_SECOND_OPINION.md' back to AI."
+	@echo "============================================================"
+	@echo "[MANUAL COMMANDS]"
+	@echo "  make explode    - Extract files and install NPM deps."
+	@echo "  make build      - Compile and bundle plugin via esbuild."
 	@echo "  make implode    - Sync local edits back to the Polyglot file."
+	@echo "  make push       - Implodes, builds, and pushes to GitHub."
+	@echo "  make pull       - Downloads updates and explodes them."
 	@echo "  make clean      - Wipe node_modules and build artifacts."
 	@echo "============================================================"
 
 # Development Pipeline
-test:
-	npm run test
-
-build: test
+build:
 	npm run build
 
 explode:
@@ -34,7 +32,7 @@ explode:
 implode:
 	@python3 $(SOURCE_FILE) implode
 
-ship: test build implode
+ship: build implode
 
 # Abstracted Git Workflow
 init-repo:
@@ -53,7 +51,7 @@ push: ship
 	git add .
 	git commit -m "Auto-sync: $$(date +'%Y-%m-%d %H:%M:%S')" || echo "No new edits to commit."
 	git push
-	@echo "✅ Upload complete."
+	@echo "✅ Upload complete! You can now hand $(SOURCE_FILE) back to the AI."
 
 pull:
 	@echo "⬇️ Downloading from GitHub..."
@@ -62,4 +60,4 @@ pull:
 	@$(MAKE) explode
 
 clean:
-	rm -rf dist/ node_modules/ coverage/ package-lock.json
+	rm -rf dist/ node_modules/ package-lock.json

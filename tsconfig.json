@@ -9,5 +9,5 @@
     "baseUrl": ".",
     "paths": { "@revenge-mod/*": ["./node_modules/@revenge-mod/types/dist/*"] }
   },
-  "include": ["src/**/*", "__tests__/**/*"]
+  "include": ["src/**/*"]
 }

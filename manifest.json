@@ -7,5 +7,5 @@
     { "name": "Grok", "id": "2" }
   ],
   "main": "dist/index.js",
-  "version": "3.9.2"
+  "version": "3.9.5"
 }
