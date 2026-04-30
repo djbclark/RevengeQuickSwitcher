@@ -1,11 +1,11 @@
 SOURCE_FILE = PROMPT_FOR_SECOND_OPINION.md
 REPO_URL = git@github.com:djbclark/RevengeQuickSwitcher.git
-.PHONY: help explode implode build clean distclean ship push pull init-repo
+.PHONY: help explode implode build clean ship push pull init-repo
 all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.7) - The AI Crowd-Source"
+	@echo "RevengeQuickSwitcher (v3.9.9) - The Alias Engine"
 	@echo "============================================================"
 	@echo "[AI COLLABORATION WORKFLOW]"
 	@echo "  1. Download AI output and run it (make explode)."
@@ -20,7 +20,6 @@ help:
 	@echo "  make push       - Implodes, builds, and pushes to GitHub."
 	@echo "  make pull       - Downloads updates and explodes them."
 	@echo "  make clean      - Wipe node_modules and build artifacts."
-	@echo "  make distclean  - (GNU Standard) Same as clean."
 	@echo "============================================================"
 
 # Development Pipeline
@@ -62,5 +61,3 @@ pull:
 
 clean:
 	rm -rf dist/ node_modules/ package-lock.json
-
-distclean: clean

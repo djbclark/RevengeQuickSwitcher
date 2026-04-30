@@ -4,6 +4,7 @@ A high-performance server navigation utility built natively for the **Revenge** 
 
 ## ⚡ Plugin Features
 * **Fuzzy-Search Navigation**: Jump instantly to any server via subsequence matching (e.g., typing `wsh` will successfully find `Wayland High School`).
+* **Custom Aliases**: Map shortcodes to full server names in settings (e.g., typing `chess` to jump to `Maynard-area Chess Club`).
 * **Flat Sidebar Mode**: Overrides Discord's native UI to present an alphabetically sorted, folder-free guild list.
 * **Smart Pagination**: Automatically chunks outputs into 40-server pages to comply with Discord's strict 2000-character limits, complete with numeric aliases (`/servers 2`).
 
@@ -24,6 +25,3 @@ This project is powered by a custom "Polyglot" architecture that completely abst
 2. Open Discord on your device and navigate to **User Settings > Revenge > Plugins**.
 3. Tap the **+** icon and paste the URL.
 4. Reload the client.
-
-## 📝 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

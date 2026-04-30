@@ -43,3 +43,19 @@ export const isSubsequence = (query: string, text: string) => {
   }
   return i === query.length;
 };
+
+// Parses newline-separated alias strings into a Map
+export const parseAliases = (raw: string) => {
+  const map = new Map<string, string>();
+  if (!raw) return map;
+  
+  raw.split('\n').forEach(line => {
+    const parts = line.split('=');
+    if (parts.length === 2) {
+      const alias = normalizeText(parts[0].trim());
+      const target = normalizeText(parts[1].trim());
+      if (alias && target) map.set(alias, target);
+    }
+  });
+  return map;
+};

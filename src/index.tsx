@@ -1,8 +1,8 @@
 /**
  * PROJECT_PULSE: {
- * "version": "3.9.7",
+ * "version": "3.9.9",
  * "env": { "node": "25.x", "os": "macos", "mod": "revenge" },
- * "hacks": [ "decoupled-esbuild", "abstracted-git", "human-readable" ],
+ * "hacks": [ "decoupled-esbuild", "alias-engine" ],
  * "limit": "2000-char-discord-pagination"
  * }
  */
@@ -15,7 +15,7 @@ import { registerCommand } from "@revenge-mod/commands";
 import { storage } from "@revenge-mod/plugin";
 import { useProxy } from "@revenge-mod/storage";
 import { Forms } from "@revenge-mod/ui/components";
-import { ScrollView } from "react-native";
+import { ScrollView, TextInput, Text } from "react-native";
 import * as Utils from "./utils";
 
 const { FormSwitchRow } = Forms;
@@ -28,9 +28,8 @@ const getRouter = () => _Router ??= findByProps("transitionToGuild", "selectGuil
 const getNavigation = () => _Navigation ??= findByProps("push", "replace");
 
 // Initialize plugin storage defaults
-if (storage.flatSidebar === undefined) {
-  storage.flatSidebar = false;
-}
+if (storage.flatSidebar === undefined) storage.flatSidebar = false;
+if (storage.aliases === undefined) storage.aliases = "";
 
 class MappedGuild { 
   constructor(
@@ -78,7 +77,14 @@ const handleExec = (rawArgs: any) => {
     // MODE 1: SEARCH DIRECTORY
     // ==========================================
     if (query) {
-      const normalizedQuery = Utils.normalizeText(String(query)).trim();
+      let normalizedQuery = Utils.normalizeText(String(query)).trim();
+      
+      // Inject Alias Resolution
+      const aliasMap = Utils.parseAliases(storage.aliases || "");
+      if (aliasMap.has(normalizedQuery)) {
+        normalizedQuery = aliasMap.get(normalizedQuery)!;
+      }
+
       let bestMatch = null;
       let bestScore = 0;
 
@@ -157,6 +163,18 @@ export default {
             storage.flatSidebar = value; 
             showToast(`Sidebar set to ${value ? "Flat" : "Standard"}`); 
           }}
+        />
+        <Text style={{ marginHorizontal: 16, marginTop: 16, color: "#A3A6AA", fontWeight: "bold", textTransform: "uppercase", fontSize: 12 }}>
+          Custom Aliases (alias=server)
+        </Text>
+        <TextInput
+          style={{ margin: 16, padding: 12, backgroundColor: "#2B2D31", color: "#DBDEE1", borderRadius: 8, textAlignVertical: "top" }}
+          multiline={true}
+          numberOfLines={4}
+          placeholder={"chess=Maynard\nwow=World of Warcraft"}
+          placeholderTextColor="#80848E"
+          value={storage.aliases || ""}
+          onChangeText={(value: string) => storage.aliases = value}
         />
       </ScrollView>
     ); 

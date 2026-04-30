@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 r"""
-# RevengeQuickSwitcher Polyglot (v3.9.7 "The AI Crowd-Source")
+# RevengeQuickSwitcher Polyglot (v3.9.9 "The Alias Engine")
 
 ### BOOTSTRAP: `chmod +x whatever.md && ./whatever.md explode`
 --- PASTE EVERYTHING BELOW INTO ANOTHER AI ---
-Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.7).
+Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.9).
 AUDITOR STATE: Node: v25 | OS: MacOS | Mod: Revenge (Native).
-CRITICAL: Validate the new crowd-sourcing links in the README.md. Ensure 
-the esbuild pipeline remains intact and human-readable TSX is preserved.
+CRITICAL: Validate the new Option B Alias parsing logic in src/utils.ts 
+and the TextInput implementation in the Settings UI. 
 AI INSTRUCTION: Use backtick/tilde code blocks in your reply.
 
 ### PROJECT SOURCE:
@@ -16,12 +16,12 @@ AI INSTRUCTION: Use backtick/tilde code blocks in your reply.
 ~~~makefile
 SOURCE_FILE = PROMPT_FOR_SECOND_OPINION.md
 REPO_URL = git@github.com:djbclark/RevengeQuickSwitcher.git
-.PHONY: help explode implode build clean distclean ship push pull init-repo
+.PHONY: help explode implode build clean ship push pull init-repo
 all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.7) - The AI Crowd-Source"
+	@echo "RevengeQuickSwitcher (v3.9.9) - The Alias Engine"
 	@echo "============================================================"
 	@echo "[AI COLLABORATION WORKFLOW]"
 	@echo "  1. Download AI output and run it (make explode)."
@@ -36,7 +36,6 @@ help:
 	@echo "  make push       - Implodes, builds, and pushes to GitHub."
 	@echo "  make pull       - Downloads updates and explodes them."
 	@echo "  make clean      - Wipe node_modules and build artifacts."
-	@echo "  make distclean  - (GNU Standard) Same as clean."
 	@echo "============================================================"
 
 # Development Pipeline
@@ -78,8 +77,6 @@ pull:
 
 clean:
 	rm -rf dist/ node_modules/ package-lock.json
-
-distclean: clean
 ~~~
 
 #### .gitignore
@@ -94,13 +91,12 @@ package-lock.json
 ~~~json
 {
   "name": "revenge-quick-switcher",
-  "version": "3.9.7",
+  "version": "3.9.9",
   "main": "dist/index.js",
   "scripts": {
     "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js"
   },
   "author": "Danny Clark, Gemini, Grok",
-  "license": "MIT",
   "devDependencies": {
     "typescript": "^5.0.0",
     "esbuild": "^0.20.0",
@@ -137,43 +133,8 @@ package-lock.json
     { "name": "Grok", "id": "2" }
   ],
   "main": "dist/index.js",
-  "version": "3.9.7"
+  "version": "3.9.9"
 }
-~~~
-
-#### LICENSE
-~~~text
-MIT License
-
-Copyright (c) 2026 Danny Clark, Gemini, Grok
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-~~~
-
-#### AUTHORS
-~~~text
-RevengeQuickSwitcher was built through human-AI collaboration.
-
-Primary Authors:
-- Danny Clark (Human / Project Lead)
-- Gemini (AI Assistant / Architecture & Code Generation)
-- Grok (AI Assistant / Initial Prototyping)
 ~~~
 
 #### README.md
@@ -184,6 +145,7 @@ A high-performance server navigation utility built natively for the **Revenge** 
 
 ## ⚡ Plugin Features
 * **Fuzzy-Search Navigation**: Jump instantly to any server via subsequence matching (e.g., typing `wsh` will successfully find `Wayland High School`).
+* **Custom Aliases**: Map shortcodes to full server names in settings (e.g., typing `chess` to jump to `Maynard-area Chess Club`).
 * **Flat Sidebar Mode**: Overrides Discord's native UI to present an alphabetically sorted, folder-free guild list.
 * **Smart Pagination**: Automatically chunks outputs into 40-server pages to comply with Discord's strict 2000-character limits, complete with numeric aliases (`/servers 2`).
 
@@ -204,9 +166,6 @@ This project is powered by a custom "Polyglot" architecture that completely abst
 2. Open Discord on your device and navigate to **User Settings > Revenge > Plugins**.
 3. Tap the **+** icon and paste the URL.
 4. Reload the client.
-
-## 📝 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 ~~~
 
 #### src/utils.ts
@@ -256,15 +215,31 @@ export const isSubsequence = (query: string, text: string) => {
   }
   return i === query.length;
 };
+
+// Parses newline-separated alias strings into a Map
+export const parseAliases = (raw: string) => {
+  const map = new Map<string, string>();
+  if (!raw) return map;
+  
+  raw.split('\n').forEach(line => {
+    const parts = line.split('=');
+    if (parts.length === 2) {
+      const alias = normalizeText(parts[0].trim());
+      const target = normalizeText(parts[1].trim());
+      if (alias && target) map.set(alias, target);
+    }
+  });
+  return map;
+};
 ~~~
 
 #### src/index.tsx
 ~~~tsx
 /**
  * PROJECT_PULSE: {
- * "version": "3.9.7",
+ * "version": "3.9.9",
  * "env": { "node": "25.x", "os": "macos", "mod": "revenge" },
- * "hacks": [ "decoupled-esbuild", "abstracted-git", "human-readable" ],
+ * "hacks": [ "decoupled-esbuild", "alias-engine" ],
  * "limit": "2000-char-discord-pagination"
  * }
  */
@@ -277,7 +252,7 @@ import { registerCommand } from "@revenge-mod/commands";
 import { storage } from "@revenge-mod/plugin";
 import { useProxy } from "@revenge-mod/storage";
 import { Forms } from "@revenge-mod/ui/components";
-import { ScrollView } from "react-native";
+import { ScrollView, TextInput, Text } from "react-native";
 import * as Utils from "./utils";
 
 const { FormSwitchRow } = Forms;
@@ -290,9 +265,8 @@ const getRouter = () => _Router ??= findByProps("transitionToGuild", "selectGuil
 const getNavigation = () => _Navigation ??= findByProps("push", "replace");
 
 // Initialize plugin storage defaults
-if (storage.flatSidebar === undefined) {
-  storage.flatSidebar = false;
-}
+if (storage.flatSidebar === undefined) storage.flatSidebar = false;
+if (storage.aliases === undefined) storage.aliases = "";
 
 class MappedGuild { 
   constructor(
@@ -340,7 +314,14 @@ const handleExec = (rawArgs: any) => {
     // MODE 1: SEARCH DIRECTORY
     // ==========================================
     if (query) {
-      const normalizedQuery = Utils.normalizeText(String(query)).trim();
+      let normalizedQuery = Utils.normalizeText(String(query)).trim();
+      
+      // Inject Alias Resolution
+      const aliasMap = Utils.parseAliases(storage.aliases || "");
+      if (aliasMap.has(normalizedQuery)) {
+        normalizedQuery = aliasMap.get(normalizedQuery)!;
+      }
+
       let bestMatch = null;
       let bestScore = 0;
 
@@ -419,6 +400,18 @@ export default {
             storage.flatSidebar = value; 
             showToast(`Sidebar set to ${value ? "Flat" : "Standard"}`); 
           }}
+        />
+        <Text style={{ marginHorizontal: 16, marginTop: 16, color: "#A3A6AA", fontWeight: "bold", textTransform: "uppercase", fontSize: 12 }}>
+          Custom Aliases (alias=server)
+        </Text>
+        <TextInput
+          style={{ margin: 16, padding: 12, backgroundColor: "#2B2D31", color: "#DBDEE1", borderRadius: 8, textAlignVertical: "top" }}
+          multiline={true}
+          numberOfLines={4}
+          placeholder={"chess=Maynard\nwow=World of Warcraft"}
+          placeholderTextColor="#80848E"
+          value={storage.aliases || ""}
+          onChangeText={(value: string) => storage.aliases = value}
         />
       </ScrollView>
     ); 
@@ -504,6 +497,7 @@ def prep(p):
 def explode(p):
     src, folder = prep(p); print(f"Exploding {src}...")
     
+    # Just pre-clean old tests if they exist
     if os.path.exists("__tests__"): shutil.rmtree("__tests__")
         
     with open(src, 'r') as f: content = f.read()
