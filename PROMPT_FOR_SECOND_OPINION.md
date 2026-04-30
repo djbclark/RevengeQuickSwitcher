@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 r"""
-# RevengeQuickSwitcher Polyglot (v3.9.1 "The Forceful Init")
+# RevengeQuickSwitcher Polyglot (v3.9.2 "The Ouroboros Patch")
 
 ### BOOTSTRAP: `chmod +x whatever.md && ./whatever.md explode`
 --- PASTE EVERYTHING BELOW INTO ANOTHER AI ---
-Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.1).
+Act as a Senior V8 Engineer. Review "RevengeQuickSwitcher" (v3.9.2).
 AUDITOR STATE: Node: v25 | OS: MacOS | Mod: Revenge (Native).
-CRITICAL: Verify 'make init-repo' uses 'git push -u origin main -f' to 
-bypass initial GitHub repo conflicts. 
+CRITICAL: Verify the Python 'prep' function guards against shutil.SameFileError 
+during 'make implode'. Validate esbuild ESM bundling and Git Abstraction.
 AI INSTRUCTION: Use backtick/tilde code blocks in your reply.
 
 ### PROJECT SOURCE:
@@ -21,7 +21,7 @@ all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.1) - The Forceful Init"
+	@echo "RevengeQuickSwitcher (v3.9.2) - The Ouroboros Patch"
 	@echo "============================================================"
 	@echo "[DEVELOPMENT]"
 	@echo "  make explode    - Bootstrap (Extract files, install deps)."
@@ -94,7 +94,7 @@ package-lock.json
 ~~~json
 {
   "name": "revenge-quick-switcher",
-  "version": "3.9.1",
+  "version": "3.9.2",
   "main": "dist/index.js",
   "scripts": {
     "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js",
@@ -141,7 +141,7 @@ package-lock.json
     { "name": "Grok", "id": "2" }
   ],
   "main": "dist/index.js",
-  "version": "3.9.1"
+  "version": "3.9.2"
 }
 ~~~
 
@@ -170,9 +170,9 @@ export const isSubsequence = (q: string, t: string) => {
 ~~~tsx
 /**
  * PROJECT_PULSE: {
- * "version": "3.9.1",
+ * "version": "3.9.2",
  * "env": { "node": "25.x", "os": "macos", "mod": "revenge" },
- * "hacks": [ "decoupled-esbuild", "abstracted-git-makefile", "forceful-init" ],
+ * "hacks": [ "decoupled-esbuild", "abstracted-git-makefile", "ouroboros-patch" ],
  * "limit": "2000-char-discord-pagination"
  * }
  */
@@ -313,11 +313,15 @@ def prep(p):
     s, d = os.path.abspath(p), os.getcwd()
     if not (os.path.exists(".git") or os.path.basename(d) == "RevengeQuickSwitcher"):
         r = "RevengeQuickSwitcher"; os.makedirs(r, exist_ok=True)
-        t = os.path.abspath(os.path.join(r, STD)); shutil.copy2(s, t)
-        if s != t: os.remove(s)
+        t = os.path.abspath(os.path.join(r, STD))
+        if s != t:
+            shutil.copy2(s, t)
+            if os.path.exists(s): os.remove(s)
         os.chdir(r); return t, r
-    t = os.path.abspath(STD); shutil.copy2(s, t)
-    if s != t: os.remove(s)
+    t = os.path.abspath(STD)
+    if s != t:
+        shutil.copy2(s, t)
+        if os.path.exists(s): os.remove(s)
     return t, None
 
 def explode(p):

@@ -1,8 +1,8 @@
 /**
  * PROJECT_PULSE: {
- * "version": "3.9.1",
+ * "version": "3.9.2",
  * "env": { "node": "25.x", "os": "macos", "mod": "revenge" },
- * "hacks": [ "decoupled-esbuild", "abstracted-git-makefile", "forceful-init" ],
+ * "hacks": [ "decoupled-esbuild", "abstracted-git-makefile", "ouroboros-patch" ],
  * "limit": "2000-char-discord-pagination"
  * }
  */

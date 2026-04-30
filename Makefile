@@ -5,7 +5,7 @@ all: help
 
 help:
 	@echo "============================================================"
-	@echo "RevengeQuickSwitcher (v3.9.1) - The Forceful Init"
+	@echo "RevengeQuickSwitcher (v3.9.2) - The Ouroboros Patch"
 	@echo "============================================================"
 	@echo "[DEVELOPMENT]"
 	@echo "  make explode    - Bootstrap (Extract files, install deps)."
