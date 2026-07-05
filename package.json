@@ -5,7 +5,7 @@
   "scripts": {
     "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js"
   },
-  "author": "Danny Clark, Gemini, Grok",
+  "author": "Danny Clark",
   "devDependencies": {
     "typescript": "^5.0.0",
     "esbuild": "^0.20.0",

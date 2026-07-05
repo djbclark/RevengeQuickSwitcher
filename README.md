@@ -2,26 +2,75 @@
 
 A high-performance server navigation utility built natively for the **Revenge** Discord mobile client.
 
-## ⚡ Plugin Features
-* **Fuzzy-Search Navigation**: Jump instantly to any server via subsequence matching (e.g., typing `wsh` will successfully find `Wayland High School`).
-* **Custom Aliases**: Map shortcodes to full server names in settings (e.g., typing `chess` to jump to `Maynard-area Chess Club`).
-* **Flat Sidebar Mode**: Overrides Discord's native UI to present an alphabetically sorted, folder-free guild list.
-* **Smart Pagination**: Automatically chunks outputs into 40-server pages to comply with Discord's strict 2000-character limits, complete with numeric aliases (`/servers 2`).
+## Features
 
-## 🤖 AI Crowd-Sourcing
-This project is built using a continuous human-AI collaboration loop, and we want to see what your AI can do with it!
+- **Fuzzy-search navigation**: Jump to any server via subsequence matching (e.g. typing `wsh` finds `Wayland High School`).
+- **Custom aliases**: Map shortcodes to full server names in settings (e.g. `chess=Maynard-area Chess Club`).
+- **Flat sidebar mode**: Overrides Discord's native UI to present an alphabetically sorted, folder-free guild list.
+- **Smart pagination**: Chunks server lists into 40-server pages to stay within Discord's 2000-character limit, with numeric page aliases (`/servers 2`).
 
-1. Grab the raw **[Polyglot Source File (PROMPT_FOR_SECOND_OPINION.md)](https://github.com/djbclark/RevengeQuickSwitcher/blob/main/PROMPT_FOR_SECOND_OPINION.md)**.
-2. Feed the entire text into your favorite LLM (Gemini, Claude, GPT-4, Grok, etc.).
-3. Ask it for an architectural review, a bug hunt, or a new feature implementation.
-4. **[Open a GitHub Issue](https://github.com/djbclark/RevengeQuickSwitcher/issues/new)** and paste the AI's suggestions or code output!
+## Installation (Revenge Client)
 
-## 🛠 Developer Pipeline
-This project is powered by a custom "Polyglot" architecture that completely abstracts Git and NPM. Developers can bootstrap, compile (via `esbuild`), and push changes using a single command:
-`make push`
-
-## 📦 Installation (Revenge Client)
 1. Copy this repository URL: `https://github.com/djbclark/RevengeQuickSwitcher`
-2. Open Discord on your device and navigate to **User Settings > Revenge > Plugins**.
+2. Open Discord on your device and go to **User Settings > Revenge > Plugins**.
 3. Tap the **+** icon and paste the URL.
 4. Reload the client.
+
+## Development
+
+### Prerequisites
+
+- Node.js 18+ (Node 20+ recommended)
+- npm
+
+### Setup
+
+```bash
+git clone https://github.com/djbclark/RevengeQuickSwitcher.git
+cd RevengeQuickSwitcher
+make install   # or: npm install
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `make build` | Bundle `src/` to `dist/index.js` via esbuild |
+| `make test` | Run unit tests |
+| `make clean` | Remove `dist/` and `node_modules/` |
+
+Or use npm directly:
+
+```bash
+npm run build
+npm test
+```
+
+### Project layout
+
+```
+src/
+  index.tsx   # Plugin entry: /servers command, settings UI, flat sidebar patch
+  utils.ts    # Pure helpers (fuzzy match, aliases, sanitization)
+dist/
+  index.js    # Built output consumed by Revenge (commit after build)
+manifest.json # Revenge plugin metadata
+```
+
+After changing source files, run `make build` and commit the updated `dist/index.js` so the plugin loads correctly from GitHub.
+
+## Usage
+
+- `/servers` — list servers (paginated)
+- `/servers query:<name>` — fuzzy-search and jump to a server
+- `/servers 2` — jump to page 2 of the server list
+
+Configure **Flat Sidebar** and **Custom Aliases** under the plugin settings in Revenge.
+
+## Contributing
+
+1. Fork the repo and create a branch.
+2. Make changes in `src/`, run `make test` and `make build`.
+3. Open a pull request with a clear description of the change.
+
+Bug reports and feature requests are welcome via [GitHub Issues](https://github.com/djbclark/RevengeQuickSwitcher/issues).

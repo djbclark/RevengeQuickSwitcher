@@ -1,11 +1,3 @@
-/**
- * PROJECT_PULSE: {
- * "version": "3.9.9",
- * "env": { "node": "25.x", "os": "macos", "mod": "revenge" },
- * "hacks": [ "decoupled-esbuild", "alias-engine" ],
- * "limit": "2000-char-discord-pagination"
- * }
- */
 import React from "react";
 import { findByProps } from "@revenge-mod/metro";
 import { after } from "@revenge-mod/patcher";
