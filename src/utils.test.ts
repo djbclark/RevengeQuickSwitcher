@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   escapeMarkdown,
+  findBestMatchIndex,
+  formatServerListPage,
   getArrayChecksum,
   isSubsequence,
   normalizeText,
   parseAliases,
   resolveGuildId,
+  resolveSearchQuery,
   sanitizeName,
+  scoreGuildMatch,
 } from "./utils";
 
 describe("escapeMarkdown", () => {
@@ -109,5 +113,71 @@ describe("parseAliases", () => {
   it("returns an empty map for blank input", () => {
     expect(parseAliases("").size).toBe(0);
     expect(parseAliases("\n\n").size).toBe(0);
+  });
+});
+
+describe("resolveSearchQuery", () => {
+  it("applies alias substitution before matching", () => {
+    const aliases = parseAliases("chess=Maynard Chess");
+    expect(resolveSearchQuery("chess", aliases)).toBe("maynard chess");
+    expect(resolveSearchQuery("other", aliases)).toBe("other");
+  });
+});
+
+describe("scoreGuildMatch", () => {
+  it("ranks exact matches above prefix, contains, and subsequence", () => {
+    expect(scoreGuildMatch("abc", "abc")).toBe(100);
+    expect(scoreGuildMatch("ab", "abc guild")).toBe(50);
+    expect(scoreGuildMatch("bc", "abc guild")).toBe(10);
+    expect(scoreGuildMatch("ac", "abc guild")).toBe(5);
+    expect(scoreGuildMatch("xyz", "abc guild")).toBe(0);
+  });
+});
+
+describe("findBestMatchIndex", () => {
+  const candidates = [
+    { normalized: "alpha beta", name: "Alpha Beta" },
+    { normalized: "alphabet soup", name: "Alphabet Soup" },
+    { normalized: "wayland high school", name: "Wayland High School" },
+  ];
+
+  it("prefers exact match", () => {
+    expect(findBestMatchIndex("alpha beta", candidates)).toBe(0);
+  });
+
+  it("prefers prefix over contains and subsequence", () => {
+    expect(findBestMatchIndex("alpha", candidates)).toBe(0);
+  });
+
+  it("uses subsequence matching when no stronger match exists", () => {
+    expect(findBestMatchIndex("wsh", candidates)).toBe(2);
+  });
+
+  it("returns -1 when nothing matches", () => {
+    expect(findBestMatchIndex("zzz", candidates)).toBe(-1);
+  });
+});
+
+describe("formatServerListPage", () => {
+  it("formats the first page of server names", () => {
+    const { content, currentPage, totalPages } = formatServerListPage(["Alpha", "Beta"], 1);
+    expect(currentPage).toBe(1);
+    expect(totalPages).toBe(1);
+    expect(content).toContain("### Servers (2)");
+    expect(content).toContain("• Alpha");
+    expect(content).toContain("• Beta");
+  });
+
+  it("paginates and includes next-page hint", () => {
+    const names = Array.from({ length: 41 }, (_, i) => `Server ${i + 1}`);
+    const { content, currentPage, totalPages } = formatServerListPage(names, 1);
+    expect(currentPage).toBe(1);
+    expect(totalPages).toBe(2);
+    expect(content).toContain("*Use /servers 2 to see more.*");
+  });
+
+  it("escapes markdown in server names", () => {
+    const { content } = formatServerListPage(["Test_Server"], 1);
+    expect(content).toContain("• Test\\_Server");
   });
 });

@@ -59,3 +59,63 @@ export const parseAliases = (raw: string) => {
   });
   return map;
 };
+
+export const resolveSearchQuery = (query: string, aliasMap: Map<string, string>) => {
+  let normalizedQuery = normalizeText(query).trim();
+  if (aliasMap.has(normalizedQuery)) {
+    normalizedQuery = aliasMap.get(normalizedQuery)!;
+  }
+  return normalizedQuery;
+};
+
+export const scoreGuildMatch = (normalizedQuery: string, normalizedName: string) => {
+  if (normalizedName === normalizedQuery) return 100;
+  if (normalizedName.startsWith(normalizedQuery)) return 50;
+  if (normalizedName.includes(normalizedQuery)) return 10;
+  if (isSubsequence(normalizedQuery, normalizedName)) return 5;
+  return 0;
+};
+
+// Highest tier wins; within a tier the first candidate wins (list should be sorted).
+export const findBestMatchIndex = <T extends { normalized: string }>(
+  normalizedQuery: string,
+  candidates: T[]
+): number => {
+  let bestIndex = -1;
+  let bestScore = 0;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const score = scoreGuildMatch(normalizedQuery, candidates[i].normalized);
+    if (score === 100) return i;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+};
+
+export const PAGE_SIZE = 40;
+
+export const formatServerListPage = (
+  sanitizedNames: string[],
+  pageArg?: number | null
+) => {
+  const totalPages = Math.ceil(sanitizedNames.length / PAGE_SIZE) || 1;
+  const currentPage = Math.min(totalPages, Math.max(1, pageArg || 1));
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = sanitizedNames.slice(startIndex, startIndex + PAGE_SIZE);
+
+  let content = `### Servers (${sanitizedNames.length})\n`;
+  content += pageItems.map(name => `• ${escapeMarkdown(name)}`).join("\n");
+  content += `\n\n**Page ${currentPage} of ${totalPages}**`;
+
+  if (currentPage < totalPages) {
+    content += `\n*Use /servers ${currentPage + 1} to see more.*`;
+  } else if (totalPages > 1) {
+    content += `\n*Use /servers 1 to return to the start.*`;
+  }
+
+  return { content, currentPage, totalPages };
+};

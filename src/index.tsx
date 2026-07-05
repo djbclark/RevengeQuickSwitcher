@@ -69,37 +69,10 @@ const handleExec = (rawArgs: any) => {
     // MODE 1: SEARCH DIRECTORY
     // ==========================================
     if (query) {
-      let normalizedQuery = Utils.normalizeText(String(query)).trim();
-      
-      // Inject Alias Resolution
       const aliasMap = Utils.parseAliases(storage.aliases || "");
-      if (aliasMap.has(normalizedQuery)) {
-        normalizedQuery = aliasMap.get(normalizedQuery)!;
-      }
-
-      let bestMatch = null;
-      let bestScore = 0;
-
-      // Priority queue matching system
-      for (const item of mappedGuilds) {
-        const text = item.normalized;
-        if (text === normalizedQuery) { 
-          bestMatch = item.original; 
-          break; // Exact match wins immediately
-        }
-        if (text.startsWith(normalizedQuery) && bestScore < 50) { 
-          bestMatch = item.original; 
-          bestScore = 50; 
-        }
-        else if (text.includes(normalizedQuery) && bestScore < 10) { 
-          bestMatch = item.original; 
-          bestScore = 10; 
-        }
-        else if (Utils.isSubsequence(normalizedQuery, text) && bestScore < 5) { 
-          bestMatch = item.original; 
-          bestScore = 5; 
-        }
-      }
+      const normalizedQuery = Utils.resolveSearchQuery(String(query), aliasMap);
+      const matchIndex = Utils.findBestMatchIndex(normalizedQuery, mappedGuilds);
+      const bestMatch = matchIndex >= 0 ? mappedGuilds[matchIndex].original : null;
 
       if (bestMatch) {
         const id = Utils.resolveGuildId(bestMatch);
@@ -121,23 +94,8 @@ const handleExec = (rawArgs: any) => {
     // ==========================================
     // MODE 2: PAGINATED LIST
     // ==========================================
-    const PAGE_SIZE = 40; // Safely fits inside Discord's 2000 character limit
-    const totalPages = Math.ceil(mappedGuilds.length / PAGE_SIZE);
-    const currentPage = Math.min(totalPages, Math.max(1, pageArg || 1));
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
-    const pageItems = mappedGuilds.slice(startIndex, startIndex + PAGE_SIZE);
-
-    let content = `### Servers (${mappedGuilds.length})\n`;
-    content += pageItems.map(item => `• ${Utils.escapeMarkdown(item.sanitized)}`).join("\n");
-    content += `\n\n**Page ${currentPage} of ${totalPages}**`;
-    
-    if (currentPage < totalPages) {
-      content += `\n*Use /servers ${currentPage + 1} to see more.*`;
-    } else if (totalPages > 1) {
-      content += `\n*Use /servers 1 to return to the start.*`;
-    }
-    
-    return { content };
+    const sanitizedNames = mappedGuilds.map(item => item.sanitized);
+    return Utils.formatServerListPage(sanitizedNames, pageArg);
   } catch (error) { 
     logger.error(error); 
   }
