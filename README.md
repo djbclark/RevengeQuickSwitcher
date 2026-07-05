@@ -50,8 +50,9 @@ npm test
 
 ```
 src/
-  index.tsx   # Plugin entry: /servers command, settings UI, flat sidebar patch
-  utils.ts    # Pure helpers (fuzzy match, aliases, sanitization)
+  index.tsx     # Plugin entry: settings UI, flat sidebar patch, command wiring
+  command.ts    # /servers command logic (testable without Revenge mocks)
+  utils.ts      # Pure helpers (fuzzy match, aliases, sanitization)
 dist/
   index.js    # Built output consumed by Revenge (commit after build)
 manifest.json # Revenge plugin metadata

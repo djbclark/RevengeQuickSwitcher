@@ -9,6 +9,7 @@ import { useProxy } from "@revenge-mod/storage";
 import { Forms } from "@revenge-mod/ui/components";
 import { ScrollView, TextInput, Text } from "react-native";
 import * as Utils from "./utils";
+import { executeServersCommand } from "./command";
 
 const { FormSwitchRow } = Forms;
 
@@ -23,81 +24,26 @@ const getNavigation = () => _Navigation ??= findByProps("push", "replace");
 if (storage.flatSidebar === undefined) storage.flatSidebar = false;
 if (storage.aliases === undefined) storage.aliases = "";
 
-class MappedGuild { 
-  constructor(
-    public original: any, 
-    public id: string, 
-    public sanitized: string, 
-    public normalized: string
-  ) {} 
-}
-
 const sidebarCache = new WeakMap<any[], { checksum: number, data: any[] }>();
 
 const handleExec = (rawArgs: any) => {
   try {
-    // Standardize arguments (Revenge vs Vendetta differences)
-    const args = Array.isArray(rawArgs) 
-      ? rawArgs 
-      : Object.keys(rawArgs || {}).map(k => ({ name: k, value: rawArgs[k] }));
-      
-    let query = args.find(a => a.name === "query")?.value;
-    let pageArg = args.find(a => a.name === "page")?.value;
-
-    // Allow user to type `/servers 3` directly into the query field
-    if (!pageArg && query && /^\d+$/.test(String(query).trim())) {
-      pageArg = parseInt(String(query).trim(), 10);
-      query = null;
-    }
-
-    const guildStore = getGuildStore();
-    const guilds = Object.values(guildStore?.getGuilds() || {});
-    
-    if (!guilds.length) {
-      return showToast("No servers found", "danger");
-    }
-
-    // Process and sort all available servers alphabetically
-    const mappedGuilds = guilds.map((g: any) => {
-      const id = Utils.resolveGuildId(g) || "";
-      const safeName = Utils.sanitizeName(g.name);
-      const normalName = Utils.normalizeText(safeName);
-      return new MappedGuild(g, id, safeName, normalName);
-    }).sort((a, b) => a.sanitized.localeCompare(b.sanitized, undefined, { sensitivity: "base" }));
-
-    // ==========================================
-    // MODE 1: SEARCH DIRECTORY
-    // ==========================================
-    if (query) {
-      const aliasMap = Utils.parseAliases(storage.aliases || "");
-      const normalizedQuery = Utils.resolveSearchQuery(String(query), aliasMap);
-      const matchIndex = Utils.findBestMatchIndex(normalizedQuery, mappedGuilds);
-      const bestMatch = matchIndex >= 0 ? mappedGuilds[matchIndex].original : null;
-
-      if (bestMatch) {
-        const id = Utils.resolveGuildId(bestMatch);
+    return executeServersCommand(rawArgs, {
+      getGuilds: () => Object.values(getGuildStore()?.getGuilds() || {}),
+      aliases: storage.aliases || "",
+      navigateToGuild: (id) => {
         const Router = getRouter();
         const Navigation = getNavigation();
-        
         if (Router?.transitionToGuild) {
           Router.transitionToGuild(id);
         } else if (Navigation?.push) {
           Navigation.push("Guild", { guildId: id });
         }
-        showToast(`Jumped to ${Utils.sanitizeName(bestMatch.name)}`, "success");
-      } else {
-        showToast("No match found", "danger");
-      }
-      return;
-    }
-
-    // ==========================================
-    // MODE 2: PAGINATED LIST
-    // ==========================================
-    const sanitizedNames = mappedGuilds.map(item => item.sanitized);
-    return Utils.formatServerListPage(sanitizedNames, pageArg);
-  } catch (error) { 
-    logger.error(error); 
+      },
+      showToast,
+    });
+  } catch (error) {
+    logger.error(error);
   }
 };
 
