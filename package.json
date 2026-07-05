@@ -3,12 +3,14 @@
   "version": "3.9.9",
   "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js"
+    "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js",
+    "test": "vitest run"
   },
   "author": "Danny Clark",
   "devDependencies": {
     "typescript": "^5.0.0",
     "esbuild": "^0.20.0",
+    "vitest": "^3.0.0",
     "@revenge-mod/types": "npm:vendetta-types@latest"
   }
 }
