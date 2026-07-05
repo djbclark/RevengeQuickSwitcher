@@ -39,6 +39,13 @@ describe("parseCommandArgs", () => {
       page: 2,
     });
   });
+
+  it("preserves non-numeric query strings", () => {
+    expect(parseCommandArgs({ query: "  alpha  " })).toEqual({
+      query: "  alpha  ",
+      page: null,
+    });
+  });
 });
 
 describe("executeServersCommand", () => {
@@ -74,5 +81,28 @@ describe("executeServersCommand", () => {
     executeServersCommand({ query: "missing-server" }, deps);
     expect(deps.showToast).toHaveBeenCalledWith("No match found", "danger");
     expect(deps.navigateToGuild).not.toHaveBeenCalled();
+  });
+
+  it("lists servers when query is only whitespace", () => {
+    const deps = createDeps();
+    const result = executeServersCommand({ query: "   " }, deps);
+    expect(result?.content).toContain("### Servers (3)");
+    expect(deps.navigateToGuild).not.toHaveBeenCalled();
+  });
+
+  it("clamps page numbers beyond the last page", () => {
+    const deps = createDeps();
+    const result = executeServersCommand({ page: 99 }, deps);
+    expect(result?.currentPage).toBe(1);
+    expect(result?.totalPages).toBe(1);
+  });
+
+  it("does not navigate when a match lacks a guild id", () => {
+    const deps = createDeps({
+      getGuilds: () => [{ name: "Ghost Guild" }],
+    });
+    executeServersCommand({ query: "ghost" }, deps);
+    expect(deps.navigateToGuild).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("Could not resolve server id", "danger");
   });
 });

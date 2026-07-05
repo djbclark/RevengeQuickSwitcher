@@ -8,8 +8,8 @@ import { storage } from "@revenge-mod/plugin";
 import { useProxy } from "@revenge-mod/storage";
 import { Forms } from "@revenge-mod/ui/components";
 import { ScrollView, TextInput, Text } from "react-native";
-import * as Utils from "./utils";
 import { executeServersCommand } from "./command";
+import { SidebarCache, transformFlatSidebar } from "./sidebar";
 
 const { FormSwitchRow } = Forms;
 
@@ -24,7 +24,7 @@ const getNavigation = () => _Navigation ??= findByProps("push", "replace");
 if (storage.flatSidebar === undefined) storage.flatSidebar = false;
 if (storage.aliases === undefined) storage.aliases = "";
 
-const sidebarCache = new WeakMap<any[], { checksum: number, data: any[] }>();
+const sidebarCache = new SidebarCache<any>();
 
 const handleExec = (rawArgs: any) => {
   try {
@@ -47,14 +47,22 @@ const handleExec = (rawArgs: any) => {
   }
 };
 
-export default {
+type PluginInstance = {
+  _unreg?: () => void;
+  _patch?: () => void;
+  settings: () => React.ReactElement;
+  onLoad(this: PluginInstance): void;
+  onUnload(this: PluginInstance): void;
+};
+
+const plugin: PluginInstance = {
   settings: () => { 
     useProxy(storage); 
     return (
       <ScrollView>
         <FormSwitchRow 
           label="Flat Sidebar" 
-          value={storage.flatSidebar} 
+          value={storage.flatSidebar ?? false} 
           onValueChange={(value: boolean) => { 
             storage.flatSidebar = value; 
             showToast(`Sidebar set to ${value ? "Flat" : "Standard"}`); 
@@ -89,28 +97,16 @@ export default {
     const SortedGuildStore = getSortedGuildStore();
     if (SortedGuildStore) {
       this._patch = after("getSortedGuilds", SortedGuildStore, (_, returnValue) => {
-        // Bypass if user disabled the setting or data is invalid
-        if (!storage.flatSidebar || !Array.isArray(returnValue)) return returnValue;
-
-        const checksum = Utils.getArrayChecksum(returnValue);
-        const cachedData = sidebarCache.get(returnValue);
-        
-        if (cachedData?.checksum === checksum) return cachedData.data;
-
         const guildStore = getGuildStore();
-        
-        // Extract out of folders and sort alphabetically
-        const flattenedGuilds = returnValue.flatMap((node: any) => node.type === 'folder' ? node.guilds : [node]);
-        const sortedFlattenedGuilds = flattenedGuilds.map((node: any) => {
-          const id = Utils.resolveGuildId(node);
-          const guild = id ? guildStore.getGuild(id) : null;
-          return { node, name: guild ? Utils.sanitizeName(guild.name) : "" };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(item => item.node);
-        
-        sidebarCache.set(returnValue, { checksum, data: sortedFlattenedGuilds });
-        return sortedFlattenedGuilds;
+        return transformFlatSidebar(
+          returnValue,
+          !!storage.flatSidebar,
+          (id) => {
+            const guild = guildStore?.getGuild(id);
+            return guild?.name ?? null;
+          },
+          sidebarCache
+        );
       });
     }
   },
@@ -120,3 +116,5 @@ export default {
     this._patch?.(); 
   }
 };
+
+export default plugin;

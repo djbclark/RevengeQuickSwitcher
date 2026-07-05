@@ -37,6 +37,8 @@ make install   # or: npm install
 |---------|-------------|
 | `make build` | Bundle `src/` to `dist/index.js` via esbuild |
 | `make test` | Run unit tests |
+| `make typecheck` | Type-check testable modules (`command`, `sidebar`, `utils`) |
+| `make verify` | Run typecheck, tests, and build |
 | `make clean` | Remove `dist/` and `node_modules/` |
 
 Or use npm directly:
@@ -44,6 +46,7 @@ Or use npm directly:
 ```bash
 npm run build
 npm test
+npm run verify
 ```
 
 ### Project layout
@@ -52,6 +55,7 @@ npm test
 src/
   index.tsx     # Plugin entry: settings UI, flat sidebar patch, command wiring
   command.ts    # /servers command logic (testable without Revenge mocks)
+  sidebar.ts    # Flat sidebar flatten/sort + cache helpers
   utils.ts      # Pure helpers (fuzzy match, aliases, sanitization)
 dist/
   index.js    # Built output consumed by Revenge (commit after build)
@@ -67,6 +71,20 @@ After changing source files, run `make build` and commit the updated `dist/index
 - `/servers 2` — jump to page 2 of the server list
 
 Configure **Flat Sidebar** and **Custom Aliases** under the plugin settings in Revenge.
+
+## Device testing checklist
+
+After building locally, verify on a Revenge client:
+
+1. **Install/reload** — add or reload the plugin from the repo URL, then restart Discord.
+2. **`/servers`** — first page lists servers alphabetically with a page footer.
+3. **`/servers 2`** (or higher if you have 40+ servers) — pagination advances and the footer updates.
+4. **`/servers query:<partial name>`** — fuzzy match jumps to the correct server and shows a success toast.
+5. **Custom alias** — add `short=Full Server Name` in settings, then `/servers query:short` jumps correctly.
+6. **Flat sidebar** — enable in settings; server list in the sidebar loses folders and sorts A–Z. Disable restores default behavior.
+7. **Edge cases** — empty search (`/servers query:` with blank value) lists servers; unknown query shows "No match found".
+
+Run `make verify` before testing on device to catch regressions in pure logic.
 
 ## Contributing
 

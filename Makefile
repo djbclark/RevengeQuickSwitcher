@@ -1,4 +1,4 @@
-.PHONY: help build test clean install push
+.PHONY: help build test typecheck verify clean install push
 
 all: help
 
@@ -6,7 +6,9 @@ help:
 	@echo "RevengeQuickSwitcher"
 	@echo "  make install  - Install npm dependencies"
 	@echo "  make build    - Compile plugin via esbuild"
-	@echo "  make test     - Run unit tests"
+	@echo "  make test      - Run unit tests"
+	@echo "  make typecheck - Type-check testable source modules"
+	@echo "  make verify    - Run typecheck, tests, and build"
 	@echo "  make clean    - Remove build artifacts and node_modules"
 	@echo "  make push     - Build, test, commit, and push to GitHub"
 
@@ -18,6 +20,12 @@ build:
 
 test:
 	npm test
+
+typecheck:
+	npm run typecheck
+
+verify:
+	npm run verify
 
 clean:
 	rm -rf dist/ node_modules/

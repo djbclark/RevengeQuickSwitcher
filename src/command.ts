@@ -60,16 +60,20 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
     })
     .sort((a, b) => a.sanitized.localeCompare(b.sanitized, undefined, { sensitivity: "base" }));
 
-  if (query) {
+  if (query?.trim()) {
     const aliasMap = Utils.parseAliases(deps.aliases);
-    const normalizedQuery = Utils.resolveSearchQuery(query, aliasMap);
+    const normalizedQuery = Utils.resolveSearchQuery(query.trim(), aliasMap);
     const matchIndex = Utils.findBestMatchIndex(normalizedQuery, mappedGuilds);
     const bestMatch = matchIndex >= 0 ? mappedGuilds[matchIndex].original : null;
 
     if (bestMatch) {
       const id = Utils.resolveGuildId(bestMatch);
-      if (id) deps.navigateToGuild(id);
-      deps.showToast(`Jumped to ${Utils.sanitizeName(bestMatch.name)}`, "success");
+      if (id) {
+        deps.navigateToGuild(id);
+        deps.showToast(`Jumped to ${Utils.sanitizeName(bestMatch.name)}`, "success");
+      } else {
+        deps.showToast("Could not resolve server id", "danger");
+      }
     } else {
       deps.showToast("No match found", "danger");
     }
