@@ -75,3 +75,14 @@ Configure **Flat Sidebar** and **Custom Aliases** under the plugin settings in R
 3. Open a pull request with a clear description of the change.
 
 Bug reports and feature requests are welcome via [GitHub Issues](https://github.com/djbclark/RevengeQuickSwitcher/issues).
+
+### CI setup
+
+The repo includes `.github/workflows/ci.yml` (test + build on push/PR). GitHub requires the `workflow` OAuth scope to push workflow files. If push is rejected for that reason:
+
+```bash
+gh auth refresh -h github.com -s workflow
+git add .github/workflows/ci.yml
+git commit -m "Add GitHub Actions CI"
+git push origin main
+```
