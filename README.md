@@ -72,19 +72,17 @@ After changing source files, run `make build` and commit the updated `dist/index
 
 Configure **Flat Sidebar** and **Custom Aliases** under the plugin settings in Revenge.
 
-## Device testing checklist
+## Testing
 
-After building locally, verify on a Revenge client:
+See **[TESTING.md](TESTING.md)** for local verification (`make verify`) and the full Revenge device test plan.
 
-1. **Install/reload** — add or reload the plugin from the repo URL, then restart Discord.
-2. **`/servers`** — first page lists servers alphabetically with a page footer.
-3. **`/servers 2`** (or higher if you have 40+ servers) — pagination advances and the footer updates.
-4. **`/servers query:<partial name>`** — fuzzy match jumps to the correct server and shows a success toast.
-5. **Custom alias** — add `short=Full Server Name` in settings, then `/servers query:short` jumps correctly.
-6. **Flat sidebar** — enable in settings; server list in the sidebar loses folders and sorts A–Z. Disable restores default behavior.
-7. **Edge cases** — empty search (`/servers query:` with blank value) lists servers; unknown query shows "No match found".
+Quick pre-release check:
 
-Run `make verify` before testing on device to catch regressions in pure logic.
+```bash
+make verify
+```
+
+Then walk the checklist at the bottom of `TESTING.md` on your device.
 
 ## Contributing
 
