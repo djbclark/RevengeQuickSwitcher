@@ -12,7 +12,7 @@ A high-performance server navigation utility built natively for the **Revenge** 
 ## Installation (Revenge Client)
 
 1. Copy this repository URL: `https://github.com/djbclark/RevengeQuickSwitcher`
-2. Open Discord on your device and go to **User Settings > Revenge > Plugins**.
+2. Open Discord on your device and go to **User Settings → Revenge → Plugins**.
 3. Tap the **+** icon and paste the URL.
 4. Reload the client.
 
@@ -37,8 +37,8 @@ make install   # or: npm install
 |---------|-------------|
 | `make build` | Bundle `src/` to `dist/index.js` via esbuild |
 | `make test` | Run unit tests |
-| `make typecheck` | Type-check testable modules (`command`, `sidebar`, `utils`) |
-| `make verify` | Run typecheck, tests, and build |
+| `make typecheck` | Type-check all `src/` modules (including `index.tsx`) |
+| `make verify` | Run typecheck, tests, build, and manifest validation |
 | `make clean` | Remove `dist/` and `node_modules/` |
 
 Or use npm directly:
@@ -46,6 +46,7 @@ Or use npm directly:
 ```bash
 npm run build
 npm test
+npm run typecheck
 npm run verify
 ```
 
@@ -53,13 +54,17 @@ npm run verify
 
 ```
 src/
-  index.tsx     # Plugin entry: settings UI, flat sidebar patch, command wiring
-  command.ts    # /servers command logic (testable without Revenge mocks)
-  sidebar.ts    # Flat sidebar flatten/sort + cache helpers
-  utils.ts      # Pure helpers (fuzzy match, aliases, sanitization)
+  index.tsx          # Plugin entry: settings UI, flat sidebar patch, command wiring
+  command.ts         # /servers command logic (testable without Revenge mocks)
+  sidebar.ts         # Flat sidebar flatten/sort + cache helpers
+  utils.ts           # Pure helpers (fuzzy match, aliases, sanitization)
+  revenge-mod.d.ts   # Type stubs for @revenge-mod/* imports
+  *.test.ts          # Vitest unit tests (command, sidebar, utils)
+scripts/
+  check-manifest.mjs # Validates manifest.json and dist/index.js (run via verify)
 dist/
-  index.js    # Built output consumed by Revenge (commit after build)
-manifest.json # Revenge plugin metadata
+  index.js           # Built output consumed by Revenge (commit after build)
+manifest.json        # Revenge plugin metadata (display name: Quick Server Switcher)
 ```
 
 After changing source files, run `make build` and commit the updated `dist/index.js` so the plugin loads correctly from GitHub.
@@ -87,18 +92,11 @@ Then walk the checklist at the bottom of `TESTING.md` on your device.
 ## Contributing
 
 1. Fork the repo and create a branch.
-2. Make changes in `src/`, run `make test` and `make build`.
+2. Make changes in `src/`, run `make verify`.
 3. Open a pull request with a clear description of the change.
 
 Bug reports and feature requests are welcome via [GitHub Issues](https://github.com/djbclark/RevengeQuickSwitcher/issues).
 
-### CI setup
+### CI
 
-The repo includes `.github/workflows/ci.yml` (test + build on push/PR). GitHub requires the `workflow` OAuth scope to push workflow files. If push is rejected for that reason:
-
-```bash
-gh auth refresh -h github.com -s workflow
-git add .github/workflows/ci.yml
-git commit -m "Add GitHub Actions CI"
-git push origin main
-```
+GitHub Actions runs `npm run verify` on every push and pull request to `main` (typecheck, tests, build, manifest check). See `.github/workflows/ci.yml`.

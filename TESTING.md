@@ -56,8 +56,9 @@ manifest ok (v4.0.0)
 | Command | Purpose |
 |---------|---------|
 | `make test` | Run tests only |
-| `make typecheck` | Type-check without building |
+| `make typecheck` | Type-check all `src/` modules |
 | `make build` | Rebuild `dist/index.js` after source edits |
+| `make verify` | Full pre-release pipeline (same as CI) |
 
 If local verification fails, fix the issue before testing on device.
 
@@ -257,6 +258,7 @@ If local verification fails, fix the issue before testing on device.
 | Scenario | Steps | Expected |
 |----------|-------|----------|
 | No servers | Use a test account with zero guilds (if available) | Toast: `No servers found` |
+| Unresolvable guild id | Rare — match found but guild object has no id | Toast: `Could not resolve server id` |
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |

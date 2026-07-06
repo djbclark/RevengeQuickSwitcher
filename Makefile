@@ -7,10 +7,10 @@ help:
 	@echo "  make install  - Install npm dependencies"
 	@echo "  make build    - Compile plugin via esbuild"
 	@echo "  make test      - Run unit tests"
-	@echo "  make typecheck - Type-check testable source modules"
-	@echo "  make verify    - Run typecheck, tests, and build"
+	@echo "  make typecheck - Type-check all src/ modules"
+	@echo "  make verify    - Run typecheck, tests, build, and manifest check"
 	@echo "  make clean    - Remove build artifacts and node_modules"
-	@echo "  make push     - Build, test, commit, and push to GitHub"
+	@echo "  make push     - Verify, commit, and push to GitHub"
 
 install:
 	npm install
@@ -30,7 +30,7 @@ verify:
 clean:
 	rm -rf dist/ node_modules/
 
-push: test build
+push: verify
 	@echo "Committing and pushing to GitHub..."
 	git add .
 	git commit -m "Auto-sync: $$(date +'%Y-%m-%d %H:%M:%S')" || echo "No new edits to commit."
