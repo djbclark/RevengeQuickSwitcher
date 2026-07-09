@@ -262,7 +262,7 @@ export const SwitcherTopPanel: React.ComponentType<
           } catch {
             /* ignore */
           }
-        }, 75);
+        }, 120);
       }
     },
     // Intentionally depend on the callback props only.

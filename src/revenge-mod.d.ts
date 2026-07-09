@@ -52,6 +52,7 @@ declare module "@revenge-mod/plugin" {
     flatSidebar?: boolean;
     aliases?: string;
     debugLogging?: boolean;
+    debugLogText?: string;
     recentIds?: string;
     recentHistorySize?: number;
     excludes?: string;

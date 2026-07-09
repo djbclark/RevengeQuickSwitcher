@@ -14,6 +14,11 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.3
+
+- Fix guild jump freeze: stop chaining loose Navigation/Flux matches; use `selectChannel` / `selectGuild` / `transitionToGuild` only, and verify via SelectedGuildStore when possible
+- Fix **Copy debug logs**: persist the ring across restarts, copy as a single clipboard-safe line (Discord was dropping newlines), and show a toast preview of the last event
+
 ## 4.5.2
 
 - Fix stuck switcher overlay: remove nested RN `Modal`, hide panel locally on Close/pick, and dismiss via `dismissAlert` / `hideActionSheet` / legacy `close`
