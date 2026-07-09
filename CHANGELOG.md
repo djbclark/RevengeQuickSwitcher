@@ -14,6 +14,12 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.1
+
+- Dock the `/servers` switcher to the **top** of the screen (alert/modal overlay) so the virtual keyboard no longer covers it
+- Add **Previous / Next** paging in the switcher (8 servers per page) with a scrollable page body
+- Keep short ambiguous picks on the simple action sheet; full switcher prefers top panel
+
 ## 4.5.0
 
 - **C8:** `/servers` opens a searchable switcher sheet (filter + recent + tap to jump); **Open switcher** button in plugin settings

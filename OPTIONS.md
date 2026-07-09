@@ -16,7 +16,7 @@ Every option below must include an explicit **Risk** value.
 
 | ID | Option | Risk | Why blocked | Notes |
 |----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.5.0**. Retest: `/servers` opens sheet (not channel spam); ambiguous query opens tappable picks; **Open switcher** in settings; fallback bot list if sheet missing; real guild NAV. |
+| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.5.1**. Retest: `/servers` opens **top-docked** switcher (not covered by keyboard) with Prev/Next paging; ambiguous query opens tappable picks; **Open switcher** in settings; fallback bot list if sheet missing; real guild NAV. |
 
 ---
 
@@ -40,7 +40,7 @@ Every option below must include an explicit **Risk** value.
 | **B14** | `/servers` missing from slash menu | **Done** (v4.4.5) | **Low** | Revenge inverted `shouldHide` filter; omit it + fill command metadata. |
 | **B15** | `/servers` silent + duplicate | **Done** (v4.4.7) | **Low** | `sendBotMessage` replies; unregister-before-register. |
 | **B16** | `/servers query` silent no-op | **Done** (v4.4.7) | **Medium** | Jump/error bot replies + harder nav + arg unwrap. |
-| **B17** | Switcher sheet + tappable picks (C5/C8) | **Done** (v4.5.0) | **Medium** | `openLazy` sheet + simple action sheet; bot-message fallback. |
+| **B17** | Switcher sheet + tappable picks (C5/C8) | **Done** (v4.5.1) | **Medium** | `openLazy` sheet + simple action sheet; bot-message fallback. |
 
 ---
 
@@ -121,7 +121,7 @@ Every option below must include an explicit **Risk** value.
 
 ### C8 — Dedicated switcher UI (not in-channel)
 
-**Status:** **Done** (v4.5.0) — `/servers` opens a searchable action sheet; settings has **Open switcher**; bot-message list remains fallback when sheet APIs are missing.
+**Status:** **Done** (v4.5.1) — `/servers` opens a searchable action sheet; settings has **Open switcher**; bot-message list remains fallback when sheet APIs are missing.
 
 **What it is:** Open a real UI surface for `/servers` instead of posting bot messages into the current channel.
 
