@@ -14,6 +14,12 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.4.3
+
+- Rebuild plugin in classic Vendetta IIFE shape used by known-working Revenge plugins
+- Add `smoke/` minimal load-test plugin for isolating enable failures
+- Document Revenge logging / debug surfaces for device QA
+
 ## 4.4.2
 
 - Fix plugin failing to enable: register `/servers` with required `description`, isolate load errors

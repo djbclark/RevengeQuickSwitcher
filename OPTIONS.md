@@ -16,7 +16,7 @@ Every option below must include an explicit **Risk** value.
 
 | ID | Option | Risk | Why blocked | Notes |
 |----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | Walk the **v4.4.2** checklist at the bottom of `TESTING.md` using the **raw** install URL. |
+| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | Install **smoke/** first, then main plugin from raw URLs. Walk **v4.4.3** checklist in `TESTING.md`. |
 
 ---
 
@@ -35,6 +35,7 @@ Every option below must include an explicit **Risk** value.
 | **B9** | Mute / exclude servers | **Done** (v4.4.0) | **Low** | Name/id/`~partial` rules; optional hide from list. |
 | **B10** | Fix Revenge install URL / polymanifest | **Done** (v4.4.1) | **Low** | Raw GitHub URL + Vendetta-compatible bundle/`hash`. |
 | **B11** | Fix plugin enable / settings wrench | **Done** (v4.4.2) | **Low** | Command description + resilient onLoad/settings. |
+| **B12** | Vendetta IIFE rebuild + smoke plugin | **Done** (v4.4.3) | **Low** | Match known-working bundle shape; isolate load failures. |
 
 ---
 

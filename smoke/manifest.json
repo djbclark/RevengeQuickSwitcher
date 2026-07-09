@@ -1,0 +1,15 @@
+{
+  "name": "Quick Switcher Smoke",
+  "description": "Minimal Revenge load test. If this enables, plugin loading works.",
+  "authors": [
+    {
+      "name": "Danny Clark",
+      "id": "689173209785958424"
+    }
+  ],
+  "main": "index.js",
+  "hash": "a49e0767c959d2a4628e4f9bca763772c0fe683bbbdd786520d2fd538716c810",
+  "vendetta": {
+    "icon": "ic_badge_staff"
+  }
+}

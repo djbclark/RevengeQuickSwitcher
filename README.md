@@ -25,8 +25,28 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/
 2. Open Discord on your device and go to **User Settings → Revenge → Plugins**.
 3. Tap **Install a plugin** / **+**, paste the URL, and confirm (allow unproxied install if prompted).
 4. Reload the client.
+5. Toggle the plugin **on**. An **X** on the toggle means start failed (see logging below).
 
 If install fails with “Failed to fetch manifest”, you almost certainly pasted `https://github.com/...` instead of the `raw.githubusercontent.com` URL.
+
+### Smoke test plugin (load isolation)
+
+If the main plugin installs but will not enable, install this tiny plugin first:
+
+```
+https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
+```
+
+- If **smoke enables** (toggle stays on, wrench opens): Revenge loading works; the main plugin still has a start bug.
+- If **smoke also shows an X**: the problem is broader (client/safe mode/network), not Quick Server Switcher logic.
+
+### Where to look for Revenge plugin logs
+
+1. **Safe Mode** — Revenge Settings → disable Safe Mode if enabled (plugins do not start in safe mode).
+2. **Developer settings** — Revenge Settings → Developer (may require tapping the version repeatedly). Useful: debugger URL, React DevTools, Eval command.
+3. **`/debug`** — built-in Revenge command; prints client/Revenge/React versions to chat.
+4. **Logcat (Android)** — with USB debugging: `adb logcat | grep -iE 'revenge|vendetta|Quick|plugin|hermes'`. Plugin start errors are logged as `Plugin <id> errored whilst loading`.
+5. **Plugin info sheet** — the `i` icon → Refetch after a main-branch update; Delete + reinstall if the hash is stuck.
 
 ## Development
 
