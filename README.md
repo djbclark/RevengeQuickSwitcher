@@ -5,9 +5,11 @@ A high-performance server navigation utility built natively for the **Revenge** 
 ## Features
 
 - **Fuzzy-search navigation**: Jump to any server via subsequence matching (e.g. typing `wsh` finds `Wayland High School`; subsequence needs 3+ characters).
+- **Ambiguous-match pick list**: When several servers share the best score, lists them instead of guessing.
 - **Custom aliases**: Map shortcodes to full server names in settings (e.g. `chess=Maynard-area Chess Club`).
 - **Flat sidebar mode**: Overrides Discord's native UI to present an alphabetically sorted, folder-free guild list.
 - **Smart pagination**: Pages by item count (up to 40) and character budget so responses stay under Discord's 2000-character limit, with numeric page aliases (`/servers 2`).
+- **Debug logging**: Optional setting that logs Metro/patch/command diagnostics through Revenge's logger.
 
 ## Installation (Revenge Client)
 
@@ -58,14 +60,17 @@ src/
   index.tsx          # Plugin entry: settings UI, flat sidebar patch, command wiring
   command.ts         # /servers command logic (testable without Revenge mocks)
   sidebar.ts         # Flat sidebar flatten/sort + cache helpers
+  theme.ts           # Settings color resolution (semantic tokens + fallbacks)
   utils.ts           # Pure helpers (fuzzy match, aliases, sanitization)
   revenge-mod.d.ts   # Type stubs for @revenge-mod/* imports
-  *.test.ts          # Vitest unit tests (command, sidebar, utils)
+  *.test.ts          # Vitest unit tests
 scripts/
   check-manifest.mjs # Validates manifest.json and dist/index.js (run via verify)
 dist/
   index.js           # Built output consumed by Revenge (commit after build)
 manifest.json        # Revenge plugin metadata (display name: Quick Server Switcher)
+OPTIONS.md           # Living backlog of product/engineering options
+CHANGELOG.md         # Release notes
 ```
 
 After changing source files, run `make build` and commit the updated `dist/index.js` so the plugin loads correctly from GitHub.
@@ -76,7 +81,9 @@ After changing source files, run `make build` and commit the updated `dist/index
 - `/servers query:<name>` — fuzzy-search and jump to a server
 - `/servers 2` — jump to page 2 of the server list
 
-Configure **Flat Sidebar** and **Custom Aliases** under the plugin settings in Revenge.
+Configure **Flat Sidebar**, **Debug Logging**, and **Custom Aliases** under the plugin settings in Revenge.
+
+See **[OPTIONS.md](OPTIONS.md)** for the product backlog and **[CHANGELOG.md](CHANGELOG.md)** for release notes.
 
 ## Testing
 

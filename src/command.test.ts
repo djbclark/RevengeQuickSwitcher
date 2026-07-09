@@ -67,7 +67,10 @@ describe("executeServersCommand", () => {
     const result = executeServersCommand({}, deps);
     expect(result?.content).toContain("### Servers (3)");
     expect(result?.content).toContain("• Alpha Guild");
-    expect(result?.currentPage).toBe(1);
+    expect(result?.kind).toBe("page");
+    if (result?.kind === "page") {
+      expect(result.currentPage).toBe(1);
+    }
   });
 
   it("navigates to a fuzzy-matched guild", () => {
@@ -75,6 +78,23 @@ describe("executeServersCommand", () => {
     executeServersCommand({ query: "wsh" }, deps);
     expect(deps.navigateToGuild).toHaveBeenCalledWith("3");
     expect(deps.showToast).toHaveBeenCalledWith("Jumped to Wayland High School", "success");
+  });
+
+  it("returns a pick list when multiple servers share the best score", () => {
+    const deps = createDeps({
+      getGuilds: () => [
+        { id: "1", name: "Alpha One" },
+        { id: "2", name: "Alpha Two" },
+        { id: "3", name: "Beta" },
+      ],
+    });
+    const result = executeServersCommand({ query: "alpha" }, deps);
+    expect(deps.navigateToGuild).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("2 matches — refine your query", "danger");
+    expect(result?.kind).toBe("pick-list");
+    expect(result?.content).toContain("Multiple matches");
+    expect(result?.content).toContain("• Alpha One");
+    expect(result?.content).toContain("• Alpha Two");
   });
 
   it("resolves aliases before searching", () => {
@@ -100,8 +120,11 @@ describe("executeServersCommand", () => {
   it("clamps page numbers beyond the last page", () => {
     const deps = createDeps();
     const result = executeServersCommand({ page: 99 }, deps);
-    expect(result?.currentPage).toBe(1);
-    expect(result?.totalPages).toBe(1);
+    expect(result?.kind).toBe("page");
+    if (result?.kind === "page") {
+      expect(result.currentPage).toBe(1);
+      expect(result.totalPages).toBe(1);
+    }
   });
 
   it("does not navigate when a match lacks a guild id", () => {

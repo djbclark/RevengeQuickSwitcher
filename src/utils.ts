@@ -125,24 +125,46 @@ export const scoreGuildMatch = (normalizedQuery: string, normalizedName: string)
   return 0;
 };
 
-// Highest tier wins; within a tier the first candidate wins (list should be sorted).
+export type MatchResult<T> = {
+  score: number;
+  indexes: number[];
+  matches: T[];
+};
+
+/** All candidates that share the highest positive score (list should be sorted). */
+export const findBestMatches = <T extends { normalized: string }>(
+  normalizedQuery: string,
+  candidates: T[]
+): MatchResult<T> => {
+  let bestScore = 0;
+  const indexes: number[] = [];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const score = scoreGuildMatch(normalizedQuery, candidates[i].normalized);
+    if (score <= 0) continue;
+    if (score > bestScore) {
+      bestScore = score;
+      indexes.length = 0;
+      indexes.push(i);
+      continue;
+    }
+    if (score === bestScore) indexes.push(i);
+  }
+
+  return {
+    score: bestScore,
+    indexes,
+    matches: indexes.map((index) => candidates[index]),
+  };
+};
+
+/** Highest tier wins; within a tier the first candidate wins (list should be sorted). */
 export const findBestMatchIndex = <T extends { normalized: string }>(
   normalizedQuery: string,
   candidates: T[]
 ): number => {
-  let bestIndex = -1;
-  let bestScore = 0;
-
-  for (let i = 0; i < candidates.length; i++) {
-    const score = scoreGuildMatch(normalizedQuery, candidates[i].normalized);
-    if (score === 100) return i;
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = i;
-    }
-  }
-
-  return bestIndex;
+  const { indexes } = findBestMatches(normalizedQuery, candidates);
+  return indexes[0] ?? -1;
 };
 
 /** Soft cap on items per page for typical short names. */
@@ -150,6 +172,37 @@ export const PAGE_SIZE = 40;
 
 /** Hard cap so Discord command responses stay under the 2000-character limit. */
 export const MAX_CONTENT_LENGTH = 1900;
+
+export const formatMatchPickList = (
+  query: string,
+  sanitizedNames: string[]
+) => {
+  const header = `### Multiple matches for \`${escapeMarkdown(query)}\`\n`;
+  const lines = sanitizedNames.map((name) => `• ${escapeMarkdown(name)}`);
+  const hint = "\n\n*Refine your query or use a custom alias.*";
+  let content = header + lines.join("\n") + hint;
+
+  // Keep under Discord's limit if somehow huge.
+  if (content.length > MAX_CONTENT_LENGTH) {
+    const budget = MAX_CONTENT_LENGTH - header.length - hint.length - 20;
+    const kept: string[] = [];
+    let used = 0;
+    for (const line of lines) {
+      const extra = kept.length > 0 ? 1 + line.length : line.length;
+      if (used + extra > budget) break;
+      kept.push(line);
+      used += extra;
+    }
+    const omitted = lines.length - kept.length;
+    content =
+      header +
+      kept.join("\n") +
+      (omitted > 0 ? `\n• …and ${omitted} more` : "") +
+      hint;
+  }
+
+  return { kind: "pick-list" as const, content, count: sanitizedNames.length };
+};
 
 const FOOTER_RESERVE = 90;
 
@@ -203,5 +256,5 @@ export const formatServerListPage = (
     content += `\n*Use /servers 1 to return to the start.*`;
   }
 
-  return { content, currentPage, totalPages };
+  return { kind: "page" as const, content, currentPage, totalPages };
 };

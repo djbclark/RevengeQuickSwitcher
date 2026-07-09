@@ -15,7 +15,10 @@ declare module "@revenge-mod/ui/toast" {
 }
 
 declare module "@revenge-mod" {
-  export const logger: { error: (...args: unknown[]) => void };
+  export const logger: {
+    error: (...args: unknown[]) => void;
+    info?: (...args: unknown[]) => void;
+  };
 }
 
 declare module "@revenge-mod/commands" {
@@ -30,6 +33,7 @@ declare module "@revenge-mod/plugin" {
   export const storage: {
     flatSidebar?: boolean;
     aliases?: string;
+    debugLogging?: boolean;
   };
 }
 

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   escapeMarkdown,
   findBestMatchIndex,
+  findBestMatches,
+  formatMatchPickList,
   formatServerListPage,
   getArrayChecksum,
   isSubsequence,
@@ -186,6 +188,40 @@ describe("findBestMatchIndex", () => {
 
   it("returns -1 when nothing matches", () => {
     expect(findBestMatchIndex("zzz", candidates)).toBe(-1);
+  });
+});
+
+describe("findBestMatches", () => {
+  it("returns every candidate that shares the top score", () => {
+    const candidates = [
+      { normalized: "alpha one", sanitized: "Alpha One" },
+      { normalized: "alpha two", sanitized: "Alpha Two" },
+      { normalized: "beta", sanitized: "Beta" },
+    ];
+    const result = findBestMatches("alpha", candidates);
+    expect(result.score).toBe(50);
+    expect(result.matches.map((m) => m.sanitized)).toEqual(["Alpha One", "Alpha Two"]);
+  });
+
+  it("returns a single exact match without siblings", () => {
+    const candidates = [
+      { normalized: "alpha", sanitized: "Alpha" },
+      { normalized: "alphabet", sanitized: "Alphabet" },
+    ];
+    const result = findBestMatches("alpha", candidates);
+    expect(result.score).toBe(100);
+    expect(result.matches).toHaveLength(1);
+  });
+});
+
+describe("formatMatchPickList", () => {
+  it("lists tied matches and a refine hint", () => {
+    const { content, count } = formatMatchPickList("alpha", ["Alpha One", "Alpha Two"]);
+    expect(count).toBe(2);
+    expect(content).toContain("### Multiple matches for `alpha`");
+    expect(content).toContain("• Alpha One");
+    expect(content).toContain("• Alpha Two");
+    expect(content).toContain("Refine your query");
   });
 });
 

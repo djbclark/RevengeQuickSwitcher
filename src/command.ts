@@ -12,6 +12,7 @@ export type ServersCommandDeps = {
   aliases: string;
   navigateToGuild: (id: string) => void;
   showToast: (message: string, type?: string) => void;
+  debugLog?: (message: string, ...args: unknown[]) => void;
 };
 
 type CommandArg = { name: string; value: unknown };
@@ -43,6 +44,7 @@ export const parseCommandArgs = (rawArgs: unknown) => {
 export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps) => {
   const { query, page } = parseCommandArgs(rawArgs);
   const guilds = deps.getGuilds();
+  deps.debugLog?.("executeServersCommand", { query, page, guildCount: guilds.length });
 
   if (!guilds.length) {
     deps.showToast("No servers found", "danger");
@@ -65,19 +67,29 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
   if (query?.trim()) {
     const aliasMap = Utils.parseAliases(deps.aliases);
     const normalizedQuery = Utils.resolveSearchQuery(query.trim(), aliasMap);
-    const matchIndex = Utils.findBestMatchIndex(normalizedQuery, mappedGuilds);
-    const bestMatch = matchIndex >= 0 ? mappedGuilds[matchIndex].original : null;
+    const { matches, score } = Utils.findBestMatches(normalizedQuery, mappedGuilds);
+    deps.debugLog?.("search", { normalizedQuery, score, matchCount: matches.length });
 
-    if (bestMatch) {
-      const id = Utils.resolveGuildId(bestMatch);
-      if (id) {
-        deps.navigateToGuild(id);
-        deps.showToast(`Jumped to ${Utils.sanitizeName(bestMatch.name)}`, "success");
-      } else {
-        deps.showToast("Could not resolve server id", "danger");
-      }
-    } else {
+    if (matches.length === 0) {
       deps.showToast("No match found", "danger");
+      return;
+    }
+
+    if (matches.length > 1) {
+      deps.showToast(`${matches.length} matches — refine your query`, "danger");
+      return Utils.formatMatchPickList(
+        query.trim(),
+        matches.map((match) => match.sanitized)
+      );
+    }
+
+    const bestMatch = matches[0].original;
+    const id = Utils.resolveGuildId(bestMatch);
+    if (id) {
+      deps.navigateToGuild(id);
+      deps.showToast(`Jumped to ${Utils.sanitizeName(bestMatch.name)}`, "success");
+    } else {
+      deps.showToast("Could not resolve server id", "danger");
     }
     return;
   }

@@ -4,6 +4,7 @@
     "src/command.ts",
     "src/sidebar.ts",
     "src/utils.ts",
+    "src/theme.ts",
     "src/index.tsx",
     "src/revenge-mod.d.ts",
     "src/**/*.test.ts"

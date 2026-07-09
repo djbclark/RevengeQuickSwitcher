@@ -5,5 +5,5 @@
     { "name": "Danny Clark", "id": "0" }
   ],
   "main": "dist/index.js",
-  "version": "4.0.0"
+  "version": "4.1.0"
 }

@@ -46,9 +46,9 @@ This runs, in order:
 All steps exit with code 0. You should see:
 
 ```
-Tests  58 passed (58)
-dist/index.js  ~5–6kb
-manifest ok (v4.0.0)
+Tests  63 passed (63)
+dist/index.js  ~8kb
+manifest ok (v4.1.0)
 ```
 
 ### Individual commands
@@ -151,6 +151,7 @@ If local verification fails, fix the issue before testing on device.
 - Both resolve to the intended server when unambiguous.
 - If multiple servers could match, the **first alphabetically** among the best match tier wins.
 - Subsequence-only matches require at least **3** characters (e.g. `wsh` works; `ws` alone does not).
+- If two or more servers share the best score, you get a **pick list** (no auto-jump) and a toast to refine the query.
 
 ### 4.3 No match
 
@@ -268,7 +269,9 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.0.0** |
+| Version | Check plugin metadata if Revenge shows it | **4.1.0** |
+| Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
+| Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
 
 ---
 
@@ -295,8 +298,11 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 [ ] /servers — alphabetical list, correct count
 [ ] /servers 2 — pagination (if 41+ servers)
 [ ] /servers query:<fuzzy> — jumps to server + success toast
+[ ] /servers query:<shared-prefix> — pick list, no jump
 [ ] /servers query:<unknown> — "No match found"
 [ ] Custom alias — settings + jump works
 [ ] Flat sidebar — on flattens/sorts, off restores folders
+[ ] Debug logging toggle — no crash
+[ ] Settings readable in light and dark theme
 [ ] Reload Discord — still works after restart
 ```
