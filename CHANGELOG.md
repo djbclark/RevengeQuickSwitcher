@@ -14,6 +14,13 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.0
+
+- **C8:** `/servers` opens a searchable switcher sheet (filter + recent + tap to jump); **Open switcher** button in plugin settings
+- **C5:** Ambiguous search opens a tappable pick sheet instead of only a markdown list
+- Keep bot-message / markdown fallbacks when Discord sheet APIs are unavailable
+- Explicit `/servers page:N` still posts the paginated list in-channel
+
 ## 4.4.7
 
 - Fix `/servers query:…` looking like a no-op: jumps/errors now post an in-channel bot reply (same path as the working page list)

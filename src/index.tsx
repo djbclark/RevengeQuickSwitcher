@@ -19,6 +19,7 @@ import {
   serializeRecentIds,
 } from "./recents";
 import { createSidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
+import { openSwitcherUi, type SwitcherItem } from "./sheets";
 import { getSettingsThemeColors } from "./theme";
 
 type GuildStore = {
@@ -246,7 +247,6 @@ const importAliasesFromClipboard = async () => {
 
 const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
   try {
-    // Log invoke shape so device QA can diagnose option parsing (info may be a no-op).
     try {
       logger.info?.(
         "[QuickSwitcher] command invoke",
@@ -268,6 +268,16 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
     debugLog("command invoke", rawArgs);
 
     const navigated: { ok: boolean } = { ok: false };
+    const jumpToItem = (item: SwitcherItem) => {
+      navigated.ok = navigateToGuild(item.id);
+      if (navigated.ok) {
+        recordRecentJump(item.id);
+        showToast(`Jumped to ${item.name}`, "success");
+      } else {
+        showToast("Could not navigate to server", "danger");
+      }
+    };
+
     const result = executeServersCommand(rawArgs, {
       getGuilds: () =>
         Object.values(getGuildStore()?.getGuilds() || {}).map((guild) => ({
@@ -289,9 +299,67 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
       hideExcludedFromList: !!storage.hideExcludedFromList,
     });
 
-    // Always post a visible in-channel reply for list/pick/jump/error so query
-    // mode is never a silent no-op (page mode already worked via this path).
-    if (result && typeof result === "object" && "content" in result && typeof result.content === "string") {
+    if (!result || typeof result !== "object") {
+      showToast("No /servers output — use the query or page options from the slash menu", "danger");
+      return;
+    }
+
+    // C8: bare /servers → searchable sheet (fallback: bot list).
+    if (result.kind === "switcher" && Array.isArray(result.items) && result.items.length > 0) {
+      const opened = openSwitcherUi({
+        title: "Quick Server Switcher",
+        subtitle: `${result.items.length} servers · tap to jump`,
+        items: result.items,
+        recentItems: Array.isArray(result.recentItems) ? result.recentItems : [],
+        onPick: jumpToItem,
+      });
+      if (opened) {
+        debugLog("opened switcher UI", opened);
+        return;
+      }
+      if (typeof result.content === "string") {
+        postCommandReply(ctx?.channel?.id, result.content);
+      }
+      return;
+    }
+
+    // C5: ambiguous search → tappable pick sheet (fallback: markdown pick list).
+    if (result.kind === "pick-list" && Array.isArray(result.items) && result.items.length > 0) {
+      const queryLabel =
+        "query" in result && typeof result.query === "string" ? result.query : "your query";
+      const opened = openSwitcherUi({
+        title: `Matches for “${queryLabel}”`,
+        subtitle: "Tap a server to jump",
+        items: result.items,
+        preferSimple: true,
+        onPick: jumpToItem,
+      });
+      if (opened) {
+        debugLog("opened pick UI", opened);
+        return;
+      }
+      if (typeof result.content === "string") {
+        postCommandReply(ctx?.channel?.id, result.content);
+      }
+      return;
+    }
+
+    // Recent list: prefer sheet of recent entries when available.
+    if (result.kind === "recent-list" && Array.isArray(result.items) && result.items.length > 0) {
+      const opened = openSwitcherUi({
+        title: "Recent servers",
+        subtitle: "Tap to jump · history from this plugin only",
+        items: result.items,
+        preferSimple: result.items.length <= 12,
+        onPick: jumpToItem,
+      });
+      if (opened) {
+        debugLog("opened recent UI", opened);
+        return;
+      }
+    }
+
+    if ("content" in result && typeof result.content === "string") {
       let content = result.content;
       if ("kind" in result && result.kind === "jump" && !navigated.ok) {
         content = `${content}\n_(navigation API unavailable — enable Debug Logging and check logs)_`;
@@ -309,6 +377,53 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
     } catch {
       /* ignore */
     }
+  }
+};
+
+const openSwitcherFromSettings = () => {
+  try {
+    const result = executeServersCommand(
+      {},
+      {
+        getGuilds: () =>
+          Object.values(getGuildStore()?.getGuilds() || {}).map((guild) => ({
+            ...guild,
+            name: guild.name ?? "",
+          })),
+        aliases: storage.aliases || "",
+        navigateToGuild: (id) => {
+          if (!navigateToGuild(id)) showToast("Could not navigate to server", "danger");
+        },
+        showToast,
+        debugLog,
+        getRecentIds: getStoredRecentIds,
+        recordRecent: recordRecentJump,
+        excludes: storage.excludes || "",
+        hideExcludedFromList: !!storage.hideExcludedFromList,
+      }
+    );
+
+    if (result && result.kind === "switcher" && Array.isArray(result.items)) {
+      const opened = openSwitcherUi({
+        title: "Quick Server Switcher",
+        subtitle: `${result.items.length} servers · tap to jump`,
+        items: result.items,
+        recentItems: Array.isArray(result.recentItems) ? result.recentItems : [],
+        onPick: (item) => {
+          if (navigateToGuild(item.id)) {
+            recordRecentJump(item.id);
+            showToast(`Jumped to ${item.name}`, "success");
+          } else {
+            showToast("Could not navigate to server", "danger");
+          }
+        },
+      });
+      if (opened) return;
+    }
+    showToast("Switcher sheet unavailable on this client", "danger");
+  } catch (error) {
+    logger.error?.(error);
+    showToast("Could not open switcher", "danger");
   }
 };
 
@@ -360,6 +475,16 @@ const plugin: PluginInstance = {
     };
     return (
       <ScrollView>
+        <View style={{ flexDirection: "row", marginHorizontal: 12, marginTop: 8, marginBottom: 8 }}>
+          <Pressable
+            style={actionStyle}
+            onPress={openSwitcherFromSettings}
+            accessibilityRole="button"
+            accessibilityLabel="Open server switcher"
+          >
+            <Text style={{ color: colors.textNormal, fontWeight: "600" }}>Open switcher</Text>
+          </Pressable>
+        </View>
         <FormSwitchRow
           label="Flat Sidebar"
           value={storage.flatSidebar ?? false}

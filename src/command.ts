@@ -9,6 +9,11 @@ export type GuildRecord = {
   name: string;
 };
 
+export type SwitcherListItem = {
+  id: string;
+  name: string;
+};
+
 export type ServersCommandDeps = {
   getGuilds: () => GuildRecord[];
   aliases: string;
@@ -149,7 +154,11 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
       const recentIds = deps.getRecentIds?.() ?? [];
       const entries = Recents.resolveRecentEntries(recentIds, guildsById);
       deps.debugLog?.("recent list", { stored: recentIds.length, resolved: entries.length });
-      return Recents.formatRecentList(entries);
+      const formatted = Recents.formatRecentList(entries);
+      return {
+        ...formatted,
+        items: entries.map((entry) => ({ id: entry.id, name: entry.name })),
+      };
     }
 
     const recentSlot = Recents.parseRecentSlot(trimmed);
@@ -159,12 +168,12 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
       const entry = entries[recentSlot - 1];
       if (!entry) {
         deps.showToast(`No recent server in slot r${recentSlot}`, "danger");
-        return;
+        return { kind: "error" as const, content: `No recent server in slot r${recentSlot}` };
       }
       const guild = guildsById.get(entry.id);
       if (!guild) {
         deps.showToast("Could not resolve server id", "danger");
-        return;
+        return { kind: "error" as const, content: "Could not resolve server id" };
       }
       return jumpToGuild(deps, guild);
     }
@@ -186,10 +195,14 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
 
     if (matches.length > 1) {
       deps.showToast(`${matches.length} matches — refine your query`, "danger");
-      return Utils.formatMatchPickList(
+      const items: SwitcherListItem[] = matches
+        .filter((match) => match.id)
+        .map((match) => ({ id: match.id, name: match.sanitized }));
+      const formatted = Utils.formatMatchPickList(
         trimmed,
         matches.map((match) => match.sanitized)
       );
+      return { ...formatted, items, query: trimmed };
     }
 
     return jumpToGuild(deps, matches[0].original);
@@ -197,9 +210,34 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
 
   if (!listGuilds.length) {
     deps.showToast("All servers are excluded", "danger");
-    return;
+    return { kind: "error" as const, content: "All servers are excluded" };
   }
 
-  const sanitizedNames = listGuilds.map((item) => item.sanitized);
-  return Utils.formatServerListPage(sanitizedNames, page);
+  const items: SwitcherListItem[] = listGuilds
+    .filter((item) => item.id)
+    .map((item) => ({ id: item.id, name: item.sanitized }));
+
+  const recentIds = deps.getRecentIds?.() ?? [];
+  const recentItems: SwitcherListItem[] = Recents.resolveRecentEntries(recentIds, guildsById).map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+  }));
+
+  const pageResult = Utils.formatServerListPage(
+    listGuilds.map((item) => item.sanitized),
+    page
+  );
+
+  // Explicit page: keep paginated markdown. Bare /servers: prefer switcher sheet (C8).
+  if (page != null) {
+    return { ...pageResult, items, recentItems };
+  }
+
+  return {
+    kind: "switcher" as const,
+    content: pageResult.content,
+    items,
+    recentItems,
+    count: items.length,
+  };
 };
