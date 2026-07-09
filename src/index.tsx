@@ -131,6 +131,10 @@ const postCommandReply = (channelId: string | undefined, content: string) => {
   showToast("Could not post /servers reply in this channel", "danger");
 };
 
+/** Injected at build time from package.json; keep fallback in sync when bumping. */
+const PLUGIN_VERSION =
+  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.5";
+
 const ensureStorageDefaults = () => {
   try {
     if (storage.flatSidebar === undefined) storage.flatSidebar = false;
@@ -162,10 +166,25 @@ const DEBUG_RING_MAX = 80;
 const debugRing: string[] = [];
 let debugRingHydrated = false;
 
+const clearDebugRing = () => {
+  debugRing.length = 0;
+  try {
+    storage.debugLogText = "";
+    storage.debugLogPluginVersion = PLUGIN_VERSION;
+  } catch {
+    /* ignore */
+  }
+};
+
 const hydrateDebugRing = () => {
   if (debugRingHydrated) return;
   debugRingHydrated = true;
   try {
+    // Drop lines from older builds so Copy debug logs is not a mix of versions.
+    if (storage.debugLogPluginVersion !== PLUGIN_VERSION) {
+      clearDebugRing();
+      return;
+    }
     const raw = storage.debugLogText;
     if (typeof raw !== "string" || !raw.trim()) return;
     const parts = raw.includes("\n") ? raw.split("\n") : raw.split("\u001e");
@@ -183,6 +202,7 @@ const hydrateDebugRing = () => {
 const persistDebugRing = () => {
   try {
     storage.debugLogText = debugRing.join("\n");
+    storage.debugLogPluginVersion = PLUGIN_VERSION;
   } catch {
     /* ignore */
   }
@@ -206,7 +226,8 @@ const pushDebugRing = (message: string, ...args: unknown[]) => {
               }
             })
             .join(" ");
-    debugRing.push(`[${stamp}] ${message}${extra}`);
+    // Version on every line so mixed pastes / old rings are unambiguous.
+    debugRing.push(`[v${PLUGIN_VERSION} ${stamp}] ${message}${extra}`);
     if (debugRing.length > DEBUG_RING_MAX) debugRing.shift();
     persistDebugRing();
   } catch {
@@ -216,13 +237,17 @@ const pushDebugRing = (message: string, ...args: unknown[]) => {
 
 const formatDebugRing = () => {
   hydrateDebugRing();
-  return ["Quick Server Switcher debug log", `lines=${debugRing.length}`, ...debugRing].join("\n");
+  return [
+    `Quick Server Switcher debug log v${PLUGIN_VERSION}`,
+    `lines=${debugRing.length}`,
+    ...debugRing,
+  ].join("\n");
 };
 
 /** Some Discord clipboard paths collapse or drop newlines — also provide a one-line form. */
 const formatDebugRingClipboard = () => {
   hydrateDebugRing();
-  const header = `Quick Server Switcher debug log | lines=${debugRing.length}`;
+  const header = `Quick Server Switcher debug log v${PLUGIN_VERSION} | lines=${debugRing.length}`;
   if (debugRing.length === 0) return `${header} | (empty — open /servers or tap a server first)`;
   // Use " | " so a single-line paste still carries every event.
   return `${header} | ${debugRing.join(" | ")}`;
@@ -279,11 +304,14 @@ const debugLog = (message: string, ...args: unknown[]) => {
 };
 
 /**
- * Switch guild without calling loose `findByProps("selectChannel")`.
- * Device logs (v4.5.3): that module freezes Discord immediately after invoke, then
- * SelectedGuildStore reads null and the old "unverified accept" path claimed success.
+ * Switch guild without channel-select APIs.
  *
- * Prefer strict Flux CHANNEL_SELECT / GUILD_SELECT, then selectGuild / transitionToGuild.
+ * Device history:
+ * - v4.5.3: loose `selectChannel` freezes; store goes null; old unverified-accept claimed success.
+ * - v4.5.4: Flux `CHANNEL_SELECT` updates SelectedGuildStore then still freezes the UI.
+ *
+ * Prefer `selectGuild` / `transitionToGuild`, then Flux `GUILD_SELECT` only.
+ * Never dispatch `CHANNEL_SELECT` or call `selectChannel`.
  * When the selected-guild store is readable, only report success if it matches the target.
  */
 const navigateToGuild = (id: string): boolean => {
@@ -321,13 +349,11 @@ const navigateToGuild = (id: string): boolean => {
       return true;
     }
     // Store was readable before the call but is now null — treat as failure (do not accept).
-    // This is the freeze signature from v4.5.3 selectChannel.
     if (storeReadable && after == null) {
       debugLog("navigateToGuild store cleared after attempt", { label, before });
       return "continue";
     }
     if (!storeReadable && after == null) {
-      // Cannot verify on this client; do not claim success — keep trying safer APIs.
       debugLog("navigateToGuild unverified skip", { label });
       return "continue";
     }
@@ -335,31 +361,19 @@ const navigateToGuild = (id: string): boolean => {
     return "continue";
   };
 
+  // Guild-only APIs first. CHANNEL_SELECT verified the store on device but still froze Discord.
   const attempts: Array<[string, () => void]> = [];
-
-  // Flux first: known-safe dispatcher match; CHANNEL_SELECT is what Discord uses for jumps.
-  if (typeof FluxDispatcher?.dispatch === "function" && lastChannel) {
-    attempts.push([
-      "CHANNEL_SELECT",
-      () =>
-        FluxDispatcher.dispatch!({
-          type: "CHANNEL_SELECT",
-          guildId: id,
-          channelId: String(lastChannel),
-        }),
-    ]);
+  if (typeof GuildActions?.selectGuild === "function") {
+    attempts.push(["selectGuild", () => GuildActions.selectGuild!(id)]);
+  }
+  if (typeof GuildActions?.transitionToGuild === "function") {
+    attempts.push(["transitionToGuild", () => GuildActions.transitionToGuild!(id)]);
   }
   if (typeof FluxDispatcher?.dispatch === "function") {
     attempts.push([
       "GUILD_SELECT",
       () => FluxDispatcher.dispatch!({ type: "GUILD_SELECT", guildId: id }),
     ]);
-  }
-  if (typeof GuildActions?.selectGuild === "function") {
-    attempts.push(["selectGuild", () => GuildActions.selectGuild!(id)]);
-  }
-  if (typeof GuildActions?.transitionToGuild === "function") {
-    attempts.push(["transitionToGuild", () => GuildActions.transitionToGuild!(id)]);
   }
 
   for (const [label, run] of attempts) {
@@ -879,7 +893,7 @@ const plugin: PluginInstance = {
     try {
       ensureStorageDefaults();
       hydrateDebugRing();
-      debugLog("onLoad");
+      debugLog("onLoad", { version: PLUGIN_VERSION });
     } catch (error) {
       try {
         logger.error?.("Quick Switcher onLoad init failed", error);
