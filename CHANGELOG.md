@@ -14,6 +14,12 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.4.0
+
+- Exclude / mute servers from search (by name, id, or `~partial`)
+- Optional hide excluded servers from `/servers` list
+- Device QA checklist updated for v4.4.0 human testing
+
 ## 4.3.0
 
 - Low-risk recent-servers history: record only when this plugin jumps

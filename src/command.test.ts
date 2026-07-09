@@ -166,4 +166,29 @@ describe("executeServersCommand", () => {
     expect(deps.navigateToGuild).not.toHaveBeenCalled();
     expect(deps.showToast).toHaveBeenCalledWith("Could not resolve server id", "danger");
   });
+
+  it("ignores excluded servers during search", () => {
+    const deps = createDeps({
+      excludes: "Beta Guild\n~wayland",
+    });
+    executeServersCommand({ query: "beta" }, deps);
+    expect(deps.navigateToGuild).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("No match found", "danger");
+
+    executeServersCommand({ query: "wsh" }, deps);
+    expect(deps.navigateToGuild).not.toHaveBeenCalled();
+  });
+
+  it("still lists excluded servers unless hideExcludedFromList is on", () => {
+    const deps = createDeps({ excludes: "Beta Guild" });
+    const listed = executeServersCommand({}, deps);
+    expect(listed?.content).toContain("• Beta Guild");
+
+    const hidden = executeServersCommand({}, createDeps({
+      excludes: "Beta Guild",
+      hideExcludedFromList: true,
+    }));
+    expect(hidden?.content).not.toContain("• Beta Guild");
+    expect(hidden?.content).toContain("### Servers (2)");
+  });
 });

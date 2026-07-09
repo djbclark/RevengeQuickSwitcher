@@ -46,9 +46,9 @@ This runs, in order:
 All steps exit with code 0. You should see:
 
 ```
-Tests  78 passed (78)
-dist/index.js  ~13kb
-manifest ok (v4.3.0)
+Tests  86 passed (86)
+dist/index.js  ~16kb
+manifest ok (v4.4.0)
 ```
 
 ### Individual commands
@@ -216,6 +216,47 @@ If local verification fails, fix the issue before testing on device.
 
 ---
 
+## Part 5b — Excluded servers
+
+### 5b.1 Exclude by name
+
+**Steps**
+
+1. Note two similarly named servers (or any server you can safely exclude).
+2. In settings → **Excluded servers**, add the exact name of one server on its own line.
+3. Run `/servers query:` with a term that previously matched the excluded server.
+
+**Expected**
+
+- Search no longer jumps to / lists that server as a match.
+- Other servers still match normally.
+
+### 5b.2 Partial exclude and list hide
+
+**Steps**
+
+1. Add a `~partial` rule (at least 2 characters) that matches an unwanted server.
+2. Confirm search skips it.
+3. Toggle **Hide excluded from /servers list** on, run `/servers`, then toggle off.
+
+**Expected**
+
+- With hide on, excluded names are absent from the list and the count drops.
+- With hide off, excluded names still appear in the alphabetical list but are not searchable.
+
+### 5b.3 Id exclude (optional)
+
+**Steps**
+
+1. With Developer Mode on, copy a server’s id and paste it as its own exclude line.
+2. Search for that server’s name.
+
+**Expected**
+
+- No match / not jumped via search.
+
+---
+
 ## Part 5 — Custom aliases
 
 ### 5.1 Configure aliases
@@ -322,8 +363,9 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.3.0** |
+| Version | Check plugin metadata if Revenge shows it | **4.4.0** |
 | Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
+| Excluded search | Exclude one of two similar names, query shared fragment | Only non-excluded server matches |
 | Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
 
 ---
@@ -343,7 +385,35 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 
 ---
 
-## Quick checklist (copy for releases)
+## Quick checklist — v4.4.0 device QA (A1)
+
+Copy this for the release candidate. Prefer a fresh plugin install/update from GitHub, then full Discord reload.
+
+```
+[ ] make verify — all green locally (or CI green on main)
+[ ] Plugin installs / updates on Revenge without crash (shows 4.4.0 if version visible)
+[ ] Settings open; readable in light and dark theme
+[ ] /servers — alphabetical list, correct count
+[ ] /servers 2 — pagination (if 41+ servers or very long names)
+[ ] /servers query:<fuzzy> — jumps + success toast; appears in /servers recent
+[ ] /servers recent + r1 — history from plugin jumps only (sidebar-only switches do not count)
+[ ] /servers query:<shared-prefix> — pick list, no jump
+[ ] /servers query:<unknown> — "No match found"
+[ ] Exclude exact name — search skips that server
+[ ] Exclude ~partial — search skips matching names
+[ ] Hide excluded from list — on hides / off shows in /servers
+[ ] Custom alias — settings + jump works
+[ ] Alias Copy / Import — clipboard round-trip works
+[ ] Flat sidebar — on flattens/sorts, off restores folders
+[ ] Debug logging toggle — no crash
+[ ] Reload Discord — still works after restart
+```
+
+When finished, note pass/fail in a GitHub issue or reply in chat so **A1** can be marked done in `OPTIONS.md`.
+
+---
+
+## Legacy quick checklist (superseded by v4.4.0 block above)
 
 ```
 [ ] make verify — all green locally

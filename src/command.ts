@@ -1,3 +1,4 @@
+import * as Excludes from "./excludes";
 import * as Recents from "./recents";
 import * as Utils from "./utils";
 
@@ -16,6 +17,8 @@ export type ServersCommandDeps = {
   debugLog?: (message: string, ...args: unknown[]) => void;
   getRecentIds?: () => string[];
   recordRecent?: (id: string) => void;
+  excludes?: string;
+  hideExcludedFromList?: boolean;
 };
 
 type CommandArg = { name: string; value: unknown };
@@ -62,7 +65,13 @@ const jumpToGuild = (
 export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps) => {
   const { query, page } = parseCommandArgs(rawArgs);
   const guilds = deps.getGuilds();
-  deps.debugLog?.("executeServersCommand", { query, page, guildCount: guilds.length });
+  const excludeRules = Excludes.parseExcludeRules(deps.excludes || "");
+  deps.debugLog?.("executeServersCommand", {
+    query,
+    page,
+    guildCount: guilds.length,
+    excludeRules: excludeRules.length,
+  });
 
   if (!guilds.length) {
     deps.showToast("No servers found", "danger");
@@ -73,14 +82,19 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
     .map((guild) => {
       const id = Utils.resolveGuildId(guild) || "";
       const sanitized = Utils.sanitizeName(guild.name);
+      const normalized = Utils.normalizeText(sanitized);
       return {
         original: guild,
         id,
         sanitized,
-        normalized: Utils.normalizeText(sanitized),
+        normalized,
+        excluded: Excludes.isGuildExcluded(id, normalized, excludeRules),
       };
     })
     .sort((a, b) => a.sanitized.localeCompare(b.sanitized, undefined, { sensitivity: "base" }));
+
+  const searchableGuilds = mappedGuilds.filter((item) => !item.excluded);
+  const listGuilds = deps.hideExcludedFromList ? searchableGuilds : mappedGuilds;
 
   const guildsById = new Map(
     mappedGuilds.filter((item) => item.id).map((item) => [item.id, item.original])
@@ -114,9 +128,14 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
       return;
     }
 
+    if (!searchableGuilds.length) {
+      deps.showToast("All servers are excluded", "danger");
+      return;
+    }
+
     const aliasMap = Utils.parseAliases(deps.aliases);
     const normalizedQuery = Utils.resolveSearchQuery(trimmed, aliasMap);
-    const { matches, score } = Utils.findBestMatches(normalizedQuery, mappedGuilds);
+    const { matches, score } = Utils.findBestMatches(normalizedQuery, searchableGuilds);
     deps.debugLog?.("search", { normalizedQuery, score, matchCount: matches.length });
 
     if (matches.length === 0) {
@@ -136,6 +155,11 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
     return;
   }
 
-  const sanitizedNames = mappedGuilds.map((item) => item.sanitized);
+  if (!listGuilds.length) {
+    deps.showToast("All servers are excluded", "danger");
+    return;
+  }
+
+  const sanitizedNames = listGuilds.map((item) => item.sanitized);
   return Utils.formatServerListPage(sanitizedNames, page);
 };

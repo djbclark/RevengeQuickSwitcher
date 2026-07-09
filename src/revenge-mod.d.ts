@@ -36,6 +36,8 @@ declare module "@revenge-mod/plugin" {
     debugLogging?: boolean;
     recentIds?: string;
     recentHistorySize?: number;
+    excludes?: string;
+    hideExcludedFromList?: boolean;
   };
 }
 

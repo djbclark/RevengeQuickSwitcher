@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "include": [
+    "src/excludes.ts",
     "src/aliases.ts",
     "src/command.ts",
     "src/recents.ts",

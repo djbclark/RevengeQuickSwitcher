@@ -10,6 +10,7 @@ import { Forms } from "@revenge-mod/ui/components";
 import { Pressable, ScrollView, TextInput, Text, View } from "react-native";
 import { countAliasEntries, mergeAliasText, normalizeAliasText } from "./aliases";
 import { executeServersCommand } from "./command";
+import { countExcludeRules, formatExcludeHelp } from "./excludes";
 import {
   clampRecentHistorySize,
   DEFAULT_RECENT_HISTORY_SIZE,
@@ -69,6 +70,8 @@ if (storage.aliases === undefined) storage.aliases = "";
 if (storage.debugLogging === undefined) storage.debugLogging = false;
 if (storage.recentIds === undefined) storage.recentIds = "[]";
 if (storage.recentHistorySize === undefined) storage.recentHistorySize = DEFAULT_RECENT_HISTORY_SIZE;
+if (storage.excludes === undefined) storage.excludes = "";
+if (storage.hideExcludedFromList === undefined) storage.hideExcludedFromList = false;
 
 let sidebarCache = new SidebarCache<SidebarNode>();
 let warnedMissingSortedGuildStore = false;
@@ -173,6 +176,8 @@ const handleExec = (rawArgs: unknown) => {
       debugLog,
       getRecentIds: getStoredRecentIds,
       recordRecent: recordRecentJump,
+      excludes: storage.excludes || "",
+      hideExcludedFromList: !!storage.hideExcludedFromList,
     });
   } catch (error) {
     logger.error(error);
@@ -223,6 +228,60 @@ const plugin: PluginInstance = {
             if (value) debugLog("debug logging enabled");
           }}
         />
+        <FormSwitchRow
+          label="Debug Logging"
+          value={storage.debugLogging ?? false}
+          onValueChange={(value: boolean) => {
+            storage.debugLogging = value;
+            showToast(`Debug logging ${value ? "on" : "off"}`);
+            if (value) debugLog("debug logging enabled");
+          }}
+        />
+        <FormSwitchRow
+          label="Hide excluded from /servers list"
+          value={storage.hideExcludedFromList ?? false}
+          onValueChange={(value: boolean) => {
+            storage.hideExcludedFromList = value;
+            showToast(value ? "Excluded servers hidden from list" : "Excluded servers shown in list");
+          }}
+        />
+        <Text
+          style={{
+            marginHorizontal: 16,
+            marginTop: 16,
+            color: colors.textMuted,
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            fontSize: 12,
+          }}
+        >
+          Excluded servers
+        </Text>
+        <Text style={{ marginHorizontal: 16, marginTop: 4, color: colors.textFaint, fontSize: 12 }}>
+          {formatExcludeHelp()}
+        </Text>
+        <TextInput
+          style={{
+            margin: 16,
+            marginBottom: 8,
+            padding: 12,
+            backgroundColor: colors.backgroundSecondary,
+            color: colors.textNormal,
+            borderRadius: 8,
+            textAlignVertical: "top",
+          }}
+          multiline={true}
+          numberOfLines={3}
+          placeholder={"Wayland Parents\n~spam\n123456789012345678"}
+          placeholderTextColor={colors.textFaint}
+          value={storage.excludes || ""}
+          onChangeText={(value: string) => {
+            storage.excludes = value;
+          }}
+        />
+        <Text style={{ marginHorizontal: 16, marginBottom: 8, color: colors.textFaint, fontSize: 12 }}>
+          {countExcludeRules(storage.excludes || "")} active rule(s) · always skipped by search
+        </Text>
         <Text
           style={{
             marginHorizontal: 16,

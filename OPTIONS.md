@@ -16,7 +16,7 @@ Every option below must include an explicit **Risk** value.
 
 | ID | Option | Risk | Why blocked | Notes |
 |----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | Walk `TESTING.md` after each release candidate. Missed regressions are the real product risk if skipped. |
+| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | Walk the **v4.4.0** checklist at the bottom of `TESTING.md` after installing this release. |
 
 ---
 
@@ -32,6 +32,7 @@ Every option below must include an explicit **Risk** value.
 | **B6** | Changelog + semver policy | **Done** | **Low** | Documented in `CHANGELOG.md`. |
 | **B7** | Export / import aliases | **Done** (v4.2.0) | **Medium** | Clipboard APIs vary; toast if unavailable. |
 | **B8** | Recent-servers jump (low-risk) | **Done** (v4.3.0) | **Low** | History only when this plugin navigates; no guild-select hooks. |
+| **B9** | Mute / exclude servers | **Done** (v4.4.0) | **Low** | Name/id/`~partial` rules; optional hide from list. |
 
 ---
 
@@ -101,12 +102,11 @@ Every option below must include an explicit **Risk** value.
 
 ### C7 — Mute / exclude servers from search
 
-**What it is:** Hide noisy or similarly named servers from fuzzy search and optionally from `/servers` listing.
+**Status:** **Done** (v4.4.0) — see B9.
 
-**Complexity:** Low–medium  
-**Risk:** **Low** — storage + filter in existing pure command path; little Metro exposure.  
-**Fit:** Pairs with pick-list and favorites
+**Shipped:** Settings text rules (exact name, Discord id, or `~partial`); always skipped by fuzzy search; optional hide from `/servers` list. Recents slots still work for previously recorded ids.
 
+**Risk:** **Low**
 ---
 
 ## D — Engineering / maintenance
