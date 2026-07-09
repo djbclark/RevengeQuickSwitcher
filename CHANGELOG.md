@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Set plugin author Discord snowflake in `manifest.json`
+
 ## 4.1.0
 
 - Show a pick list when multiple servers share the best search score instead of auto-jumping

@@ -2,7 +2,7 @@
   "name": "Quick Server Switcher",
   "description": "Alphabetical server list + fuzzy search + flat sidebar for Revenge.",
   "authors": [
-    { "name": "Danny Clark", "id": "0" }
+    { "name": "Danny Clark", "id": "689173209785958424" }
   ],
   "main": "dist/index.js",
   "version": "4.1.0"

@@ -11,7 +11,6 @@ Status legend: **Ready** (can implement now) · **Needs input** (blocked on a hu
 | Option | Why blocked | Notes |
 |--------|-------------|-------|
 | **Device QA** | Requires a Revenge Discord client and manual checklist | Walk `TESTING.md` after each release candidate. |
-| **Manifest author Discord ID** | Needs your real Discord snowflake | Replace `authors[].id: "0"` in `manifest.json` if Revenge uses it for attribution. |
 
 ---
 
@@ -19,6 +18,7 @@ Status legend: **Ready** (can implement now) · **Needs input** (blocked on a hu
 
 | Option | Status | Summary |
 |--------|--------|---------|
+| Manifest author Discord ID | **Done** | `authors[].id` set to `689173209785958424` in `manifest.json`. |
 | Search pick-list on ties | **Done** (v4.1.0) | When several servers share the best match score, list them instead of auto-jumping. |
 | Theme-aware settings | **Done** (v4.1.0) | Settings colors resolve from Discord semantic tokens with dark fallbacks. |
 | Debug logging toggle | **Done** (v4.1.0) | Plugin setting that logs Metro/patch/command diagnostics via Revenge logger. |
