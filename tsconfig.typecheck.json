@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "include": [
+    "src/aliases.ts",
     "src/command.ts",
     "src/sidebar.ts",
     "src/utils.ts",

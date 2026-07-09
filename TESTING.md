@@ -46,9 +46,9 @@ This runs, in order:
 All steps exit with code 0. You should see:
 
 ```
-Tests  63 passed (63)
-dist/index.js  ~8kb
-manifest ok (v4.1.0)
+Tests  68 passed (68)
+dist/index.js  ~10kb
+manifest ok (v4.2.0)
 ```
 
 ### Individual commands
@@ -215,6 +215,19 @@ If local verification fails, fix the issue before testing on device.
 
 - Valid aliases still work; malformed lines are ignored.
 
+### 5.4 Export / import aliases
+
+**Steps**
+
+1. With at least one valid alias configured, tap **Copy**.
+2. Clear the alias field (or edit it), then tap **Import**.
+
+**Expected**
+
+- Copy toast reports how many aliases were copied.
+- Import merges clipboard lines; duplicate alias keys prefer the imported target.
+- Malformed clipboard lines are skipped and mentioned in the toast when relevant.
+
 ---
 
 ## Part 6 — Flat sidebar
@@ -269,7 +282,7 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.1.0** |
+| Version | Check plugin metadata if Revenge shows it | **4.2.0** |
 | Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
 | Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
 
@@ -301,6 +314,7 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 [ ] /servers query:<shared-prefix> — pick list, no jump
 [ ] /servers query:<unknown> — "No match found"
 [ ] Custom alias — settings + jump works
+[ ] Alias Copy / Import — clipboard round-trip works
 [ ] Flat sidebar — on flattens/sorts, off restores folders
 [ ] Debug logging toggle — no crash
 [ ] Settings readable in light and dark theme

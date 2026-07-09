@@ -6,7 +6,7 @@ A high-performance server navigation utility built natively for the **Revenge** 
 
 - **Fuzzy-search navigation**: Jump to any server via subsequence matching (e.g. typing `wsh` finds `Wayland High School`; subsequence needs 3+ characters).
 - **Ambiguous-match pick list**: When several servers share the best score, lists them instead of guessing.
-- **Custom aliases**: Map shortcodes to full server names in settings (e.g. `chess=Maynard-area Chess Club`).
+- **Custom aliases**: Map shortcodes to full server names in settings (e.g. `chess=Maynard-area Chess Club`), with clipboard export/import.
 - **Flat sidebar mode**: Overrides Discord's native UI to present an alphabetically sorted, folder-free guild list.
 - **Smart pagination**: Pages by item count (up to 40) and character budget so responses stay under Discord's 2000-character limit, with numeric page aliases (`/servers 2`).
 - **Debug logging**: Optional setting that logs Metro/patch/command diagnostics through Revenge's logger.
@@ -58,6 +58,7 @@ npm run verify
 ```
 src/
   index.tsx          # Plugin entry: settings UI, flat sidebar patch, command wiring
+  aliases.ts         # Alias normalize / merge helpers for clipboard export-import
   command.ts         # /servers command logic (testable without Revenge mocks)
   sidebar.ts         # Flat sidebar flatten/sort + cache helpers
   theme.ts           # Settings color resolution (semantic tokens + fallbacks)
@@ -81,9 +82,9 @@ After changing source files, run `make build` and commit the updated `dist/index
 - `/servers query:<name>` — fuzzy-search and jump to a server
 - `/servers 2` — jump to page 2 of the server list
 
-Configure **Flat Sidebar**, **Debug Logging**, and **Custom Aliases** under the plugin settings in Revenge.
+Configure **Flat Sidebar**, **Debug Logging**, and **Custom Aliases** (with **Copy** / **Import**) under the plugin settings in Revenge.
 
-See **[OPTIONS.md](OPTIONS.md)** for the product backlog and **[CHANGELOG.md](CHANGELOG.md)** for release notes.
+See **[OPTIONS.md](OPTIONS.md)** for the product backlog (reference IDs like `A1`, `C5`) and **[CHANGELOG.md](CHANGELOG.md)** for release notes and the semver policy.
 
 ## Testing
 
