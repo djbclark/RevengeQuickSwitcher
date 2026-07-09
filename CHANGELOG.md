@@ -12,7 +12,7 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 ## [Unreleased]
 
-_Nothing yet._
+- Expand C1/C4 detail in `OPTIONS.md` and require Risk on every backlog item
 
 ## 4.2.0
 
