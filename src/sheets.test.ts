@@ -4,6 +4,8 @@ vi.mock("react", () => ({
   default: {
     useState: (v: unknown) => [v, () => undefined],
     useEffect: () => undefined,
+    useCallback: (fn: unknown) => fn,
+    useRef: (v: unknown) => ({ current: v }),
     createElement: () => null,
   },
 }));
@@ -14,7 +16,6 @@ vi.mock("react-native", () => ({
   TextInput: "TextInput",
   Text: "Text",
   View: "View",
-  Modal: "Modal",
   KeyboardAvoidingView: "KeyboardAvoidingView",
   Platform: { OS: "android" },
 }));

@@ -19,7 +19,7 @@ import {
   serializeRecentIds,
 } from "./recents";
 import { createSidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
-import { openSwitcherUi, type SwitcherItem } from "./sheets";
+import { hideSwitcherSheet, openSwitcherUi, type SwitcherItem } from "./sheets";
 import { getSettingsThemeColors } from "./theme";
 
 type GuildStore = {
@@ -109,6 +109,7 @@ const navigateToGuild = (id: string): boolean => {
     ["selectGuild", () => Router!.selectGuild!(id)],
     ["GUILD_SELECT", () => FluxDispatcher!.dispatch!({ type: "GUILD_SELECT", guildId: id })],
     ["SELECT_GUILD", () => FluxDispatcher!.dispatch!({ type: "SELECT_GUILD", guildId: id })],
+    ["GUILD_SELECT_guild_id", () => FluxDispatcher!.dispatch!({ type: "GUILD_SELECT", guild_id: id })],
     ["Navigation.push", () => Navigation!.push!("Guild", { guildId: id })],
   ];
 
@@ -116,8 +117,8 @@ const navigateToGuild = (id: string): boolean => {
     try {
       if (label === "transitionToGuild" && typeof Router?.transitionToGuild !== "function") continue;
       if (label === "selectGuild" && typeof Router?.selectGuild !== "function") continue;
-      if ((label === "GUILD_SELECT" || label === "SELECT_GUILD") && typeof FluxDispatcher?.dispatch !== "function") {
-        continue;
+      if (label.startsWith("GUILD_SELECT") || label === "SELECT_GUILD") {
+        if (typeof FluxDispatcher?.dispatch !== "function") continue;
       }
       if (label === "Navigation.push" && typeof Navigation?.push !== "function") continue;
       run();
@@ -127,6 +128,7 @@ const navigateToGuild = (id: string): boolean => {
       debugLog("navigateToGuild attempt failed", label, error);
     }
   }
+  debugLog("navigateToGuild exhausted all APIs", { id });
   return false;
 };
 
@@ -172,13 +174,58 @@ const clearSidebarCache = () => {
   sidebarCache = createSidebarCache<SidebarNode>();
 };
 
+const DEBUG_RING_MAX = 80;
+const debugRing: string[] = [];
+
+const pushDebugRing = (message: string, ...args: unknown[]) => {
+  try {
+    const stamp = new Date().toISOString().slice(11, 23);
+    const extra =
+      args.length === 0
+        ? ""
+        : " " +
+          args
+            .map((arg) => {
+              try {
+                return typeof arg === "string" ? arg : JSON.stringify(arg);
+              } catch {
+                return String(arg);
+              }
+            })
+            .join(" ");
+    debugRing.push(`[${stamp}] ${message}${extra}`);
+    if (debugRing.length > DEBUG_RING_MAX) debugRing.shift();
+  } catch {
+    /* ignore */
+  }
+};
+
+const formatDebugRing = () =>
+  ["Quick Server Switcher debug log", `lines=${debugRing.length}`, ...debugRing].join("\n");
+
+const copyDebugLogs = () => {
+  const clipboard = getClipboard();
+  if (!clipboard?.setString) {
+    showToast("Clipboard unavailable on this client", "danger");
+    return;
+  }
+  const text = formatDebugRing();
+  clipboard.setString(text);
+  showToast(`Copied ${debugRing.length} debug line(s)`, "success");
+};
+
 const debugLog = (message: string, ...args: unknown[]) => {
   try {
-    if (!storage.debugLogging) return;
-    if (typeof logger.info === "function") {
-      logger.info(`[QuickSwitcher] ${message}`, ...args);
-    } else {
-      logger.error(`[QuickSwitcher:debug] ${message}`, ...args);
+    pushDebugRing(message, ...args);
+    // Always mirror to Revenge logger when available (helps adb/logcat without the toggle).
+    try {
+      if (typeof logger.info === "function") {
+        logger.info(`[QuickSwitcher] ${message}`, ...args);
+      } else if (storage.debugLogging) {
+        logger.error(`[QuickSwitcher:debug] ${message}`, ...args);
+      }
+    } catch {
+      /* ignore */
     }
   } catch {
     /* ignore — never let logging break enable */
@@ -269,6 +316,13 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
 
     const navigated: { ok: boolean } = { ok: false };
     const jumpToItem = (item: SwitcherItem) => {
+      debugLog("jumpToItem", { id: item.id, name: item.name });
+      // Overlay should already be closing; hide again as a safety net.
+      try {
+        hideSwitcherSheet();
+      } catch {
+        /* ignore */
+      }
       navigated.ok = navigateToGuild(item.id);
       if (navigated.ok) {
         recordRecentJump(item.id);
@@ -483,6 +537,14 @@ const plugin: PluginInstance = {
             accessibilityLabel="Open server switcher"
           >
             <Text style={{ color: colors.textNormal, fontWeight: "600" }}>Open switcher</Text>
+          </Pressable>
+          <Pressable
+            style={actionStyle}
+            onPress={copyDebugLogs}
+            accessibilityRole="button"
+            accessibilityLabel="Copy debug logs"
+          >
+            <Text style={{ color: colors.textNormal, fontWeight: "600" }}>Copy debug logs</Text>
           </Pressable>
         </View>
         <FormSwitchRow
