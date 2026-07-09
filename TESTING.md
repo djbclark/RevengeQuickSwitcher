@@ -86,10 +86,12 @@ If local verification fails, fix the issue before testing on device.
 
 **Steps**
 
-1. In any channel, run `/servers`.
+1. In any channel, run `/servers` from the slash picker (do not send plain text).
 
 **Expected**
 
+- A **local bot-style reply** appears in the channel (same style as Revenge `/debug` with ephemeral).
+- `/servers` appears **once** in slash suggestions (not duplicated).
 - Response shows a markdown list headed `### Servers (N)` where N is your server count.
 - Server names appear as bullet points (`•`).
 - Names are sorted **alphabetically** (case-insensitive).
@@ -176,8 +178,9 @@ If local verification fails, fix the issue before testing on device.
 
 **Expected**
 
-- Discord navigates to that server (guild switch).
+- Discord **navigates** to that server (guild switch): channel list / server header change to the target — not only a toast.
 - Toast: `Jumped to <server name>` (success style).
+- After the jump, `/servers recent` lists that server.
 
 ### 4.2 Exact and partial match priority
 
@@ -389,6 +392,10 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 
 Copy this for the release candidate. Prefer a fresh plugin install/update from the **raw** GitHub URL, then full Discord reload.
 
+**Already confirmed on device (do not skip re-check after `main` install):** enable works, settings open, `/servers` appears once, list posts as a local bot reply.
+
+**Still needs human testing (priority):** actually **moving** to another server via search / recent / alias — toast alone is not enough; confirm the guild UI switches.
+
 ```
 [ ] make verify — all green locally (or CI green on main)
 [ ] Plugin installs / updates on Revenge without crash (shows 4.4.6 if version visible)
@@ -399,14 +406,16 @@ Copy this for the release candidate. Prefer a fresh plugin install/update from t
 [ ] Settings open; readable in light and dark theme
 [ ] /servers — alphabetical list as local bot reply, correct count; command appears once
 [ ] /servers 2 — pagination (if 41+ servers or very long names)
-[ ] /servers query:<fuzzy> — jumps + success toast; appears in /servers recent
-[ ] /servers recent + r1 — history from plugin jumps only (sidebar-only switches do not count)
-[ ] /servers query:<shared-prefix> — pick list, no jump
-[ ] /servers query:<unknown> — "No match found"
+[ ] NAV: /servers query:<unique fuzzy> — Discord switches to that server (sidebar/header change), success toast
+[ ] NAV: stay on a different server first, then jump — confirm you leave the old guild, not just toast
+[ ] NAV: /servers recent after a plugin jump — list shows it; /servers r1 jumps back (UI switches)
+[ ] Sidebar-only guild tap does NOT add to recent (only plugin jumps count)
+[ ] /servers query:<shared-prefix> — pick list in-channel, no jump
+[ ] /servers query:<unknown> — "No match found"; stay on current server
 [ ] Exclude exact name — search skips that server
 [ ] Exclude ~partial — search skips matching names
 [ ] Hide excluded from list — on hides / off shows in /servers
-[ ] Custom alias — settings + jump works
+[ ] Custom alias — settings + NAV jump to target server
 [ ] Alias Copy / Import — clipboard round-trip works
 [ ] Flat sidebar — on flattens/sorts, off restores folders
 [ ] Debug logging toggle — no crash

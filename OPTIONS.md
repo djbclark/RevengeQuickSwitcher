@@ -16,7 +16,7 @@ Every option below must include an explicit **Risk** value.
 
 | ID | Option | Risk | Why blocked | Notes |
 |----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | Install **smoke/** first, then main plugin from raw URLs. Walk **v4.4.6** checklist in `TESTING.md`. |
+| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.4.6** on `main`. Confirmed: enable, settings, `/servers` list reply. **Still open:** actual guild navigation (search / recent / alias), excludes, flat sidebar — see `TESTING.md` checklist (NAV items). |
 
 ---
 
