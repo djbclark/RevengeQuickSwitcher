@@ -58,8 +58,8 @@ describe("SidebarCache", () => {
       return sortSidebarNodesByGuildName(source, getGuildName);
     };
 
-    const first = cache.getOrCompute(source, compute);
-    const second = cache.getOrCompute(source, compute);
+    const first = cache.getOrCompute(source, compute, getGuildName);
+    const second = cache.getOrCompute(source, compute, getGuildName);
 
     expect(first).toBe(second);
     expect(computeCount).toBe(1);
@@ -74,8 +74,54 @@ describe("SidebarCache", () => {
       return sortSidebarNodesByGuildName(source, getGuildName);
     };
 
-    cache.getOrCompute([{ id: "2" }], () => compute([{ id: "2" }]));
-    cache.getOrCompute([{ id: "1" }], () => compute([{ id: "1" }]));
+    cache.getOrCompute([{ id: "2" }], () => compute([{ id: "2" }]), getGuildName);
+    cache.getOrCompute([{ id: "1" }], () => compute([{ id: "1" }]), getGuildName);
+
+    expect(computeCount).toBe(2);
+  });
+
+  it("recomputes when nested folder membership changes on the same array", () => {
+    const cache = new SidebarCache<{ id?: string; type?: string; guilds?: { id: string }[] }>();
+    const source = [{ type: "folder", id: "folder1", guilds: [{ id: "1" }, { id: "2" }] }];
+    let computeCount = 0;
+
+    const first = cache.getOrCompute(
+      source,
+      () => {
+        computeCount += 1;
+        return sortSidebarNodesByGuildName(source, getGuildName);
+      },
+      getGuildName
+    );
+
+    source[0].guilds = [{ id: "1" }, { id: "3" }];
+
+    const second = cache.getOrCompute(
+      source,
+      () => {
+        computeCount += 1;
+        return sortSidebarNodesByGuildName(source, getGuildName);
+      },
+      getGuildName
+    );
+
+    expect(computeCount).toBe(2);
+    expect(first).not.toBe(second);
+    expect(second.map((node) => node.id)).toEqual(["3", "1"]);
+  });
+
+  it("clears cached entries", () => {
+    const cache = new SidebarCache<{ id: string }>();
+    const source = [{ id: "2" }, { id: "1" }];
+    let computeCount = 0;
+    const compute = () => {
+      computeCount += 1;
+      return sortSidebarNodesByGuildName(source, getGuildName);
+    };
+
+    cache.getOrCompute(source, compute, getGuildName);
+    cache.clear();
+    cache.getOrCompute(source, compute, getGuildName);
 
     expect(computeCount).toBe(2);
   });

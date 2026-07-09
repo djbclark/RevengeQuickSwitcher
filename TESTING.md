@@ -37,17 +37,17 @@ make verify
 This runs, in order:
 
 1. **Typecheck** — `command.ts`, `sidebar.ts`, `utils.ts`, and `index.tsx`
-2. **Unit tests** — 48 tests across fuzzy match, aliases, command flow, and sidebar logic
+2. **Unit tests** — fuzzy match, aliases, command flow, sidebar cache, and pagination budget
 3. **Build** — produces `dist/index.js` consumed by Revenge
-4. **Manifest check** — validates `manifest.json` and confirms `dist/index.js` exists
+4. **Manifest check** — validates `manifest.json`, confirms `dist/index.js` exists, and fails if the committed bundle is out of date
 
 ### Expected result
 
 All steps exit with code 0. You should see:
 
 ```
-Tests  48 passed (48)
-dist/index.js  ~4–5kb
+Tests  58 passed (58)
+dist/index.js  ~5–6kb
 manifest ok (v4.0.0)
 ```
 
@@ -94,7 +94,8 @@ If local verification fails, fix the issue before testing on device.
 - Server names appear as bullet points (`•`).
 - Names are sorted **alphabetically** (case-insensitive).
 - Footer shows `Page 1 of X`.
-- If you have 40 or fewer servers, `X` is 1 and there is no "see more" hint.
+- If you have 40 or fewer servers with short names, `X` is usually 1 and there is no "see more" hint.
+- Very long server names may split earlier so each page stays under Discord's character limit.
 
 ### 3.2 Pagination
 
@@ -149,6 +150,7 @@ If local verification fails, fix the issue before testing on device.
 
 - Both resolve to the intended server when unambiguous.
 - If multiple servers could match, the **first alphabetically** among the best match tier wins.
+- Subsequence-only matches require at least **3** characters (e.g. `wsh` works; `ws` alone does not).
 
 ### 4.3 No match
 
@@ -182,11 +184,13 @@ If local verification fails, fix the issue before testing on device.
 1. Open plugin settings (**User Settings → Revenge → Plugins → Quick Server Switcher**).
 2. In **Custom Aliases**, add a line: `short=Full Server Name`  
    Example: `chess=Maynard-area Chess Club`
-3. Save implicitly (TextInput updates storage on change).
+3. Optionally add a target that itself contains `=` (only the first `=` is the separator).
+4. Save implicitly (TextInput updates storage on change).
 
 **Expected**
 
 - Setting persists after leaving and re-opening settings.
+- Alias targets may include `=` characters after the first separator.
 
 ### 5.2 Jump via alias
 
@@ -227,6 +231,8 @@ If local verification fails, fix the issue before testing on device.
 - Folders are **flattened** — all servers appear in one list.
 - Servers are sorted **A–Z** by name.
 - Order persists while scrolling and after switching channels.
+- Re-open the guild drawer after toggling if the list does not refresh immediately.
+- If Flat Sidebar is on but the client cannot patch the guild list, a danger toast explains it is unavailable.
 
 ### 6.2 Disable flat sidebar
 

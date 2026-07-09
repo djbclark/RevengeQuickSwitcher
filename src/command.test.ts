@@ -46,6 +46,13 @@ describe("parseCommandArgs", () => {
       page: null,
     });
   });
+
+  it("ignores non-finite page values", () => {
+    expect(parseCommandArgs({ page: "abc" })).toEqual({
+      query: null,
+      page: null,
+    });
+  });
 });
 
 describe("executeServersCommand", () => {

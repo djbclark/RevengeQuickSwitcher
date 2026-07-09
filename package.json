@@ -13,6 +13,6 @@
     "typescript": "^5.0.0",
     "esbuild": "^0.28.0",
     "vitest": "^3.0.0",
-    "@revenge-mod/types": "npm:vendetta-types@latest"
+    "@revenge-mod/types": "npm:vendetta-types@2.4.21"
   }
 }

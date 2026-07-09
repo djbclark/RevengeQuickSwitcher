@@ -5,6 +5,8 @@ import {
   formatServerListPage,
   getArrayChecksum,
   isSubsequence,
+  MAX_CONTENT_LENGTH,
+  MIN_SUBSEQUENCE_LENGTH,
   normalizeText,
   parseAliases,
   resolveGuildId,
@@ -17,6 +19,7 @@ describe("escapeMarkdown", () => {
   it("escapes Discord markdown special characters", () => {
     expect(escapeMarkdown("hello_world *bold*")).toBe("hello\\_world \\*bold\\*");
     expect(escapeMarkdown("pipe|tilde~")).toBe("pipe\\|tilde\\~");
+    expect(escapeMarkdown("link[text](url)")).toBe("link\\[text\\]\\(url\\)");
   });
 
   it("leaves plain text unchanged", () => {
@@ -79,6 +82,19 @@ describe("getArrayChecksum", () => {
     const b = [{ id: "a" }, { id: "c" }];
     expect(getArrayChecksum(a)).not.toBe(getArrayChecksum(b));
   });
+
+  it("changes when nested folder membership changes", () => {
+    const a = [{ type: "folder", id: "folder1", guilds: [{ id: "1" }, { id: "2" }] }];
+    const b = [{ type: "folder", id: "folder1", guilds: [{ id: "1" }, { id: "99" }] }];
+    expect(getArrayChecksum(a)).not.toBe(getArrayChecksum(b));
+  });
+
+  it("changes when a guild is renamed via getGuildName", () => {
+    const nodes = [{ id: "1" }, { id: "2" }];
+    const before = getArrayChecksum(nodes, (id) => (id === "1" ? "Alpha" : "Beta"));
+    const after = getArrayChecksum(nodes, (id) => (id === "1" ? "Zeta" : "Beta"));
+    expect(before).not.toBe(after);
+  });
 });
 
 describe("isSubsequence", () => {
@@ -110,6 +126,11 @@ describe("parseAliases", () => {
     expect(map.get("valid")).toBe("target");
   });
 
+  it("keeps everything after the first = as the target", () => {
+    const map = parseAliases("eq=Bar=Baz Club");
+    expect(map.get("eq")).toBe("bar=baz club");
+  });
+
   it("returns an empty map for blank input", () => {
     expect(parseAliases("").size).toBe(0);
     expect(parseAliases("\n\n").size).toBe(0);
@@ -129,8 +150,14 @@ describe("scoreGuildMatch", () => {
     expect(scoreGuildMatch("abc", "abc")).toBe(100);
     expect(scoreGuildMatch("ab", "abc guild")).toBe(50);
     expect(scoreGuildMatch("bc", "abc guild")).toBe(10);
-    expect(scoreGuildMatch("ac", "abc guild")).toBe(5);
+    expect(scoreGuildMatch("ac", "abc guild")).toBe(0);
+    expect(scoreGuildMatch("acx", "abc x guild")).toBe(5);
     expect(scoreGuildMatch("xyz", "abc guild")).toBe(0);
+  });
+
+  it(`does not use subsequence for queries shorter than ${MIN_SUBSEQUENCE_LENGTH}`, () => {
+    expect(scoreGuildMatch("ws", "wayland high school")).toBe(0);
+    expect(scoreGuildMatch("wsh", "wayland high school")).toBe(5);
   });
 });
 
@@ -151,6 +178,10 @@ describe("findBestMatchIndex", () => {
 
   it("uses subsequence matching when no stronger match exists", () => {
     expect(findBestMatchIndex("wsh", candidates)).toBe(2);
+  });
+
+  it("returns -1 for short subsequence-only queries", () => {
+    expect(findBestMatchIndex("ws", candidates)).toBe(-1);
   });
 
   it("returns -1 when nothing matches", () => {
@@ -179,5 +210,21 @@ describe("formatServerListPage", () => {
   it("escapes markdown in server names", () => {
     const { content } = formatServerListPage(["Test_Server"], 1);
     expect(content).toContain("• Test\\_Server");
+  });
+
+  it("keeps each page under the Discord character budget", () => {
+    const names = Array.from({ length: 40 }, () => "a".repeat(100));
+    const { totalPages } = formatServerListPage(names, 1);
+    expect(totalPages).toBeGreaterThan(1);
+
+    for (let page = 1; page <= totalPages; page++) {
+      const { content } = formatServerListPage(names, page);
+      expect(content.length).toBeLessThanOrEqual(MAX_CONTENT_LENGTH);
+    }
+  });
+
+  it("treats non-finite page args as page 1", () => {
+    const { currentPage } = formatServerListPage(["Alpha"], Number.NaN);
+    expect(currentPage).toBe(1);
   });
 });

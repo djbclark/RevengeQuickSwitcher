@@ -1,12 +1,12 @@
 declare module "@revenge-mod/metro" {
-  export function findByProps(...props: string[]): any;
+  export function findByProps(...props: string[]): unknown;
 }
 
 declare module "@revenge-mod/patcher" {
   export function after(
     name: string,
     target: object,
-    callback: (...args: any[]) => unknown
+    callback: (...args: unknown[]) => unknown
   ): () => void;
 }
 
@@ -39,7 +39,7 @@ declare module "@revenge-mod/storage" {
 
 declare module "@revenge-mod/ui/components" {
   export const Forms: {
-    FormSwitchRow: React.ComponentType<{
+    FormSwitchRow: import("react").ComponentType<{
       label: string;
       value: boolean;
       onValueChange: (value: boolean) => void;

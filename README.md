@@ -4,10 +4,10 @@ A high-performance server navigation utility built natively for the **Revenge** 
 
 ## Features
 
-- **Fuzzy-search navigation**: Jump to any server via subsequence matching (e.g. typing `wsh` finds `Wayland High School`).
+- **Fuzzy-search navigation**: Jump to any server via subsequence matching (e.g. typing `wsh` finds `Wayland High School`; subsequence needs 3+ characters).
 - **Custom aliases**: Map shortcodes to full server names in settings (e.g. `chess=Maynard-area Chess Club`).
 - **Flat sidebar mode**: Overrides Discord's native UI to present an alphabetically sorted, folder-free guild list.
-- **Smart pagination**: Chunks server lists into 40-server pages to stay within Discord's 2000-character limit, with numeric page aliases (`/servers 2`).
+- **Smart pagination**: Pages by item count (up to 40) and character budget so responses stay under Discord's 2000-character limit, with numeric page aliases (`/servers 2`).
 
 ## Installation (Revenge Client)
 
@@ -39,7 +39,8 @@ make install   # or: npm install
 | `make test` | Run unit tests |
 | `make typecheck` | Type-check all `src/` modules (including `index.tsx`) |
 | `make verify` | Run typecheck, tests, build, and manifest validation |
-| `make clean` | Remove `dist/` and `node_modules/` |
+| `make clean` | Remove `node_modules/` (keeps committed `dist/`) |
+| `make clean-all` | Remove `dist/` and `node_modules/` |
 
 Or use npm directly:
 

@@ -1,5 +1,14 @@
+export type GuildLike = {
+  id?: string;
+  guildId?: string;
+  guild_id?: string;
+  type?: string;
+  guilds?: GuildLike[];
+  name?: string;
+};
+
 export const escapeMarkdown = (text: string) => {
-  return text.replace(/([\\_*~`|])/g, '\\$1');
+  return text.replace(/[\\_*~`|[\]()]/g, "\\$&");
 };
 
 export const sanitizeName = (text: string) => {
@@ -7,7 +16,7 @@ export const sanitizeName = (text: string) => {
   const safeText = Array.from(String(text))
     .slice(0, 100)
     .join("")
-    .replace(/[\u200B-\u200D\uFEFF\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/[\u200B-\u200D\uFEFF\u202A-\u202E\u2066-\u2069]/g, "")
     .trim();
   return safeText || "Unnamed";
 };
@@ -16,22 +25,55 @@ export const normalizeText = (text: string) => {
   return text.normalize("NFKC").toLowerCase();
 };
 
-export const resolveGuildId = (node: any) => {
-  return node?.id || node?.guildId || node?.guild_id || (typeof node === 'string' ? node : null);
+export const resolveGuildId = (node: GuildLike | string | null | undefined): string | null => {
+  if (typeof node === "string") return node;
+  if (!node) return null;
+  return node.id || node.guildId || node.guild_id || null;
 };
 
-// Generates an FNV-1a hash to quickly check if the sidebar array has changed
-export const getArrayChecksum = (arr: any[]) => {
-  let checksum = 0x811c9dc5; 
-  for (let i = 0; i < arr.length; i++) {
-    const id = resolveGuildId(arr[i]);
-    if (id) { 
-      for (let j = 0; j < id.length; j++) { 
-        checksum ^= id.charCodeAt(j); 
-        checksum = Math.imul(checksum, 0x01000193); 
-      } 
-    }
+const hashString = (checksum: number, value: string): number => {
+  for (let i = 0; i < value.length; i++) {
+    checksum ^= value.charCodeAt(i);
+    checksum = Math.imul(checksum, 0x01000193);
   }
+  // Field separator so "ab"+"c" differs from "a"+"bc"
+  checksum ^= 0xff;
+  checksum = Math.imul(checksum, 0x01000193);
+  return checksum;
+};
+
+const visitSidebarFingerprint = (
+  nodes: GuildLike[],
+  getGuildName: ((id: string) => string | null) | undefined,
+  visit: (token: string) => void
+) => {
+  for (const node of nodes) {
+    if (node?.type === "folder") {
+      const folderId = resolveGuildId(node);
+      visit(`folder:${folderId ?? "?"}`);
+      if (Array.isArray(node.guilds)) {
+        visitSidebarFingerprint(node.guilds, getGuildName, visit);
+      }
+      continue;
+    }
+
+    const id = resolveGuildId(node);
+    if (!id) continue;
+    const name = getGuildName?.(id) ?? node.name ?? "";
+    visit(id);
+    if (name) visit(name);
+  }
+};
+
+/** FNV-1a over flattened guild ids/names so folder membership and renames invalidate caches. */
+export const getArrayChecksum = (
+  arr: GuildLike[],
+  getGuildName?: (id: string) => string | null
+) => {
+  let checksum = 0x811c9dc5;
+  visitSidebarFingerprint(arr, getGuildName, (token) => {
+    checksum = hashString(checksum, token);
+  });
   return checksum;
 };
 
@@ -44,18 +86,20 @@ export const isSubsequence = (query: string, text: string) => {
   return i === query.length;
 };
 
+/** Subsequence matching is too aggressive for 1–2 character queries. */
+export const MIN_SUBSEQUENCE_LENGTH = 3;
+
 // Parses newline-separated alias strings into a Map
 export const parseAliases = (raw: string) => {
   const map = new Map<string, string>();
   if (!raw) return map;
-  
-  raw.split('\n').forEach(line => {
-    const parts = line.split('=');
-    if (parts.length === 2) {
-      const alias = normalizeText(parts[0].trim());
-      const target = normalizeText(parts[1].trim());
-      if (alias && target) map.set(alias, target);
-    }
+
+  raw.split("\n").forEach((line) => {
+    const separator = line.indexOf("=");
+    if (separator <= 0) return;
+    const alias = normalizeText(line.slice(0, separator).trim());
+    const target = normalizeText(line.slice(separator + 1).trim());
+    if (alias && target) map.set(alias, target);
   });
   return map;
 };
@@ -72,7 +116,12 @@ export const scoreGuildMatch = (normalizedQuery: string, normalizedName: string)
   if (normalizedName === normalizedQuery) return 100;
   if (normalizedName.startsWith(normalizedQuery)) return 50;
   if (normalizedName.includes(normalizedQuery)) return 10;
-  if (isSubsequence(normalizedQuery, normalizedName)) return 5;
+  if (
+    normalizedQuery.length >= MIN_SUBSEQUENCE_LENGTH &&
+    isSubsequence(normalizedQuery, normalizedName)
+  ) {
+    return 5;
+  }
   return 0;
 };
 
@@ -96,19 +145,56 @@ export const findBestMatchIndex = <T extends { normalized: string }>(
   return bestIndex;
 };
 
+/** Soft cap on items per page for typical short names. */
 export const PAGE_SIZE = 40;
+
+/** Hard cap so Discord command responses stay under the 2000-character limit. */
+export const MAX_CONTENT_LENGTH = 1900;
+
+const FOOTER_RESERVE = 90;
+
+const buildPages = (sanitizedNames: string[]): string[][] => {
+  const headerLen = `### Servers (${sanitizedNames.length})\n`.length;
+  const budget = Math.max(32, MAX_CONTENT_LENGTH - headerLen - FOOTER_RESERVE);
+  const pages: string[][] = [];
+  let current: string[] = [];
+  let currentLen = 0;
+
+  for (const name of sanitizedNames) {
+    const line = `• ${escapeMarkdown(name)}`;
+    const extra = current.length > 0 ? 1 + line.length : line.length;
+    const wouldExceedChars = current.length > 0 && currentLen + extra > budget;
+    const wouldExceedCount = current.length >= PAGE_SIZE;
+
+    if (wouldExceedChars || wouldExceedCount) {
+      pages.push(current);
+      current = [];
+      currentLen = 0;
+    }
+
+    current.push(name);
+    currentLen += current.length === 1 ? line.length : 1 + line.length;
+  }
+
+  if (current.length > 0 || pages.length === 0) {
+    pages.push(current);
+  }
+
+  return pages;
+};
 
 export const formatServerListPage = (
   sanitizedNames: string[],
   pageArg?: number | null
 ) => {
-  const totalPages = Math.ceil(sanitizedNames.length / PAGE_SIZE) || 1;
-  const currentPage = Math.min(totalPages, Math.max(1, pageArg || 1));
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const pageItems = sanitizedNames.slice(startIndex, startIndex + PAGE_SIZE);
+  const pages = buildPages(sanitizedNames);
+  const totalPages = pages.length;
+  const requested = pageArg != null && Number.isFinite(pageArg) ? pageArg : 1;
+  const currentPage = Math.min(totalPages, Math.max(1, requested));
+  const pageItems = pages[currentPage - 1] ?? [];
 
   let content = `### Servers (${sanitizedNames.length})\n`;
-  content += pageItems.map(name => `• ${escapeMarkdown(name)}`).join("\n");
+  content += pageItems.map((name) => `• ${escapeMarkdown(name)}`).join("\n");
   content += `\n\n**Page ${currentPage} of ${totalPages}**`;
 
   if (currentPage < totalPages) {

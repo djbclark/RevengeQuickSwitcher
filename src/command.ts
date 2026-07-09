@@ -19,22 +19,24 @@ type CommandArg = { name: string; value: unknown };
 export const parseCommandArgs = (rawArgs: unknown) => {
   const args: CommandArg[] = Array.isArray(rawArgs)
     ? rawArgs
-    : Object.keys((rawArgs as Record<string, unknown>) || {}).map(name => ({
+    : Object.keys((rawArgs as Record<string, unknown>) || {}).map((name) => ({
         name,
         value: (rawArgs as Record<string, unknown>)[name],
       }));
 
-  let query = args.find(arg => arg.name === "query")?.value;
-  let page = args.find(arg => arg.name === "page")?.value;
+  let query = args.find((arg) => arg.name === "query")?.value;
+  let page = args.find((arg) => arg.name === "page")?.value;
 
   if (page == null && query != null && /^\d+$/.test(String(query).trim())) {
     page = parseInt(String(query).trim(), 10);
     query = null;
   }
 
+  const pageNumber = page != null ? Number(page) : null;
+
   return {
     query: query != null ? String(query) : null,
-    page: page != null ? Number(page) : null,
+    page: pageNumber != null && Number.isFinite(pageNumber) ? pageNumber : null,
   };
 };
 
@@ -48,7 +50,7 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
   }
 
   const mappedGuilds = guilds
-    .map(guild => {
+    .map((guild) => {
       const id = Utils.resolveGuildId(guild) || "";
       const sanitized = Utils.sanitizeName(guild.name);
       return {
@@ -80,6 +82,6 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
     return;
   }
 
-  const sanitizedNames = mappedGuilds.map(item => item.sanitized);
+  const sanitizedNames = mappedGuilds.map((item) => item.sanitized);
   return Utils.formatServerListPage(sanitizedNames, page);
 };

@@ -1,15 +1,9 @@
-import { getArrayChecksum, resolveGuildId, sanitizeName } from "./utils";
+import { getArrayChecksum, resolveGuildId, sanitizeName, type GuildLike } from "./utils";
 
-export type SidebarNode = {
-  type?: string;
-  guilds?: SidebarNode[];
-  id?: string;
-  guildId?: string;
-  guild_id?: string;
-};
+export type SidebarNode = GuildLike;
 
 export const flattenSidebarNodes = (nodes: SidebarNode[]) => {
-  return nodes.flatMap(node => (node.type === "folder" ? node.guilds ?? [] : [node]));
+  return nodes.flatMap((node) => (node.type === "folder" ? node.guilds ?? [] : [node]));
 };
 
 export const sortSidebarNodesByGuildName = (
@@ -17,20 +11,28 @@ export const sortSidebarNodesByGuildName = (
   getGuildName: (id: string) => string | null
 ) => {
   return flattenSidebarNodes(nodes)
-    .map(node => {
+    .map((node) => {
       const id = resolveGuildId(node);
       const name = id ? getGuildName(id) : null;
       return { node, name: name ? sanitizeName(name) : "" };
     })
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
-    .map(item => item.node);
+    .map((item) => item.node);
 };
 
-export class SidebarCache<T extends object> {
+export class SidebarCache<T extends GuildLike> {
   private cache = new WeakMap<T[], { checksum: number; data: SidebarNode[] }>();
 
-  getOrCompute(source: T[], compute: () => SidebarNode[]) {
-    const checksum = getArrayChecksum(source);
+  clear() {
+    this.cache = new WeakMap();
+  }
+
+  getOrCompute(
+    source: T[],
+    compute: () => SidebarNode[],
+    getGuildName?: (id: string) => string | null
+  ) {
+    const checksum = getArrayChecksum(source, getGuildName);
     const cached = this.cache.get(source);
     if (cached?.checksum === checksum) return cached.data;
 
@@ -48,7 +50,9 @@ export const transformFlatSidebar = (
 ) => {
   if (!enabled || !Array.isArray(returnValue)) return returnValue;
 
-  return cache.getOrCompute(returnValue, () =>
-    sortSidebarNodesByGuildName(returnValue, getGuildName)
+  return cache.getOrCompute(
+    returnValue,
+    () => sortSidebarNodesByGuildName(returnValue, getGuildName),
+    getGuildName
   );
 };
