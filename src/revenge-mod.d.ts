@@ -43,7 +43,7 @@ declare module "@revenge-mod/commands" {
       displayDescription?: string;
       required?: boolean;
     }>;
-    execute: (args: unknown) => unknown;
+    execute: (args: unknown, ctx?: { channel?: { id?: string }; guild?: unknown }) => unknown;
   }): () => void;
 }
 

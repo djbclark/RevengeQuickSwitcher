@@ -45,6 +45,19 @@ type ClipboardModule = {
   getString?: () => Promise<string>;
 };
 
+type MessageUtilModule = {
+  sendBotMessage?: (channelId: string, content: string) => void;
+  sendMessage?: (
+    channelId: string,
+    message: { content: string },
+    ...rest: unknown[]
+  ) => void;
+};
+
+type CommandContext = {
+  channel?: { id?: string };
+};
+
 type SwitchRowProps = {
   label: string;
   value: boolean;
@@ -57,6 +70,7 @@ let _SortedGuildStore: SortedGuildStore | undefined;
 let _Router: RouterModule | undefined;
 let _Navigation: NavigationModule | undefined;
 let _Clipboard: ClipboardModule | undefined;
+let _MessageUtil: MessageUtilModule | undefined;
 
 const getGuildStore = () => (_GuildStore ??= findByProps("getGuild", "getGuilds") as GuildStore | undefined);
 const getSortedGuildStore = () =>
@@ -67,6 +81,23 @@ const getNavigation = () =>
   (_Navigation ??= findByProps("push", "replace") as NavigationModule | undefined);
 const getClipboard = () =>
   (_Clipboard ??= findByProps("setString", "getString") as ClipboardModule | undefined);
+const getMessageUtil = () =>
+  (_MessageUtil ??= findByProps("sendBotMessage") as MessageUtilModule | undefined);
+
+/** Post command output locally (same path as Revenge /debug ephemeral). */
+const postCommandReply = (channelId: string | undefined, content: string) => {
+  if (!channelId || !content) return;
+  const messageUtil = getMessageUtil();
+  if (messageUtil?.sendBotMessage) {
+    messageUtil.sendBotMessage(channelId, content);
+    return;
+  }
+  if (messageUtil?.sendMessage) {
+    messageUtil.sendMessage(channelId, { content }, void 0, { nonce: Date.now().toString() });
+    return;
+  }
+  showToast("Could not post /servers reply in this channel", "danger");
+};
 
 const ensureStorageDefaults = () => {
   try {
@@ -168,7 +199,7 @@ const importAliasesFromClipboard = async () => {
   }
 };
 
-const handleExec = (rawArgs: unknown) => {
+const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
   try {
     debugLog("command invoke", rawArgs);
     const result = executeServersCommand(rawArgs, {
@@ -201,11 +232,11 @@ const handleExec = (rawArgs: unknown) => {
       excludes: storage.excludes || "",
       hideExcludedFromList: !!storage.hideExcludedFromList,
     });
-    // Revenge posts returned objects via messageUtil.sendMessage; only `content` is required.
+    // Do not rely on Revenge's return→sendMessage wrapper (often fails without a nonce).
+    // Post locally like /debug ephemeral so the list is visible in-channel.
     if (result && typeof result === "object" && "content" in result && typeof result.content === "string") {
-      return { content: result.content };
+      postCommandReply(ctx?.channel?.id, result.content);
     }
-    return result;
   } catch (error) {
     logger.error(error);
     showToast("Something went wrong running /servers", "danger");
@@ -455,6 +486,15 @@ const plugin: PluginInstance = {
     }
 
     try {
+      // Drop any prior registration from a hot reload / failed unload so /servers
+      // does not appear twice in the slash picker.
+      try {
+        unregisterCommand?.();
+      } catch {
+        /* ignore */
+      }
+      unregisterCommand = undefined;
+
       // Revenge filters with `shouldHide?.() !== false` (inverted name): returning
       // false hides the command. Omit shouldHide so /servers always appears, matching
       // core commands like /debug. If you must set it, use () => true to show.
