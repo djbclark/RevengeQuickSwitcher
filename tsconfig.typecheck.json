@@ -8,6 +8,7 @@
     "src/sidebar.ts",
     "src/utils.ts",
     "src/theme.ts",
+    "src/sheets.tsx",
     "src/index.tsx",
     "src/revenge-mod.d.ts",
     "src/**/*.test.ts"

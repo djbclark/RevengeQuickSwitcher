@@ -78,15 +78,26 @@ describe("executeServersCommand", () => {
     expect(deps.showToast).toHaveBeenCalledWith("No servers found", "danger");
   });
 
-  it("returns a paginated server list by default", () => {
+  it("returns a switcher payload by default (sheet-first, markdown fallback)", () => {
     const deps = createDeps();
     const result = executeServersCommand({}, deps);
+    expect(result?.kind).toBe("switcher");
     expect(result?.content).toContain("### Servers (3)");
     expect(result?.content).toContain("• Alpha Guild");
-    expect(result?.kind).toBe("page");
-    if (result?.kind === "page") {
-      expect(result.currentPage).toBe(1);
+    if (result && "items" in result) {
+      expect(result.items).toEqual([
+        { id: "1", name: "Alpha Guild" },
+        { id: "2", name: "Beta Guild" },
+        { id: "3", name: "Wayland High School" },
+      ]);
     }
+  });
+
+  it("returns a paginated page payload when page is set", () => {
+    const deps = createDeps();
+    const result = executeServersCommand({ page: 1 }, deps);
+    expect(result?.kind).toBe("page");
+    expect(result?.content).toContain("### Servers (3)");
   });
 
   it("navigates to a fuzzy-matched guild", () => {
@@ -159,6 +170,12 @@ describe("executeServersCommand", () => {
     expect(result?.content).toContain("Multiple matches");
     expect(result?.content).toContain("• Alpha One");
     expect(result?.content).toContain("• Alpha Two");
+    if (result && "items" in result) {
+      expect(result.items).toEqual([
+        { id: "1", name: "Alpha One" },
+        { id: "2", name: "Alpha Two" },
+      ]);
+    }
   });
 
   it("resolves aliases before searching", () => {
