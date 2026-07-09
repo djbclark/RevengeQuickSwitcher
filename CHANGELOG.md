@@ -14,6 +14,12 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.4.5
+
+- Fix `/servers` never appearing in the slash menu: Revenge treats `shouldHide: () => false` as “hide” (`shouldHide?.() !== false`). Omit `shouldHide` so the command shows.
+- Fill Vendetta/Revenge command metadata (`applicationId`, `type`, `inputType`, display names).
+- Return `{ content }` from list/pick results so Revenge can post the reply.
+
 ## 4.4.4
 
 - Fix main plugin enable after smoke succeeded: transpile bundle to ES2015 (strip `?.` / `??` / `??=` that older Hermes rejects at eval)

@@ -171,7 +171,7 @@ const importAliasesFromClipboard = async () => {
 const handleExec = (rawArgs: unknown) => {
   try {
     debugLog("command invoke", rawArgs);
-    return executeServersCommand(rawArgs, {
+    const result = executeServersCommand(rawArgs, {
       getGuilds: () =>
         Object.values(getGuildStore()?.getGuilds() || {}).map((guild) => ({
           ...guild,
@@ -201,6 +201,11 @@ const handleExec = (rawArgs: unknown) => {
       excludes: storage.excludes || "",
       hideExcludedFromList: !!storage.hideExcludedFromList,
     });
+    // Revenge posts returned objects via messageUtil.sendMessage; only `content` is required.
+    if (result && typeof result === "object" && "content" in result && typeof result.content === "string") {
+      return { content: result.content };
+    }
+    return result;
   } catch (error) {
     logger.error(error);
     showToast("Something went wrong running /servers", "danger");
@@ -450,13 +455,32 @@ const plugin: PluginInstance = {
     }
 
     try {
+      // Revenge filters with `shouldHide?.() !== false` (inverted name): returning
+      // false hides the command. Omit shouldHide so /servers always appears, matching
+      // core commands like /debug. If you must set it, use () => true to show.
       unregisterCommand = registerCommand({
         name: "servers",
         description: "List or jump to servers (fuzzy search, recent, pages)",
-        shouldHide: () => false,
+        applicationId: "-1",
+        type: 1,
+        inputType: 0,
+        displayName: "servers",
+        displayDescription: "List or jump to servers (fuzzy search, recent, pages)",
         options: [
-          { name: "query", type: 3, description: "Search, page number, recent, or r1" },
-          { name: "page", type: 4, description: "Go to a specific page" },
+          {
+            name: "query",
+            type: 3,
+            description: "Search, page number, recent, or r1",
+            displayName: "query",
+            displayDescription: "Search, page number, recent, or r1",
+          },
+          {
+            name: "page",
+            type: 4,
+            description: "Go to a specific page",
+            displayName: "page",
+            displayDescription: "Go to a specific page",
+          },
         ],
         execute: handleExec,
       } as Parameters<typeof registerCommand>[0]);

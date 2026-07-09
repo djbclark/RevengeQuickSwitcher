@@ -16,7 +16,7 @@ Every option below must include an explicit **Risk** value.
 
 | ID | Option | Risk | Why blocked | Notes |
 |----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | Install **smoke/** first, then main plugin from raw URLs. Walk **v4.4.4** checklist in `TESTING.md`. |
+| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | Install **smoke/** first, then main plugin from raw URLs. Walk **v4.4.5** checklist in `TESTING.md`. |
 
 ---
 
@@ -37,6 +37,7 @@ Every option below must include an explicit **Risk** value.
 | **B11** | Fix plugin enable / settings wrench | **Done** (v4.4.2) | **Low** | Command description + resilient onLoad/settings. |
 | **B12** | Vendetta IIFE rebuild + smoke plugin | **Done** (v4.4.3) | **Low** | Match known-working bundle shape; isolate load failures. |
 | **B13** | Main enable after smoke OK | **Done** (v4.4.4) | **Low** | ES2015 Hermes-safe bundle + no eval-time storage/`this`. |
+| **B14** | `/servers` missing from slash menu | **Done** (v4.4.5) | **Low** | Revenge inverted `shouldHide` filter; omit it + fill command metadata. |
 
 ---
 
