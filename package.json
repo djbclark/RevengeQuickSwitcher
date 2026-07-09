@@ -1,9 +1,9 @@
 {
   "name": "revenge-quick-switcher",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js",
+    "build": "node scripts/build.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "verify": "npm run typecheck && npm test && npm run build && node scripts/check-manifest.mjs"
