@@ -100,7 +100,8 @@ Every option below must include an explicit **Risk** value.
 
 **Complexity:** Medium  
 **Risk:** **Medium** — Revenge/Vendetta alert APIs differ by build; must keep markdown fallback (B2).  
-**Fit:** Direct upgrade to B2
+**Fit:** Direct upgrade to B2  
+**Pairs with:** **C8** (full switcher sheet can absorb this)
 
 ### C6 — Export / import aliases
 
@@ -114,6 +115,34 @@ Every option below must include an explicit **Risk** value.
 **Shipped:** Settings text rules (exact name, Discord id, or `~partial`); always skipped by fuzzy search; optional hide from `/servers` list. Recents slots still work for previously recorded ids.
 
 **Risk:** **Low**
+
+### C8 — Dedicated switcher UI (not in-channel)
+
+**What it is:** Open a real UI surface for `/servers` instead of posting bot messages into the current channel.
+
+**Recommendation:** **Yes, pursue a sheet/modal — not a faux DM or fake server.**
+
+| Approach | Verdict | Why |
+|----------|---------|-----|
+| **Action sheet / custom modal** with search field + tappable server rows | **Best fit** | Matches Discord mobile patterns; no channel spam; taps can jump immediately; builds on C5 |
+| **Plugin settings-style screen** pushed onto the nav stack | **Good alternate** | Same React patterns we already use for settings; slightly heavier than a sheet |
+| **Faux bot / DM “person” to talk to** | **Weak** | Still chat UX; typing latency; hard to make feel native; confusing vs real DMs |
+| **Faux Discord server / channel** | **Avoid** | High Metro risk (guild/channel injection), permission/UI edge cases, looks like malware to users, breaks on client updates |
+
+**User-facing shape (preferred):**
+
+1. `/servers` (no args) → opens switcher sheet: search box, recent strip, A–Z list, tap to jump
+2. `/servers query:…` → either jump immediately when unambiguous, or open the sheet pre-filtered
+3. Keep a **fallback** to today’s bot-message list if the sheet API is missing on a given Revenge/Discord build
+4. Optional later: entry from plugin settings (“Open switcher”) so you don’t need slash at all
+
+**Why bother:** In-channel replies clutter chat, feel like a workaround, and make search/jump harder to discover. A sheet is the natural mobile switcher UX.
+
+**Complexity:** Medium (sheet + list + search reuse existing command/search logic)  
+**Risk:** **Medium** — depends on Revenge/Discord alert / action-sheet / navigation APIs that churn; must keep slash + bot-message fallback. Fake server/DM approaches are **High** risk and not worth it.  
+**Fit:** High — this is the long-term home for list, pick-list (C5), recents, and pins (C4)  
+**Depends on / pairs with:** C5, C4, A1 (device QA of sheet APIs)
+
 ---
 
 ## D — Engineering / maintenance
