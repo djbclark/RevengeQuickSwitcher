@@ -16,7 +16,7 @@ Every option below must include an explicit **Risk** value.
 
 | ID | Option | Risk | Why blocked | Notes |
 |----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | Walk the **v4.4.1** checklist at the bottom of `TESTING.md` using the **raw** install URL. |
+| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | Walk the **v4.4.2** checklist at the bottom of `TESTING.md` using the **raw** install URL. |
 
 ---
 
@@ -34,6 +34,7 @@ Every option below must include an explicit **Risk** value.
 | **B8** | Recent-servers jump (low-risk) | **Done** (v4.3.0) | **Low** | History only when this plugin navigates; no guild-select hooks. |
 | **B9** | Mute / exclude servers | **Done** (v4.4.0) | **Low** | Name/id/`~partial` rules; optional hide from list. |
 | **B10** | Fix Revenge install URL / polymanifest | **Done** (v4.4.1) | **Low** | Raw GitHub URL + Vendetta-compatible bundle/`hash`. |
+| **B11** | Fix plugin enable / settings wrench | **Done** (v4.4.2) | **Low** | Command description + resilient onLoad/settings. |
 
 ---
 
