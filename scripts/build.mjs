@@ -2,26 +2,32 @@ import * as esbuild from "esbuild";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 
+/**
+ * Build a classic Vendetta/Revenge plugin bundle.
+ * Working plugins look like:
+ *   (function(exports, ...){ ...; return exports.default=plugin, exports })({}, vendetta.metro, ...)
+ * Revenge evals: vendetta => { return <plugin.js> }
+ */
 const vendettaShimPlugin = {
   name: "vendetta-shim",
   setup(build) {
     const loaders = {
-      "@revenge-mod/metro": "module.exports = vendetta.metro;",
-      "@revenge-mod/patcher": "module.exports = vendetta.patcher;",
+      "@revenge-mod/metro": "module.exports = __vd.metro;",
+      "@revenge-mod/patcher": "module.exports = __vd.patcher;",
       "@revenge-mod/ui/toast": `
         module.exports = {
           showToast(message, _type) {
-            return vendetta.ui.toasts.showToast(String(message));
+            return __vd.ui.toasts.showToast(String(message));
           }
         };
       `,
-      "@revenge-mod": "module.exports = vendetta;",
-      "@revenge-mod/commands": "module.exports = vendetta.commands;",
-      "@revenge-mod/plugin": "module.exports = vendetta.plugin;",
-      "@revenge-mod/storage": "module.exports = vendetta.storage;",
-      "@revenge-mod/ui/components": "module.exports = vendetta.ui.components;",
-      react: "module.exports = vendetta.metro.common.React;",
-      "react-native": "module.exports = vendetta.metro.common.ReactNative;",
+      "@revenge-mod": "module.exports = __vd;",
+      "@revenge-mod/commands": "module.exports = __vd.commands;",
+      "@revenge-mod/plugin": "module.exports = __vd.plugin;",
+      "@revenge-mod/storage": "module.exports = __vd.storage;",
+      "@revenge-mod/ui/components": "module.exports = __vd.ui.components;",
+      react: "module.exports = __vd.metro.common.React;",
+      "react-native": "module.exports = __vd.metro.common.ReactNative;",
     };
 
     build.onResolve({ filter: /.*/ }, (args) => {
@@ -51,11 +57,21 @@ const result = await esbuild.build({
 });
 
 const bundled = result.outputFiles[0].text;
-// Vendetta evals: vendetta => { return <plugin.js> }
+
+// Match the shape of known-working Revenge plugins (IIFE closing over `vendetta`).
 const wrapped =
-  "(()=>{const module={exports:{}};const exports=module.exports;" +
+  "(function(exports){" +
+  "var __vd=vendetta;" +
+  "var module={exports:exports};" +
   bundled +
-  ";return module.exports.default??module.exports;})()";
+  ";if(module.exports&&module.exports.__esModule&&module.exports.default!=null)" +
+  "{exports.default=module.exports.default;}" +
+  "else if(module.exports&&module.exports.default!=null)" +
+  "{exports.default=module.exports.default;}" +
+  "else{exports.default=module.exports;}" +
+  "Object.defineProperty(exports,'__esModule',{value:!0});" +
+  "return exports;" +
+  "})({})";
 
 writeFileSync("dist/index.js", wrapped);
 
