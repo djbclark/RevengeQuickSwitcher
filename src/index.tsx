@@ -40,6 +40,10 @@ type NavigationModule = {
   replace?: (route: string, params: { guildId: string }) => void;
 };
 
+type FluxDispatcherModule = {
+  dispatch?: (payload: { type: string; guildId?: string; guild_id?: string }) => void;
+};
+
 type ClipboardModule = {
   setString?: (text: string) => void;
   getString?: () => Promise<string>;
@@ -71,6 +75,7 @@ let _Router: RouterModule | undefined;
 let _Navigation: NavigationModule | undefined;
 let _Clipboard: ClipboardModule | undefined;
 let _MessageUtil: MessageUtilModule | undefined;
+let _FluxDispatcher: FluxDispatcherModule | undefined;
 
 const getGuildStore = () => (_GuildStore ??= findByProps("getGuild", "getGuilds") as GuildStore | undefined);
 const getSortedGuildStore = () =>
@@ -83,6 +88,46 @@ const getClipboard = () =>
   (_Clipboard ??= findByProps("setString", "getString") as ClipboardModule | undefined);
 const getMessageUtil = () =>
   (_MessageUtil ??= findByProps("sendBotMessage") as MessageUtilModule | undefined);
+const getFluxDispatcher = () =>
+  (_FluxDispatcher ??= findByProps("dispatch", "subscribe") as FluxDispatcherModule | undefined);
+
+const navigateToGuild = (id: string): boolean => {
+  const Router = getRouter();
+  const Navigation = getNavigation();
+  const FluxDispatcher = getFluxDispatcher();
+  debugLog("navigateToGuild", {
+    id,
+    hasTransition: typeof Router?.transitionToGuild === "function",
+    hasSelect: typeof Router?.selectGuild === "function",
+    hasNavPush: typeof Navigation?.push === "function",
+    hasDispatch: typeof FluxDispatcher?.dispatch === "function",
+  });
+
+  const attempts: Array<[string, () => void]> = [
+    ["transitionToGuild", () => Router!.transitionToGuild!(id)],
+    ["selectGuild", () => Router!.selectGuild!(id)],
+    ["GUILD_SELECT", () => FluxDispatcher!.dispatch!({ type: "GUILD_SELECT", guildId: id })],
+    ["SELECT_GUILD", () => FluxDispatcher!.dispatch!({ type: "SELECT_GUILD", guildId: id })],
+    ["Navigation.push", () => Navigation!.push!("Guild", { guildId: id })],
+  ];
+
+  for (const [label, run] of attempts) {
+    try {
+      if (label === "transitionToGuild" && typeof Router?.transitionToGuild !== "function") continue;
+      if (label === "selectGuild" && typeof Router?.selectGuild !== "function") continue;
+      if ((label === "GUILD_SELECT" || label === "SELECT_GUILD") && typeof FluxDispatcher?.dispatch !== "function") {
+        continue;
+      }
+      if (label === "Navigation.push" && typeof Navigation?.push !== "function") continue;
+      run();
+      debugLog("navigateToGuild succeeded", label);
+      return true;
+    } catch (error) {
+      debugLog("navigateToGuild attempt failed", label, error);
+    }
+  }
+  return false;
+};
 
 /** Post command output locally (same path as Revenge /debug ephemeral). */
 const postCommandReply = (channelId: string | undefined, content: string) => {
@@ -201,7 +246,28 @@ const importAliasesFromClipboard = async () => {
 
 const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
   try {
+    // Log invoke shape so device QA can diagnose option parsing (info may be a no-op).
+    try {
+      logger.info?.(
+        "[QuickSwitcher] command invoke",
+        Array.isArray(rawArgs)
+          ? rawArgs.map((arg) =>
+              arg && typeof arg === "object"
+                ? {
+                    name: (arg as { name?: string }).name,
+                    value: (arg as { value?: unknown }).value,
+                    keys: Object.keys(arg as object),
+                  }
+                : arg
+            )
+          : rawArgs
+      );
+    } catch {
+      /* ignore */
+    }
     debugLog("command invoke", rawArgs);
+
+    const navigated: { ok: boolean } = { ok: false };
     const result = executeServersCommand(rawArgs, {
       getGuilds: () =>
         Object.values(getGuildStore()?.getGuilds() || {}).map((guild) => ({
@@ -210,18 +276,8 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
         })),
       aliases: storage.aliases || "",
       navigateToGuild: (id) => {
-        const Router = getRouter();
-        const Navigation = getNavigation();
-        debugLog("navigateToGuild", {
-          id,
-          hasRouter: !!Router?.transitionToGuild,
-          hasNav: !!Navigation?.push,
-        });
-        if (Router?.transitionToGuild) {
-          Router.transitionToGuild(id);
-        } else if (Navigation?.push) {
-          Navigation.push("Guild", { guildId: id });
-        } else {
+        navigated.ok = navigateToGuild(id);
+        if (!navigated.ok) {
           showToast("Could not navigate to server", "danger");
         }
       },
@@ -232,14 +288,27 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
       excludes: storage.excludes || "",
       hideExcludedFromList: !!storage.hideExcludedFromList,
     });
-    // Do not rely on Revenge's return→sendMessage wrapper (often fails without a nonce).
-    // Post locally like /debug ephemeral so the list is visible in-channel.
+
+    // Always post a visible in-channel reply for list/pick/jump/error so query
+    // mode is never a silent no-op (page mode already worked via this path).
     if (result && typeof result === "object" && "content" in result && typeof result.content === "string") {
-      postCommandReply(ctx?.channel?.id, result.content);
+      let content = result.content;
+      if ("kind" in result && result.kind === "jump" && !navigated.ok) {
+        content = `${content}\n_(navigation API unavailable — enable Debug Logging and check logs)_`;
+      }
+      postCommandReply(ctx?.channel?.id, content);
+      return;
     }
+
+    showToast("No /servers output — use the query or page options from the slash menu", "danger");
   } catch (error) {
     logger.error(error);
     showToast("Something went wrong running /servers", "danger");
+    try {
+      postCommandReply(ctx?.channel?.id, `Quick Switcher error: ${String(error)}`);
+    } catch {
+      /* ignore */
+    }
   }
 };
 
@@ -513,6 +582,7 @@ const plugin: PluginInstance = {
             description: "Search, page number, recent, or r1",
             displayName: "query",
             displayDescription: "Search, page number, recent, or r1",
+            required: false,
           },
           {
             name: "page",
@@ -520,6 +590,7 @@ const plugin: PluginInstance = {
             description: "Go to a specific page",
             displayName: "page",
             displayDescription: "Go to a specific page",
+            required: false,
           },
         ],
         execute: handleExec,

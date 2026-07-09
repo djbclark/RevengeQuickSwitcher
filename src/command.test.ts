@@ -33,6 +33,22 @@ describe("parseCommandArgs", () => {
     });
   });
 
+  it("reads nested option values", () => {
+    expect(
+      parseCommandArgs([{ name: "query", value: { value: "alpha" } }, { name: "page", value: { value: 2 } }])
+    ).toEqual({
+      query: "alpha",
+      page: 2,
+    });
+  });
+
+  it("falls back to positional filled options when names are missing", () => {
+    expect(parseCommandArgs([{ value: "wayland" }])).toEqual({
+      query: "wayland",
+      page: null,
+    });
+  });
+
   it("treats numeric query as a page number", () => {
     expect(parseCommandArgs({ query: "2" })).toEqual({
       query: null,
@@ -76,10 +92,27 @@ describe("executeServersCommand", () => {
   it("navigates to a fuzzy-matched guild", () => {
     const recordRecent = vi.fn();
     const deps = createDeps({ recordRecent });
-    executeServersCommand({ query: "wsh" }, deps);
+    const result = executeServersCommand({ query: "wsh" }, deps);
     expect(deps.navigateToGuild).toHaveBeenCalledWith("3");
     expect(recordRecent).toHaveBeenCalledWith("3");
     expect(deps.showToast).toHaveBeenCalledWith("Jumped to Wayland High School", "success");
+    expect(result?.kind).toBe("jump");
+    expect(result?.content).toContain("Wayland High School");
+  });
+
+  it("returns visible content when no match is found", () => {
+    const deps = createDeps();
+    const result = executeServersCommand({ query: "zzzznotaserver" }, deps);
+    expect(deps.showToast).toHaveBeenCalledWith("No match found", "danger");
+    expect(result?.kind).toBe("error");
+    expect(result?.content).toContain("No match");
+  });
+
+  it("reads revenge-style array args for query jumps", () => {
+    const deps = createDeps();
+    const result = executeServersCommand([{ name: "query", value: "wsh", type: 3 }], deps);
+    expect(deps.navigateToGuild).toHaveBeenCalledWith("3");
+    expect(result?.kind).toBe("jump");
   });
 
   it("lists recent servers from stored ids", () => {

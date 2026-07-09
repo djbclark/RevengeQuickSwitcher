@@ -21,18 +21,55 @@ export type ServersCommandDeps = {
   hideExcludedFromList?: boolean;
 };
 
-type CommandArg = { name: string; value: unknown };
+type CommandArg = { name?: string; value?: unknown; type?: number; [key: string]: unknown };
+
+/** Discord/Revenge option values are usually primitives, but clients sometimes nest them. */
+export const unwrapArgValue = (value: unknown): unknown => {
+  if (value == null) return null;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if ("value" in record) return unwrapArgValue(record.value);
+    if (typeof record.text === "string") return record.text;
+    if (typeof record.label === "string") return record.label;
+  }
+  return value;
+};
+
+const normalizeArgList = (rawArgs: unknown): CommandArg[] => {
+  if (rawArgs == null) return [];
+  if (Array.isArray(rawArgs)) return rawArgs as CommandArg[];
+  if (typeof rawArgs === "object") {
+    return Object.keys(rawArgs as Record<string, unknown>).map((name) => ({
+      name,
+      value: (rawArgs as Record<string, unknown>)[name],
+    }));
+  }
+  return [];
+};
 
 export const parseCommandArgs = (rawArgs: unknown) => {
-  const args: CommandArg[] = Array.isArray(rawArgs)
-    ? rawArgs
-    : Object.keys((rawArgs as Record<string, unknown>) || {}).map((name) => ({
-        name,
-        value: (rawArgs as Record<string, unknown>)[name],
-      }));
+  const args = normalizeArgList(rawArgs);
 
-  let query = args.find((arg) => arg.name === "query")?.value;
-  let page = args.find((arg) => arg.name === "page")?.value;
+  const namedQuery = args.find((arg) => arg?.name === "query");
+  const namedPage = args.find((arg) => arg?.name === "page");
+
+  let query = unwrapArgValue(namedQuery?.value);
+  let page = unwrapArgValue(namedPage?.value);
+
+  // Some clients omit `name` and only pass filled options in order (query, page).
+  if (query == null && page == null && args.length > 0) {
+    const first = unwrapArgValue(args[0]?.value ?? args[0]);
+    const second = args.length > 1 ? unwrapArgValue(args[1]?.value ?? args[1]) : null;
+    if (typeof first === "number" || (typeof first === "string" && /^\d+$/.test(first.trim()))) {
+      page = first;
+    } else if (first != null && first !== "") {
+      query = first;
+      if (second != null && second !== "") page = second;
+    }
+  }
 
   if (page == null && query != null && /^\d+$/.test(String(query).trim())) {
     page = parseInt(String(query).trim(), 10);
@@ -42,7 +79,7 @@ export const parseCommandArgs = (rawArgs: unknown) => {
   const pageNumber = page != null ? Number(page) : null;
 
   return {
-    query: query != null ? String(query) : null,
+    query: query != null && String(query).length > 0 ? String(query) : null,
     page: pageNumber != null && Number.isFinite(pageNumber) ? pageNumber : null,
   };
 };
@@ -55,11 +92,16 @@ const jumpToGuild = (
   const id = Utils.resolveGuildId(guild);
   if (!id) {
     deps.showToast("Could not resolve server id", "danger");
-    return;
+    return { kind: "error" as const, content: "Could not resolve server id" };
   }
   deps.navigateToGuild(id);
   deps.recordRecent?.(id);
-  deps.showToast(successMessage ?? `Jumped to ${Utils.sanitizeName(guild.name)}`, "success");
+  const name = Utils.sanitizeName(guild.name);
+  const message = successMessage ?? `Jumped to ${name}`;
+  deps.showToast(message, "success");
+  // Always return content so the host can post a visible in-channel confirmation
+  // (toasts alone are easy to miss / sometimes no-op on mobile).
+  return { kind: "jump" as const, content: `→ **${Utils.escapeMarkdown(name)}**`, id, name };
 };
 
 export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps) => {
@@ -124,13 +166,12 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
         deps.showToast("Could not resolve server id", "danger");
         return;
       }
-      jumpToGuild(deps, guild);
-      return;
+      return jumpToGuild(deps, guild);
     }
 
     if (!searchableGuilds.length) {
       deps.showToast("All servers are excluded", "danger");
-      return;
+      return { kind: "error" as const, content: "All servers are excluded" };
     }
 
     const aliasMap = Utils.parseAliases(deps.aliases);
@@ -140,7 +181,7 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
 
     if (matches.length === 0) {
       deps.showToast("No match found", "danger");
-      return;
+      return { kind: "error" as const, content: `No match for \`${Utils.escapeMarkdown(trimmed)}\`` };
     }
 
     if (matches.length > 1) {
@@ -151,8 +192,7 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
       );
     }
 
-    jumpToGuild(deps, matches[0].original);
-    return;
+    return jumpToGuild(deps, matches[0].original);
   }
 
   if (!listGuilds.length) {

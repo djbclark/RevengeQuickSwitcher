@@ -48,7 +48,7 @@ All steps exit with code 0. You should see:
 ```
 Tests  86 passed (86)
 dist/index.js  ~18kb
-manifest ok (v4.4.6)
+manifest ok (v4.4.7)
 ```
 
 ### Individual commands
@@ -81,6 +81,9 @@ If local verification fails, fix the issue before testing on device.
 ---
 
 ## Part 3 — `/servers` command
+
+**How to invoke options on mobile:** type `/`, tap **servers**, then fill the **query** and/or **page** fields in the slash UI and send. Typing plain text like `/servers something` is *not* a slash command — Discord will just post that string.
+
 
 ### 3.1 List servers (default)
 
@@ -366,7 +369,7 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.4.6** |
+| Version | Check plugin metadata if Revenge shows it | **4.4.7** |
 | Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
 | Excluded search | Exclude one of two similar names, query shared fragment | Only non-excluded server matches |
 | Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
@@ -388,7 +391,7 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 
 ---
 
-## Quick checklist — v4.4.6 device QA (A1)
+## Quick checklist — v4.4.7 device QA (A1)
 
 Copy this for the release candidate. Prefer a fresh plugin install/update from the **raw** GitHub URL, then full Discord reload.
 
@@ -398,7 +401,7 @@ Copy this for the release candidate. Prefer a fresh plugin install/update from t
 
 ```
 [ ] make verify — all green locally (or CI green on main)
-[ ] Plugin installs / updates on Revenge without crash (shows 4.4.6 if version visible)
+[ ] Plugin installs / updates on Revenge without crash (shows 4.4.7 if version visible)
   Install URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/
 [ ] Smoke plugin installs and ENABLES (toggle on, no X)
   Smoke URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/

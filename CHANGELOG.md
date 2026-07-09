@@ -14,6 +14,12 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.4.7
+
+- Fix `/servers query:…` looking like a no-op: jumps/errors now post an in-channel bot reply (same path as the working page list)
+- Harden option parsing for nested/positional Revenge/Discord arg shapes
+- Try multiple guild navigation APIs (`transitionToGuild`, `selectGuild`, Flux `GUILD_SELECT` / `SELECT_GUILD`, nav push)
+
 ## 4.4.6
 
 - Post `/servers` list/pick replies via `sendBotMessage` (same path as Revenge `/debug` ephemeral) so the list appears in-channel instead of silently failing
