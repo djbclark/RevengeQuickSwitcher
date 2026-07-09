@@ -1,6 +1,6 @@
 {
   "name": "revenge-quick-switcher",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "main": "dist/index.js",
   "scripts": {
     "build": "esbuild src/index.tsx --bundle --minify --format=esm --external:react --external:react-native --external:@revenge-mod --external:@revenge-mod/* --outfile=dist/index.js",

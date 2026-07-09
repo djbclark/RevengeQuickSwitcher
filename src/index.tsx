@@ -10,6 +10,13 @@ import { Forms } from "@revenge-mod/ui/components";
 import { Pressable, ScrollView, TextInput, Text, View } from "react-native";
 import { countAliasEntries, mergeAliasText, normalizeAliasText } from "./aliases";
 import { executeServersCommand } from "./command";
+import {
+  clampRecentHistorySize,
+  DEFAULT_RECENT_HISTORY_SIZE,
+  parseRecentIds,
+  pushRecentId,
+  serializeRecentIds,
+} from "./recents";
 import { SidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
 import { getSettingsThemeColors } from "./theme";
 
@@ -60,6 +67,8 @@ const getClipboard = () =>
 if (storage.flatSidebar === undefined) storage.flatSidebar = false;
 if (storage.aliases === undefined) storage.aliases = "";
 if (storage.debugLogging === undefined) storage.debugLogging = false;
+if (storage.recentIds === undefined) storage.recentIds = "[]";
+if (storage.recentHistorySize === undefined) storage.recentHistorySize = DEFAULT_RECENT_HISTORY_SIZE;
 
 let sidebarCache = new SidebarCache<SidebarNode>();
 let warnedMissingSortedGuildStore = false;
@@ -76,6 +85,20 @@ const debugLog = (message: string, ...args: unknown[]) => {
   } else {
     logger.error(`[QuickSwitcher:debug] ${message}`, ...args);
   }
+};
+
+const getStoredRecentIds = () => parseRecentIds(storage.recentIds);
+
+const recordRecentJump = (id: string) => {
+  const next = pushRecentId(getStoredRecentIds(), id, storage.recentHistorySize ?? DEFAULT_RECENT_HISTORY_SIZE);
+  storage.recentIds = serializeRecentIds(next);
+  debugLog("recordRecent", { id, size: next.length });
+};
+
+const clearRecentHistory = () => {
+  storage.recentIds = "[]";
+  showToast("Recent history cleared", "success");
+  debugLog("clearRecentHistory");
 };
 
 const copyAliasesToClipboard = () => {
@@ -148,6 +171,8 @@ const handleExec = (rawArgs: unknown) => {
       },
       showToast,
       debugLog,
+      getRecentIds: getStoredRecentIds,
+      recordRecent: recordRecentJump,
     });
   } catch (error) {
     logger.error(error);
@@ -167,6 +192,8 @@ const plugin: PluginInstance = {
   settings: () => {
     useProxy(storage);
     const colors = getSettingsThemeColors();
+    const historySize = clampRecentHistorySize(storage.recentHistorySize);
+    const recentCount = getStoredRecentIds().length;
     const actionStyle = {
       flex: 1,
       marginHorizontal: 4,
@@ -196,6 +223,60 @@ const plugin: PluginInstance = {
             if (value) debugLog("debug logging enabled");
           }}
         />
+        <Text
+          style={{
+            marginHorizontal: 16,
+            marginTop: 16,
+            color: colors.textMuted,
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            fontSize: 12,
+          }}
+        >
+          Recent servers
+        </Text>
+        <Text style={{ marginHorizontal: 16, marginTop: 4, color: colors.textFaint, fontSize: 12 }}>
+          Recorded only when this plugin jumps you. Use /servers recent or /servers r1.
+        </Text>
+        <Text style={{ marginHorizontal: 16, marginTop: 12, color: colors.textFaint, fontSize: 12 }}>
+          History size (1–15)
+        </Text>
+        <TextInput
+          style={{
+            marginHorizontal: 16,
+            marginTop: 4,
+            marginBottom: 8,
+            padding: 12,
+            backgroundColor: colors.backgroundSecondary,
+            color: colors.textNormal,
+            borderRadius: 8,
+          }}
+          keyboardType="number-pad"
+          value={String(historySize)}
+          onChangeText={(value: string) => {
+            const digits = value.replace(/[^\d]/g, "");
+            if (!digits) {
+              storage.recentHistorySize = DEFAULT_RECENT_HISTORY_SIZE;
+              return;
+            }
+            const nextSize = clampRecentHistorySize(parseInt(digits, 10));
+            storage.recentHistorySize = nextSize;
+            storage.recentIds = serializeRecentIds(getStoredRecentIds().slice(0, nextSize));
+          }}
+        />
+        <Text style={{ marginHorizontal: 16, marginBottom: 8, color: colors.textFaint, fontSize: 12 }}>
+          {recentCount} stored · shrinking the size trims oldest entries
+        </Text>
+        <View style={{ flexDirection: "row", marginHorizontal: 12, marginBottom: 8 }}>
+          <Pressable
+            style={actionStyle}
+            onPress={clearRecentHistory}
+            accessibilityRole="button"
+            accessibilityLabel="Clear recent server history"
+          >
+            <Text style={{ color: colors.textNormal, fontWeight: "600" }}>Clear recent</Text>
+          </Pressable>
+        </View>
         <Text
           style={{
             marginHorizontal: 16,
@@ -263,7 +344,7 @@ const plugin: PluginInstance = {
     this._unreg = registerCommand({
       name: "servers",
       options: [
-        { name: "query", type: 3, description: "Search term OR page number" },
+        { name: "query", type: 3, description: "Search, page number, recent, or r1" },
         { name: "page", type: 4, description: "Go to a specific page" },
       ],
       execute: handleExec,

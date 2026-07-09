@@ -3,6 +3,7 @@
   "include": [
     "src/aliases.ts",
     "src/command.ts",
+    "src/recents.ts",
     "src/sidebar.ts",
     "src/utils.ts",
     "src/theme.ts",

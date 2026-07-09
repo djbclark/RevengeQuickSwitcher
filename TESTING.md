@@ -46,9 +46,9 @@ This runs, in order:
 All steps exit with code 0. You should see:
 
 ```
-Tests  68 passed (68)
-dist/index.js  ~10kb
-manifest ok (v4.2.0)
+Tests  78 passed (78)
+dist/index.js  ~13kb
+manifest ok (v4.3.0)
 ```
 
 ### Individual commands
@@ -122,6 +122,46 @@ If local verification fails, fix the issue before testing on device.
 **Expected**
 
 - Behaves like pagination, not a server name search.
+
+---
+
+## Part 4b — Recent servers
+
+### 4b.1 Build history via plugin jumps
+
+**Steps**
+
+1. Run `/servers query:<known server>` for two different servers.
+2. Run `/servers recent`.
+
+**Expected**
+
+- Numbered list of those servers (most recent first).
+- Each line shows a `/servers rN` hint.
+- History does **not** change when you switch servers only via Discord’s normal sidebar (low-risk mode).
+
+### 4b.2 Jump via slot
+
+**Steps**
+
+1. From a populated recent list, run `/servers r1`.
+
+**Expected**
+
+- Navigates to that server + success toast.
+- Running `/servers recent` again shows that server still (or again) at the top.
+
+### 4b.3 Clear / size
+
+**Steps**
+
+1. In settings, tap **Clear recent**, then `/servers recent`.
+2. Optionally change history size and confirm the stored count trims.
+
+**Expected**
+
+- Empty-history message after clear.
+- Size field accepts 1–15.
 
 ---
 
@@ -282,7 +322,7 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.2.0** |
+| Version | Check plugin metadata if Revenge shows it | **4.3.0** |
 | Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
 | Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
 
@@ -310,6 +350,7 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 [ ] Plugin installs / updates on Revenge without crash
 [ ] /servers — alphabetical list, correct count
 [ ] /servers 2 — pagination (if 41+ servers)
+[ ] /servers recent + r1 — history from plugin jumps only
 [ ] /servers query:<fuzzy> — jumps to server + success toast
 [ ] /servers query:<shared-prefix> — pick list, no jump
 [ ] /servers query:<unknown> — "No match found"

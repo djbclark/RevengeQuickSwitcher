@@ -1,3 +1,4 @@
+import * as Recents from "./recents";
 import * as Utils from "./utils";
 
 export type GuildRecord = {
@@ -13,6 +14,8 @@ export type ServersCommandDeps = {
   navigateToGuild: (id: string) => void;
   showToast: (message: string, type?: string) => void;
   debugLog?: (message: string, ...args: unknown[]) => void;
+  getRecentIds?: () => string[];
+  recordRecent?: (id: string) => void;
 };
 
 type CommandArg = { name: string; value: unknown };
@@ -41,6 +44,21 @@ export const parseCommandArgs = (rawArgs: unknown) => {
   };
 };
 
+const jumpToGuild = (
+  deps: ServersCommandDeps,
+  guild: GuildRecord,
+  successMessage?: string
+) => {
+  const id = Utils.resolveGuildId(guild);
+  if (!id) {
+    deps.showToast("Could not resolve server id", "danger");
+    return;
+  }
+  deps.navigateToGuild(id);
+  deps.recordRecent?.(id);
+  deps.showToast(successMessage ?? `Jumped to ${Utils.sanitizeName(guild.name)}`, "success");
+};
+
 export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps) => {
   const { query, page } = parseCommandArgs(rawArgs);
   const guilds = deps.getGuilds();
@@ -64,9 +82,40 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
     })
     .sort((a, b) => a.sanitized.localeCompare(b.sanitized, undefined, { sensitivity: "base" }));
 
+  const guildsById = new Map(
+    mappedGuilds.filter((item) => item.id).map((item) => [item.id, item.original])
+  );
+
   if (query?.trim()) {
+    const trimmed = query.trim();
+
+    if (Recents.isRecentListQuery(trimmed)) {
+      const recentIds = deps.getRecentIds?.() ?? [];
+      const entries = Recents.resolveRecentEntries(recentIds, guildsById);
+      deps.debugLog?.("recent list", { stored: recentIds.length, resolved: entries.length });
+      return Recents.formatRecentList(entries);
+    }
+
+    const recentSlot = Recents.parseRecentSlot(trimmed);
+    if (recentSlot != null) {
+      const recentIds = deps.getRecentIds?.() ?? [];
+      const entries = Recents.resolveRecentEntries(recentIds, guildsById);
+      const entry = entries[recentSlot - 1];
+      if (!entry) {
+        deps.showToast(`No recent server in slot r${recentSlot}`, "danger");
+        return;
+      }
+      const guild = guildsById.get(entry.id);
+      if (!guild) {
+        deps.showToast("Could not resolve server id", "danger");
+        return;
+      }
+      jumpToGuild(deps, guild);
+      return;
+    }
+
     const aliasMap = Utils.parseAliases(deps.aliases);
-    const normalizedQuery = Utils.resolveSearchQuery(query.trim(), aliasMap);
+    const normalizedQuery = Utils.resolveSearchQuery(trimmed, aliasMap);
     const { matches, score } = Utils.findBestMatches(normalizedQuery, mappedGuilds);
     deps.debugLog?.("search", { normalizedQuery, score, matchCount: matches.length });
 
@@ -78,19 +127,12 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
     if (matches.length > 1) {
       deps.showToast(`${matches.length} matches — refine your query`, "danger");
       return Utils.formatMatchPickList(
-        query.trim(),
+        trimmed,
         matches.map((match) => match.sanitized)
       );
     }
 
-    const bestMatch = matches[0].original;
-    const id = Utils.resolveGuildId(bestMatch);
-    if (id) {
-      deps.navigateToGuild(id);
-      deps.showToast(`Jumped to ${Utils.sanitizeName(bestMatch.name)}`, "success");
-    } else {
-      deps.showToast("Could not resolve server id", "danger");
-    }
+    jumpToGuild(deps, matches[0].original);
     return;
   }
 

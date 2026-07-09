@@ -74,10 +74,41 @@ describe("executeServersCommand", () => {
   });
 
   it("navigates to a fuzzy-matched guild", () => {
-    const deps = createDeps();
+    const recordRecent = vi.fn();
+    const deps = createDeps({ recordRecent });
     executeServersCommand({ query: "wsh" }, deps);
     expect(deps.navigateToGuild).toHaveBeenCalledWith("3");
+    expect(recordRecent).toHaveBeenCalledWith("3");
     expect(deps.showToast).toHaveBeenCalledWith("Jumped to Wayland High School", "success");
+  });
+
+  it("lists recent servers from stored ids", () => {
+    const deps = createDeps({
+      getRecentIds: () => ["3", "1"],
+    });
+    const result = executeServersCommand({ query: "recent" }, deps);
+    expect(result?.kind).toBe("recent-list");
+    expect(result?.content).toContain("Wayland High School");
+    expect(result?.content).toContain("`/servers r1`");
+    expect(deps.navigateToGuild).not.toHaveBeenCalled();
+  });
+
+  it("jumps to a recent slot and records it again", () => {
+    const recordRecent = vi.fn();
+    const deps = createDeps({
+      getRecentIds: () => ["2", "3"],
+      recordRecent,
+    });
+    executeServersCommand({ query: "r2" }, deps);
+    expect(deps.navigateToGuild).toHaveBeenCalledWith("3");
+    expect(recordRecent).toHaveBeenCalledWith("3");
+  });
+
+  it("reports when a recent slot is empty", () => {
+    const deps = createDeps({ getRecentIds: () => ["1"] });
+    executeServersCommand({ query: "r3" }, deps);
+    expect(deps.showToast).toHaveBeenCalledWith("No recent server in slot r3", "danger");
+    expect(deps.navigateToGuild).not.toHaveBeenCalled();
   });
 
   it("returns a pick list when multiple servers share the best score", () => {

@@ -12,7 +12,13 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 ## [Unreleased]
 
-- Expand C1/C4 detail in `OPTIONS.md` and require Risk on every backlog item
+_Nothing yet._
+
+## 4.3.0
+
+- Low-risk recent-servers history: record only when this plugin jumps
+- `/servers recent` list and `/servers rN` slot jump
+- Settings for history size (1–15) and clear recent
 
 ## 4.2.0
 

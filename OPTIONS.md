@@ -31,6 +31,7 @@ Every option below must include an explicit **Risk** value.
 | **B5** | Versioned release | **Done** (v4.1.0) | **Low** | GitHub tag + release notes. |
 | **B6** | Changelog + semver policy | **Done** | **Low** | Documented in `CHANGELOG.md`. |
 | **B7** | Export / import aliases | **Done** (v4.2.0) | **Medium** | Clipboard APIs vary; toast if unavailable. |
+| **B8** | Recent-servers jump (low-risk) | **Done** (v4.3.0) | **Low** | History only when this plugin navigates; no guild-select hooks. |
 
 ---
 
@@ -38,22 +39,14 @@ Every option below must include an explicit **Risk** value.
 
 ### C1 — Recent-servers jump
 
-**What it is:** Remember the last N servers you actually opened, then jump back to them quickly without retyping a fuzzy query.
+**Status:** **Done** (v4.3.0, low-risk path) — see B8.
 
-**User-facing shape:**
+**Shipped:** `/servers recent`, `/servers rN`, history size + clear in settings. History updates only when Quick Server Switcher successfully jumps.
 
-- `/servers recent` — numbered list of recent guilds
-- `/servers query:r1` (or `r2`…) — jump to that recent slot
-- Settings: history size (e.g. 5–15), clear history
+**Possible follow-up (not scheduled):** auto-track via guild-select Metro hooks.
 
-**How it would work:** Persist an ordered list of guild IDs in plugin storage. Append/update whenever the user navigates to a guild (patch guild-select / `transitionToGuild`, or poll the selected-guild store). Deduplicate and cap length.
-
-**Why bother:** Fuzzy search helps when you remember a name fragment. Recent history helps when you bounce between the same few servers all day—closer to a true “quick switcher.”
-
-**Complexity:** Medium  
-**Risk:** **Medium–High** for automatic tracking (depends on Discord Metro modules for “current guild” / select hooks; those churn). **Low** if v1 is manual-only (“mark current as recent” / record only when `/servers` successfully jumps). Prefer starting with the low-risk path, then add auto-track behind debug logging.  
-**Fit:** High — core to the product name/positioning  
-**Depends on / pairs with:** C4 (pins stay sticky; recents stay temporal), C5 (if recent list is shown as a picker)
+**Risk (follow-up):** **Medium–High** — Discord “current guild” / select modules churn.  
+**Risk (shipped path):** **Low**
 
 ### C2 — Channel search / jump
 
