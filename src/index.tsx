@@ -46,11 +46,6 @@ type ChannelIdStore = {
   getChannelId?: (guildId?: string) => string | undefined | null;
 };
 
-type ChannelActionsModule = {
-  selectChannel?: (guildId: string, channelId: string) => void;
-  selectVoiceChannel?: (channelId: string) => void;
-};
-
 type SelectedGuildStore = {
   getGuildId?: () => string | undefined | null;
 };
@@ -87,14 +82,16 @@ let _Clipboard: ClipboardModule | undefined;
 let _MessageUtil: MessageUtilModule | undefined;
 let _FluxDispatcher: FluxDispatcherModule | undefined;
 let _ChannelIdStore: ChannelIdStore | undefined;
-let _ChannelActions: ChannelActionsModule | undefined;
 let _SelectedGuildStore: SelectedGuildStore | undefined;
 
 const getGuildStore = () => (_GuildStore ??= findByProps("getGuild", "getGuilds") as GuildStore | undefined);
 const getSortedGuildStore = () =>
   (_SortedGuildStore ??= findByProps("getSortedGuilds") as SortedGuildStore | undefined);
 const getGuildActions = () =>
-  (_GuildActions ??= findByProps("transitionToGuild", "selectGuild") as GuildActionsModule | undefined);
+  (_GuildActions ??=
+    (findByProps("transitionToGuild", "selectGuild") as GuildActionsModule | undefined) ||
+    (findByProps("selectGuild") as GuildActionsModule | undefined) ||
+    (findByProps("transitionToGuild") as GuildActionsModule | undefined));
 const getClipboard = () =>
   (_Clipboard ??= findByProps("setString", "getString") as ClipboardModule | undefined);
 const getMessageUtil = () =>
@@ -108,8 +105,6 @@ const getChannelIdStore = () =>
   (_ChannelIdStore ??=
     (findByProps("getLastSelectedChannelId") as ChannelIdStore | undefined) ||
     (findByProps("getChannelId", "getVoiceChannelId") as ChannelIdStore | undefined));
-const getChannelActions = () =>
-  (_ChannelActions ??= findByProps("selectChannel") as ChannelActionsModule | undefined);
 const getSelectedGuildStore = () =>
   (_SelectedGuildStore ??= findByProps("getGuildId", "getLastSelectedGuildId") as SelectedGuildStore | undefined);
 
@@ -284,9 +279,12 @@ const debugLog = (message: string, ...args: unknown[]) => {
 };
 
 /**
- * Switch guild using conservative Discord APIs only.
- * Avoid Navigation.push and loosely-matched modules — those can freeze the client.
- * Only report success when SelectedGuildStore reflects the target (when readable).
+ * Switch guild without calling loose `findByProps("selectChannel")`.
+ * Device logs (v4.5.3): that module freezes Discord immediately after invoke, then
+ * SelectedGuildStore reads null and the old "unverified accept" path claimed success.
+ *
+ * Prefer strict Flux CHANNEL_SELECT / GUILD_SELECT, then selectGuild / transitionToGuild.
+ * When the selected-guild store is readable, only report success if it matches the target.
  */
 const navigateToGuild = (id: string): boolean => {
   if (!id) {
@@ -302,23 +300,60 @@ const navigateToGuild = (id: string): boolean => {
 
   const GuildActions = getGuildActions();
   const ChannelIdStore = getChannelIdStore();
-  const ChannelActions = getChannelActions();
+  const FluxDispatcher = getFluxDispatcher();
   const lastChannel =
     ChannelIdStore?.getLastSelectedChannelId?.(id) || ChannelIdStore?.getChannelId?.(id) || null;
+  const storeReadable = before != null;
 
   debugLog("navigateToGuild", {
     id,
     before,
+    storeReadable,
     hasTransition: typeof GuildActions?.transitionToGuild === "function",
     hasSelectGuild: typeof GuildActions?.selectGuild === "function",
-    hasSelectChannel: typeof ChannelActions?.selectChannel === "function",
+    hasFlux: typeof FluxDispatcher?.dispatch === "function",
     lastChannel,
   });
 
-  // Order matters: channel select is the most reliable mobile path when we know a channel.
+  const acceptAfter = (label: string, after: string | null | undefined): boolean | "continue" => {
+    if (after === id) {
+      debugLog("navigateToGuild verified", { label, after });
+      return true;
+    }
+    // Store was readable before the call but is now null — treat as failure (do not accept).
+    // This is the freeze signature from v4.5.3 selectChannel.
+    if (storeReadable && after == null) {
+      debugLog("navigateToGuild store cleared after attempt", { label, before });
+      return "continue";
+    }
+    if (!storeReadable && after == null) {
+      // Cannot verify on this client; do not claim success — keep trying safer APIs.
+      debugLog("navigateToGuild unverified skip", { label });
+      return "continue";
+    }
+    debugLog("navigateToGuild did not stick", { label, after, expected: id });
+    return "continue";
+  };
+
   const attempts: Array<[string, () => void]> = [];
-  if (typeof ChannelActions?.selectChannel === "function" && lastChannel) {
-    attempts.push(["selectChannel", () => ChannelActions.selectChannel!(id, String(lastChannel))]);
+
+  // Flux first: known-safe dispatcher match; CHANNEL_SELECT is what Discord uses for jumps.
+  if (typeof FluxDispatcher?.dispatch === "function" && lastChannel) {
+    attempts.push([
+      "CHANNEL_SELECT",
+      () =>
+        FluxDispatcher.dispatch!({
+          type: "CHANNEL_SELECT",
+          guildId: id,
+          channelId: String(lastChannel),
+        }),
+    ]);
+  }
+  if (typeof FluxDispatcher?.dispatch === "function") {
+    attempts.push([
+      "GUILD_SELECT",
+      () => FluxDispatcher.dispatch!({ type: "GUILD_SELECT", guildId: id }),
+    ]);
   }
   if (typeof GuildActions?.selectGuild === "function") {
     attempts.push(["selectGuild", () => GuildActions.selectGuild!(id)]);
@@ -327,43 +362,15 @@ const navigateToGuild = (id: string): boolean => {
     attempts.push(["transitionToGuild", () => GuildActions.transitionToGuild!(id)]);
   }
 
-  let anyRan = false;
   for (const [label, run] of attempts) {
     try {
       run();
-      anyRan = true;
       const after = readSelectedGuildId();
       debugLog("navigateToGuild attempt ok", { label, after });
-      if (after === id) {
-        debugLog("navigateToGuild verified", { label, after });
-        return true;
-      }
-      // Store unreadable: accept first non-throwing attempt, but do not chain more
-      // (chaining multiple nav APIs was associated with client freezes).
-      if (after == null) {
-        debugLog("navigateToGuild unverified accept", { label });
-        return true;
-      }
-      debugLog("navigateToGuild did not stick", { label, after, expected: id });
-      // Stop after one non-throwing attempt that didn't stick — don't pile on.
-      break;
+      const result = acceptAfter(label, after);
+      if (result === true) return true;
     } catch (error) {
       debugLog("navigateToGuild attempt failed", label, String(error));
-    }
-  }
-
-  // Last resort: a single Flux dispatch, only if nothing else ran.
-  if (!anyRan) {
-    const FluxDispatcher = getFluxDispatcher();
-    if (typeof FluxDispatcher?.dispatch === "function") {
-      try {
-        FluxDispatcher.dispatch({ type: "GUILD_SELECT", guildId: id });
-        const after = readSelectedGuildId();
-        debugLog("navigateToGuild flux", { after });
-        if (after === id || after == null) return true;
-      } catch (error) {
-        debugLog("navigateToGuild flux failed", String(error));
-      }
     }
   }
 

@@ -14,6 +14,11 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.4
+
+- Fix complete freeze on server tap: stop calling loose `findByProps("selectChannel")` (device logs showed it hangs Discord) and remove the “unverified accept” success path
+- Navigate via strict Flux `CHANNEL_SELECT` / `GUILD_SELECT`, then `selectGuild` / `transitionToGuild`; only toast jump success when SelectedGuildStore verifies the target (when readable)
+
 ## 4.5.3
 
 - Fix guild jump freeze: stop chaining loose Navigation/Flux matches; use `selectChannel` / `selectGuild` / `transitionToGuild` only, and verify via SelectedGuildStore when possible
