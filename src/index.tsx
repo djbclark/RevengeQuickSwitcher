@@ -31,18 +31,28 @@ type SortedGuildStore = {
   getSortedGuilds: () => SidebarNode[];
 };
 
-type RouterModule = {
+type GuildActionsModule = {
   transitionToGuild?: (id: string) => void;
   selectGuild?: (id: string) => void;
 };
 
-type NavigationModule = {
-  push?: (route: string, params: { guildId: string }) => void;
-  replace?: (route: string, params: { guildId: string }) => void;
+type FluxDispatcherModule = {
+  dispatch?: (payload: Record<string, unknown>) => void;
+  _currentDispatchActionType?: unknown;
 };
 
-type FluxDispatcherModule = {
-  dispatch?: (payload: { type: string; guildId?: string; guild_id?: string }) => void;
+type ChannelIdStore = {
+  getLastSelectedChannelId?: (guildId: string) => string | undefined | null;
+  getChannelId?: (guildId?: string) => string | undefined | null;
+};
+
+type ChannelActionsModule = {
+  selectChannel?: (guildId: string, channelId: string) => void;
+  selectVoiceChannel?: (channelId: string) => void;
+};
+
+type SelectedGuildStore = {
+  getGuildId?: () => string | undefined | null;
 };
 
 type ClipboardModule = {
@@ -72,64 +82,43 @@ type SwitchRowProps = {
 // Caching Discord Metro modules for performance
 let _GuildStore: GuildStore | undefined;
 let _SortedGuildStore: SortedGuildStore | undefined;
-let _Router: RouterModule | undefined;
-let _Navigation: NavigationModule | undefined;
+let _GuildActions: GuildActionsModule | undefined;
 let _Clipboard: ClipboardModule | undefined;
 let _MessageUtil: MessageUtilModule | undefined;
 let _FluxDispatcher: FluxDispatcherModule | undefined;
+let _ChannelIdStore: ChannelIdStore | undefined;
+let _ChannelActions: ChannelActionsModule | undefined;
+let _SelectedGuildStore: SelectedGuildStore | undefined;
 
 const getGuildStore = () => (_GuildStore ??= findByProps("getGuild", "getGuilds") as GuildStore | undefined);
 const getSortedGuildStore = () =>
   (_SortedGuildStore ??= findByProps("getSortedGuilds") as SortedGuildStore | undefined);
-const getRouter = () =>
-  (_Router ??= findByProps("transitionToGuild", "selectGuild") as RouterModule | undefined);
-const getNavigation = () =>
-  (_Navigation ??= findByProps("push", "replace") as NavigationModule | undefined);
+const getGuildActions = () =>
+  (_GuildActions ??= findByProps("transitionToGuild", "selectGuild") as GuildActionsModule | undefined);
 const getClipboard = () =>
   (_Clipboard ??= findByProps("setString", "getString") as ClipboardModule | undefined);
 const getMessageUtil = () =>
   (_MessageUtil ??= findByProps("sendBotMessage") as MessageUtilModule | undefined);
+/** Prefer Discord's real Flux dispatcher — `dispatch`+`subscribe` matches too many modules. */
 const getFluxDispatcher = () =>
-  (_FluxDispatcher ??= findByProps("dispatch", "subscribe") as FluxDispatcherModule | undefined);
+  (_FluxDispatcher ??=
+    (findByProps("_currentDispatchActionType", "dispatch") as FluxDispatcherModule | undefined) ||
+    (findByProps("_interceptors", "dispatch") as FluxDispatcherModule | undefined));
+const getChannelIdStore = () =>
+  (_ChannelIdStore ??=
+    (findByProps("getLastSelectedChannelId") as ChannelIdStore | undefined) ||
+    (findByProps("getChannelId", "getVoiceChannelId") as ChannelIdStore | undefined));
+const getChannelActions = () =>
+  (_ChannelActions ??= findByProps("selectChannel") as ChannelActionsModule | undefined);
+const getSelectedGuildStore = () =>
+  (_SelectedGuildStore ??= findByProps("getGuildId", "getLastSelectedGuildId") as SelectedGuildStore | undefined);
 
-const navigateToGuild = (id: string): boolean => {
-  const Router = getRouter();
-  const Navigation = getNavigation();
-  const FluxDispatcher = getFluxDispatcher();
-  debugLog("navigateToGuild", {
-    id,
-    hasTransition: typeof Router?.transitionToGuild === "function",
-    hasSelect: typeof Router?.selectGuild === "function",
-    hasNavPush: typeof Navigation?.push === "function",
-    hasDispatch: typeof FluxDispatcher?.dispatch === "function",
-  });
-
-  const attempts: Array<[string, () => void]> = [
-    ["transitionToGuild", () => Router!.transitionToGuild!(id)],
-    ["selectGuild", () => Router!.selectGuild!(id)],
-    ["GUILD_SELECT", () => FluxDispatcher!.dispatch!({ type: "GUILD_SELECT", guildId: id })],
-    ["SELECT_GUILD", () => FluxDispatcher!.dispatch!({ type: "SELECT_GUILD", guildId: id })],
-    ["GUILD_SELECT_guild_id", () => FluxDispatcher!.dispatch!({ type: "GUILD_SELECT", guild_id: id })],
-    ["Navigation.push", () => Navigation!.push!("Guild", { guildId: id })],
-  ];
-
-  for (const [label, run] of attempts) {
-    try {
-      if (label === "transitionToGuild" && typeof Router?.transitionToGuild !== "function") continue;
-      if (label === "selectGuild" && typeof Router?.selectGuild !== "function") continue;
-      if (label.startsWith("GUILD_SELECT") || label === "SELECT_GUILD") {
-        if (typeof FluxDispatcher?.dispatch !== "function") continue;
-      }
-      if (label === "Navigation.push" && typeof Navigation?.push !== "function") continue;
-      run();
-      debugLog("navigateToGuild succeeded", label);
-      return true;
-    } catch (error) {
-      debugLog("navigateToGuild attempt failed", label, error);
-    }
+const readSelectedGuildId = () => {
+  try {
+    return getSelectedGuildStore()?.getGuildId?.() ?? null;
+  } catch {
+    return null;
   }
-  debugLog("navigateToGuild exhausted all APIs", { id });
-  return false;
 };
 
 /** Post command output locally (same path as Revenge /debug ephemeral). */
@@ -176,9 +165,37 @@ const clearSidebarCache = () => {
 
 const DEBUG_RING_MAX = 80;
 const debugRing: string[] = [];
+let debugRingHydrated = false;
+
+const hydrateDebugRing = () => {
+  if (debugRingHydrated) return;
+  debugRingHydrated = true;
+  try {
+    const raw = storage.debugLogText;
+    if (typeof raw !== "string" || !raw.trim()) return;
+    const parts = raw.includes("\n") ? raw.split("\n") : raw.split("\u001e");
+    for (const part of parts) {
+      const line = part.trim();
+      if (!line || line.startsWith("Quick Server Switcher") || line.startsWith("lines=")) continue;
+      debugRing.push(line);
+    }
+    while (debugRing.length > DEBUG_RING_MAX) debugRing.shift();
+  } catch {
+    /* ignore */
+  }
+};
+
+const persistDebugRing = () => {
+  try {
+    storage.debugLogText = debugRing.join("\n");
+  } catch {
+    /* ignore */
+  }
+};
 
 const pushDebugRing = (message: string, ...args: unknown[]) => {
   try {
+    hydrateDebugRing();
     const stamp = new Date().toISOString().slice(11, 23);
     const extra =
       args.length === 0
@@ -187,7 +204,8 @@ const pushDebugRing = (message: string, ...args: unknown[]) => {
           args
             .map((arg) => {
               try {
-                return typeof arg === "string" ? arg : JSON.stringify(arg);
+                if (typeof arg === "string") return arg;
+                return JSON.stringify(arg);
               } catch {
                 return String(arg);
               }
@@ -195,29 +213,62 @@ const pushDebugRing = (message: string, ...args: unknown[]) => {
             .join(" ");
     debugRing.push(`[${stamp}] ${message}${extra}`);
     if (debugRing.length > DEBUG_RING_MAX) debugRing.shift();
+    persistDebugRing();
   } catch {
     /* ignore */
   }
 };
 
-const formatDebugRing = () =>
-  ["Quick Server Switcher debug log", `lines=${debugRing.length}`, ...debugRing].join("\n");
+const formatDebugRing = () => {
+  hydrateDebugRing();
+  return ["Quick Server Switcher debug log", `lines=${debugRing.length}`, ...debugRing].join("\n");
+};
+
+/** Some Discord clipboard paths collapse or drop newlines — also provide a one-line form. */
+const formatDebugRingClipboard = () => {
+  hydrateDebugRing();
+  const header = `Quick Server Switcher debug log | lines=${debugRing.length}`;
+  if (debugRing.length === 0) return `${header} | (empty — open /servers or tap a server first)`;
+  // Use " | " so a single-line paste still carries every event.
+  return `${header} | ${debugRing.join(" | ")}`;
+};
 
 const copyDebugLogs = () => {
+  hydrateDebugRing();
   const clipboard = getClipboard();
-  if (!clipboard?.setString) {
-    showToast("Clipboard unavailable on this client", "danger");
+  const multiline = formatDebugRing();
+  const singleLine = formatDebugRingClipboard();
+
+  let copied = false;
+  if (clipboard?.setString) {
+    try {
+      // Prefer single-line form — Discord mobile clipboard often drops newlines.
+      clipboard.setString(singleLine);
+      copied = true;
+    } catch (error) {
+      debugLog("copyDebugLogs setString failed", String(error));
+    }
+  }
+
+  // Always try to surface the dump somewhere visible.
+  try {
+    logger.info?.("[QuickSwitcher] debug dump\n" + multiline);
+  } catch {
+    /* ignore */
+  }
+
+  if (copied) {
+    const preview = debugRing.length > 0 ? debugRing[debugRing.length - 1] : "(empty)";
+    showToast(`Copied ${debugRing.length} line(s): ${preview.slice(0, 48)}`, "success");
     return;
   }
-  const text = formatDebugRing();
-  clipboard.setString(text);
-  showToast(`Copied ${debugRing.length} debug line(s)`, "success");
+
+  showToast("Clipboard unavailable — enable Debug Logging and check Revenge logs", "danger");
 };
 
 const debugLog = (message: string, ...args: unknown[]) => {
   try {
     pushDebugRing(message, ...args);
-    // Always mirror to Revenge logger when available (helps adb/logcat without the toggle).
     try {
       if (typeof logger.info === "function") {
         logger.info(`[QuickSwitcher] ${message}`, ...args);
@@ -230,6 +281,94 @@ const debugLog = (message: string, ...args: unknown[]) => {
   } catch {
     /* ignore — never let logging break enable */
   }
+};
+
+/**
+ * Switch guild using conservative Discord APIs only.
+ * Avoid Navigation.push and loosely-matched modules — those can freeze the client.
+ * Only report success when SelectedGuildStore reflects the target (when readable).
+ */
+const navigateToGuild = (id: string): boolean => {
+  if (!id) {
+    debugLog("navigateToGuild missing id");
+    return false;
+  }
+
+  const before = readSelectedGuildId();
+  if (before === id) {
+    debugLog("navigateToGuild already selected", { id });
+    return true;
+  }
+
+  const GuildActions = getGuildActions();
+  const ChannelIdStore = getChannelIdStore();
+  const ChannelActions = getChannelActions();
+  const lastChannel =
+    ChannelIdStore?.getLastSelectedChannelId?.(id) || ChannelIdStore?.getChannelId?.(id) || null;
+
+  debugLog("navigateToGuild", {
+    id,
+    before,
+    hasTransition: typeof GuildActions?.transitionToGuild === "function",
+    hasSelectGuild: typeof GuildActions?.selectGuild === "function",
+    hasSelectChannel: typeof ChannelActions?.selectChannel === "function",
+    lastChannel,
+  });
+
+  // Order matters: channel select is the most reliable mobile path when we know a channel.
+  const attempts: Array<[string, () => void]> = [];
+  if (typeof ChannelActions?.selectChannel === "function" && lastChannel) {
+    attempts.push(["selectChannel", () => ChannelActions.selectChannel!(id, String(lastChannel))]);
+  }
+  if (typeof GuildActions?.selectGuild === "function") {
+    attempts.push(["selectGuild", () => GuildActions.selectGuild!(id)]);
+  }
+  if (typeof GuildActions?.transitionToGuild === "function") {
+    attempts.push(["transitionToGuild", () => GuildActions.transitionToGuild!(id)]);
+  }
+
+  let anyRan = false;
+  for (const [label, run] of attempts) {
+    try {
+      run();
+      anyRan = true;
+      const after = readSelectedGuildId();
+      debugLog("navigateToGuild attempt ok", { label, after });
+      if (after === id) {
+        debugLog("navigateToGuild verified", { label, after });
+        return true;
+      }
+      // Store unreadable: accept first non-throwing attempt, but do not chain more
+      // (chaining multiple nav APIs was associated with client freezes).
+      if (after == null) {
+        debugLog("navigateToGuild unverified accept", { label });
+        return true;
+      }
+      debugLog("navigateToGuild did not stick", { label, after, expected: id });
+      // Stop after one non-throwing attempt that didn't stick — don't pile on.
+      break;
+    } catch (error) {
+      debugLog("navigateToGuild attempt failed", label, String(error));
+    }
+  }
+
+  // Last resort: a single Flux dispatch, only if nothing else ran.
+  if (!anyRan) {
+    const FluxDispatcher = getFluxDispatcher();
+    if (typeof FluxDispatcher?.dispatch === "function") {
+      try {
+        FluxDispatcher.dispatch({ type: "GUILD_SELECT", guildId: id });
+        const after = readSelectedGuildId();
+        debugLog("navigateToGuild flux", { after });
+        if (after === id || after == null) return true;
+      } catch (error) {
+        debugLog("navigateToGuild flux failed", String(error));
+      }
+    }
+  }
+
+  debugLog("navigateToGuild exhausted all APIs", { id, before });
+  return false;
 };
 
 const getStoredRecentIds = () => parseRecentIds(storage.recentIds);
@@ -732,6 +871,7 @@ const plugin: PluginInstance = {
     // Also never throw out of onLoad: any throw disables the plugin (X toggle).
     try {
       ensureStorageDefaults();
+      hydrateDebugRing();
       debugLog("onLoad");
     } catch (error) {
       try {
