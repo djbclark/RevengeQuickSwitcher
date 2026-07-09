@@ -48,7 +48,7 @@ All steps exit with code 0. You should see:
 ```
 Tests  86 passed (86)
 dist/index.js  ~18kb
-manifest ok (v4.4.3)
+manifest ok (v4.4.6)
 ```
 
 ### Individual commands
@@ -86,10 +86,12 @@ If local verification fails, fix the issue before testing on device.
 
 **Steps**
 
-1. In any channel, run `/servers`.
+1. In any channel, run `/servers` from the slash picker (do not send plain text).
 
 **Expected**
 
+- A **local bot-style reply** appears in the channel (same style as Revenge `/debug` with ephemeral).
+- `/servers` appears **once** in slash suggestions (not duplicated).
 - Response shows a markdown list headed `### Servers (N)` where N is your server count.
 - Server names appear as bullet points (`•`).
 - Names are sorted **alphabetically** (case-insensitive).
@@ -176,8 +178,9 @@ If local verification fails, fix the issue before testing on device.
 
 **Expected**
 
-- Discord navigates to that server (guild switch).
+- Discord **navigates** to that server (guild switch): channel list / server header change to the target — not only a toast.
 - Toast: `Jumped to <server name>` (success style).
+- After the jump, `/servers recent` lists that server.
 
 ### 4.2 Exact and partial match priority
 
@@ -363,7 +366,7 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.4.3** |
+| Version | Check plugin metadata if Revenge shows it | **4.4.6** |
 | Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
 | Excluded search | Exclude one of two similar names, query shared fragment | Only non-excluded server matches |
 | Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
@@ -385,28 +388,34 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 
 ---
 
-## Quick checklist — v4.4.3 device QA (A1)
+## Quick checklist — v4.4.6 device QA (A1)
 
 Copy this for the release candidate. Prefer a fresh plugin install/update from the **raw** GitHub URL, then full Discord reload.
 
+**Already confirmed on device (do not skip re-check after `main` install):** enable works, settings open, `/servers` appears once, list posts as a local bot reply.
+
+**Still needs human testing (priority):** actually **moving** to another server via search / recent / alias — toast alone is not enough; confirm the guild UI switches.
+
 ```
 [ ] make verify — all green locally (or CI green on main)
-[ ] Plugin installs / updates on Revenge without crash (shows 4.4.3 if version visible)
+[ ] Plugin installs / updates on Revenge without crash (shows 4.4.6 if version visible)
   Install URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/
 [ ] Smoke plugin installs and ENABLES (toggle on, no X)
   Smoke URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 [ ] Main plugin installs and ENABLES after smoke passes
 [ ] Settings open; readable in light and dark theme
-[ ] /servers — alphabetical list, correct count
+[ ] /servers — alphabetical list as local bot reply, correct count; command appears once
 [ ] /servers 2 — pagination (if 41+ servers or very long names)
-[ ] /servers query:<fuzzy> — jumps + success toast; appears in /servers recent
-[ ] /servers recent + r1 — history from plugin jumps only (sidebar-only switches do not count)
-[ ] /servers query:<shared-prefix> — pick list, no jump
-[ ] /servers query:<unknown> — "No match found"
+[ ] NAV: /servers query:<unique fuzzy> — Discord switches to that server (sidebar/header change), success toast
+[ ] NAV: stay on a different server first, then jump — confirm you leave the old guild, not just toast
+[ ] NAV: /servers recent after a plugin jump — list shows it; /servers r1 jumps back (UI switches)
+[ ] Sidebar-only guild tap does NOT add to recent (only plugin jumps count)
+[ ] /servers query:<shared-prefix> — pick list in-channel, no jump
+[ ] /servers query:<unknown> — "No match found"; stay on current server
 [ ] Exclude exact name — search skips that server
 [ ] Exclude ~partial — search skips matching names
 [ ] Hide excluded from list — on hides / off shows in /servers
-[ ] Custom alias — settings + jump works
+[ ] Custom alias — settings + NAV jump to target server
 [ ] Alias Copy / Import — clipboard round-trip works
 [ ] Flat sidebar — on flattens/sorts, off restores folders
 [ ] Debug logging toggle — no crash
@@ -422,7 +431,7 @@ When finished, note pass/fail in a GitHub issue or reply in chat so **A1** can b
 ```
 [ ] make verify — all green locally
 [ ] Plugin installs / updates on Revenge without crash
-[ ] /servers — alphabetical list, correct count
+[ ] /servers — alphabetical list as local bot reply, correct count; command appears once
 [ ] /servers 2 — pagination (if 41+ servers)
 [ ] /servers recent + r1 — history from plugin jumps only
 [ ] /servers query:<fuzzy> — jumps to server + success toast

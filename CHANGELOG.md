@@ -14,6 +14,25 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.4.6
+
+- Post `/servers` list/pick replies via `sendBotMessage` (same path as Revenge `/debug` ephemeral) so the list appears in-channel instead of silently failing
+- Unregister any prior `/servers` registration before re-registering to avoid duplicate slash entries after reload
+
+## 4.4.5
+
+- Fix `/servers` never appearing in the slash menu: Revenge treats `shouldHide: () => false` as “hide” (`shouldHide?.() !== false`). Omit `shouldHide` so the command shows.
+- Fill Vendetta/Revenge command metadata (`applicationId`, `type`, `inputType`, display names).
+- Return `{ content }` from list/pick results so Revenge can post the reply.
+
+## 4.4.4
+
+- Fix main plugin enable after smoke succeeded: transpile bundle to ES2015 (strip `?.` / `??` / `??=` that older Hermes rejects at eval)
+- Match Vendetta template globals (`vendetta.*` / `window.React`) instead of a custom IIFE param list
+- Do not touch plugin storage at module eval time; never use `this` in `onLoad` (Vendetta calls it unbound)
+- Soften onLoad/onUnload so secondary failures cannot flip the toggle to X
+- Toast on successful load so enable is obvious on device
+
 ## 4.4.3
 
 - Rebuild plugin in classic Vendetta IIFE shape used by known-working Revenge plugins

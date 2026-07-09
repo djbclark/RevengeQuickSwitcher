@@ -25,9 +25,25 @@ declare module "@revenge-mod/commands" {
   export function registerCommand(command: {
     name: string;
     description?: string;
+    /**
+     * Revenge shows the command only when `shouldHide?.() !== false`.
+     * That means `() => false` hides it; omit this field (or return true) to show.
+     */
     shouldHide?: () => boolean;
-    options?: Array<{ name: string; type: number; description: string }>;
-    execute: (args: unknown) => unknown;
+    applicationId?: string;
+    type?: number;
+    inputType?: number;
+    displayName?: string;
+    displayDescription?: string;
+    options?: Array<{
+      name: string;
+      type: number;
+      description: string;
+      displayName?: string;
+      displayDescription?: string;
+      required?: boolean;
+    }>;
+    execute: (args: unknown, ctx?: { channel?: { id?: string }; guild?: unknown }) => unknown;
   }): () => void;
 }
 

@@ -20,27 +20,33 @@ export const sortSidebarNodesByGuildName = (
     .map((item) => item.node);
 };
 
-export class SidebarCache<T extends GuildLike> {
-  private cache = new WeakMap<T[], { checksum: number; data: SidebarNode[] }>();
-
-  clear() {
-    this.cache = new WeakMap();
-  }
-
-  getOrCompute(
+export type SidebarCache<T extends GuildLike> = {
+  clear: () => void;
+  getOrCompute: (
     source: T[],
     compute: () => SidebarNode[],
     getGuildName?: (id: string) => string | null
-  ) {
-    const checksum = getArrayChecksum(source, getGuildName);
-    const cached = this.cache.get(source);
-    if (cached?.checksum === checksum) return cached.data;
+  ) => SidebarNode[];
+};
 
-    const data = compute();
-    this.cache.set(source, { checksum, data });
-    return data;
-  }
-}
+export const createSidebarCache = <T extends GuildLike>(): SidebarCache<T> => {
+  let cache = new WeakMap<T[], { checksum: number; data: SidebarNode[] }>();
+
+  return {
+    clear() {
+      cache = new WeakMap();
+    },
+    getOrCompute(source, compute, getGuildName) {
+      const checksum = getArrayChecksum(source, getGuildName);
+      const cached = cache.get(source);
+      if (cached?.checksum === checksum) return cached.data;
+
+      const data = compute();
+      cache.set(source, { checksum, data });
+      return data;
+    },
+  };
+};
 
 export const transformFlatSidebar = (
   returnValue: unknown,

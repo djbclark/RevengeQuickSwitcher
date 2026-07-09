@@ -8,6 +8,6 @@
     }
   ],
   "main": "dist/index.js",
-  "version": "4.4.3",
-  "hash": "098c7ea052998da7d6fba3ee0ff9da13f5270db9ffd30fad34e41d7b5ed48144"
+  "version": "4.4.6",
+  "hash": "c5077a00ffbbef04dd293ee4ed215dd10347877d93cc4fd953def2e091b40923"
 }

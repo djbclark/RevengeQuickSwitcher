@@ -18,7 +18,7 @@ import {
   pushRecentId,
   serializeRecentIds,
 } from "./recents";
-import { SidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
+import { createSidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
 import { getSettingsThemeColors } from "./theme";
 
 type GuildStore = {
@@ -45,6 +45,19 @@ type ClipboardModule = {
   getString?: () => Promise<string>;
 };
 
+type MessageUtilModule = {
+  sendBotMessage?: (channelId: string, content: string) => void;
+  sendMessage?: (
+    channelId: string,
+    message: { content: string },
+    ...rest: unknown[]
+  ) => void;
+};
+
+type CommandContext = {
+  channel?: { id?: string };
+};
+
 type SwitchRowProps = {
   label: string;
   value: boolean;
@@ -57,6 +70,7 @@ let _SortedGuildStore: SortedGuildStore | undefined;
 let _Router: RouterModule | undefined;
 let _Navigation: NavigationModule | undefined;
 let _Clipboard: ClipboardModule | undefined;
+let _MessageUtil: MessageUtilModule | undefined;
 
 const getGuildStore = () => (_GuildStore ??= findByProps("getGuild", "getGuilds") as GuildStore | undefined);
 const getSortedGuildStore = () =>
@@ -67,6 +81,23 @@ const getNavigation = () =>
   (_Navigation ??= findByProps("push", "replace") as NavigationModule | undefined);
 const getClipboard = () =>
   (_Clipboard ??= findByProps("setString", "getString") as ClipboardModule | undefined);
+const getMessageUtil = () =>
+  (_MessageUtil ??= findByProps("sendBotMessage") as MessageUtilModule | undefined);
+
+/** Post command output locally (same path as Revenge /debug ephemeral). */
+const postCommandReply = (channelId: string | undefined, content: string) => {
+  if (!channelId || !content) return;
+  const messageUtil = getMessageUtil();
+  if (messageUtil?.sendBotMessage) {
+    messageUtil.sendBotMessage(channelId, content);
+    return;
+  }
+  if (messageUtil?.sendMessage) {
+    messageUtil.sendMessage(channelId, { content }, void 0, { nonce: Date.now().toString() });
+    return;
+  }
+  showToast("Could not post /servers reply in this channel", "danger");
+};
 
 const ensureStorageDefaults = () => {
   try {
@@ -82,22 +113,29 @@ const ensureStorageDefaults = () => {
   }
 };
 
-ensureStorageDefaults();
+// Do not touch storage at module eval time — Vendetta evals the whole file
+// before onLoad, and a throw here disables the plugin (X on the toggle).
 
-let sidebarCache = new SidebarCache<SidebarNode>();
+let sidebarCache = createSidebarCache<SidebarNode>();
 let warnedMissingSortedGuildStore = false;
+let unregisterCommand: (() => void) | undefined;
+let unpatchSidebar: (() => void) | undefined;
 
 const clearSidebarCache = () => {
   sidebarCache.clear();
-  sidebarCache = new SidebarCache<SidebarNode>();
+  sidebarCache = createSidebarCache<SidebarNode>();
 };
 
 const debugLog = (message: string, ...args: unknown[]) => {
-  if (!storage.debugLogging) return;
-  if (typeof logger.info === "function") {
-    logger.info(`[QuickSwitcher] ${message}`, ...args);
-  } else {
-    logger.error(`[QuickSwitcher:debug] ${message}`, ...args);
+  try {
+    if (!storage.debugLogging) return;
+    if (typeof logger.info === "function") {
+      logger.info(`[QuickSwitcher] ${message}`, ...args);
+    } else {
+      logger.error(`[QuickSwitcher:debug] ${message}`, ...args);
+    }
+  } catch {
+    /* ignore — never let logging break enable */
   }
 };
 
@@ -161,10 +199,10 @@ const importAliasesFromClipboard = async () => {
   }
 };
 
-const handleExec = (rawArgs: unknown) => {
+const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
   try {
     debugLog("command invoke", rawArgs);
-    return executeServersCommand(rawArgs, {
+    const result = executeServersCommand(rawArgs, {
       getGuilds: () =>
         Object.values(getGuildStore()?.getGuilds() || {}).map((guild) => ({
           ...guild,
@@ -194,6 +232,11 @@ const handleExec = (rawArgs: unknown) => {
       excludes: storage.excludes || "",
       hideExcludedFromList: !!storage.hideExcludedFromList,
     });
+    // Do not rely on Revenge's return→sendMessage wrapper (often fails without a nonce).
+    // Post locally like /debug ephemeral so the list is visible in-channel.
+    if (result && typeof result === "object" && "content" in result && typeof result.content === "string") {
+      postCommandReply(ctx?.channel?.id, result.content);
+    }
   } catch (error) {
     logger.error(error);
     showToast("Something went wrong running /servers", "danger");
@@ -225,11 +268,9 @@ const resolveSwitchRow = (): React.ComponentType<SwitchRowProps> => {
 };
 
 type PluginInstance = {
-  _unreg?: () => void;
-  _patch?: () => void;
   settings: () => React.ReactElement;
-  onLoad(this: PluginInstance): void;
-  onUnload(this: PluginInstance): void;
+  onLoad(): void;
+  onUnload(): void;
 };
 
 const plugin: PluginInstance = {
@@ -431,30 +472,72 @@ const plugin: PluginInstance = {
   },
 
   onLoad() {
-    ensureStorageDefaults();
-    debugLog("onLoad");
+    // Vendetta calls onLoad() without a receiver — never use `this` here.
+    // Also never throw out of onLoad: any throw disables the plugin (X toggle).
+    try {
+      ensureStorageDefaults();
+      debugLog("onLoad");
+    } catch (error) {
+      try {
+        logger.error?.("Quick Switcher onLoad init failed", error);
+      } catch {
+        /* ignore */
+      }
+    }
 
     try {
-      this._unreg = registerCommand({
+      // Drop any prior registration from a hot reload / failed unload so /servers
+      // does not appear twice in the slash picker.
+      try {
+        unregisterCommand?.();
+      } catch {
+        /* ignore */
+      }
+      unregisterCommand = undefined;
+
+      // Revenge filters with `shouldHide?.() !== false` (inverted name): returning
+      // false hides the command. Omit shouldHide so /servers always appears, matching
+      // core commands like /debug. If you must set it, use () => true to show.
+      unregisterCommand = registerCommand({
         name: "servers",
         description: "List or jump to servers (fuzzy search, recent, pages)",
-        shouldHide: () => false,
+        applicationId: "-1",
+        type: 1,
+        inputType: 0,
+        displayName: "servers",
+        displayDescription: "List or jump to servers (fuzzy search, recent, pages)",
         options: [
-          { name: "query", type: 3, description: "Search, page number, recent, or r1" },
-          { name: "page", type: 4, description: "Go to a specific page" },
+          {
+            name: "query",
+            type: 3,
+            description: "Search, page number, recent, or r1",
+            displayName: "query",
+            displayDescription: "Search, page number, recent, or r1",
+          },
+          {
+            name: "page",
+            type: 4,
+            description: "Go to a specific page",
+            displayName: "page",
+            displayDescription: "Go to a specific page",
+          },
         ],
         execute: handleExec,
       } as Parameters<typeof registerCommand>[0]);
     } catch (error) {
-      logger.error("Failed to register /servers command", error);
-      showToast("Quick Switcher loaded, but /servers failed to register", "danger");
+      try {
+        logger.error("Failed to register /servers command", error);
+        showToast("Quick Switcher loaded, but /servers failed to register", "danger");
+      } catch {
+        /* ignore */
+      }
     }
 
     try {
       const SortedGuildStore = getSortedGuildStore();
       if (SortedGuildStore) {
         debugLog("patching getSortedGuilds");
-        this._patch = after("getSortedGuilds", SortedGuildStore, (_args: unknown, returnValue: unknown) => {
+        unpatchSidebar = after("getSortedGuilds", SortedGuildStore, (_args: unknown, returnValue: unknown) => {
           const guildStore = getGuildStore();
           return transformFlatSidebar(
             returnValue,
@@ -474,23 +557,51 @@ const plugin: PluginInstance = {
         debugLog("SortedGuildStore not found; flat sidebar patch skipped");
       }
     } catch (error) {
-      logger.error("Failed to patch flat sidebar", error);
+      try {
+        logger.error("Failed to patch flat sidebar", error);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    try {
+      showToast("Quick Server Switcher loaded");
+    } catch {
+      /* ignore */
     }
   },
 
   onUnload() {
-    debugLog("onUnload");
     try {
-      this._unreg?.();
-    } catch (error) {
-      logger.error("Failed to unregister /servers", error);
+      debugLog("onUnload");
+    } catch {
+      /* ignore */
     }
     try {
-      this._patch?.();
+      unregisterCommand?.();
     } catch (error) {
-      logger.error("Failed to unpatch sidebar", error);
+      try {
+        logger.error("Failed to unregister /servers", error);
+      } catch {
+        /* ignore */
+      }
     }
-    clearSidebarCache();
+    unregisterCommand = undefined;
+    try {
+      unpatchSidebar?.();
+    } catch (error) {
+      try {
+        logger.error("Failed to unpatch sidebar", error);
+      } catch {
+        /* ignore */
+      }
+    }
+    unpatchSidebar = undefined;
+    try {
+      clearSidebarCache();
+    } catch {
+      /* ignore */
+    }
   },
 };
 

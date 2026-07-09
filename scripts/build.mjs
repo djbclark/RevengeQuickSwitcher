@@ -3,49 +3,15 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 
 /**
- * Build a classic Vendetta/Revenge plugin bundle.
- * Working plugins look like:
- *   (function(exports, ...){ ...; return exports.default=plugin, exports })({}, vendetta.metro, ...)
+ * Build a Vendetta/Revenge plugin expression matching the official template shape:
+ *   (function(exports){ ...; return exports })({})
+ *
  * Revenge evals: vendetta => { return <plugin.js> }
+ * then uses: ret?.default ?? ret
+ *
+ * Important: target ES2015 so Hermes can parse the bundle. Discord's Hermes
+ * historically chokes on ??= / some newer syntax that esbuild would otherwise keep.
  */
-const vendettaShimPlugin = {
-  name: "vendetta-shim",
-  setup(build) {
-    const loaders = {
-      "@revenge-mod/metro": "module.exports = __vd.metro;",
-      "@revenge-mod/patcher": "module.exports = __vd.patcher;",
-      "@revenge-mod/ui/toast": `
-        module.exports = {
-          showToast(message, _type) {
-            return __vd.ui.toasts.showToast(String(message));
-          }
-        };
-      `,
-      "@revenge-mod": "module.exports = __vd;",
-      "@revenge-mod/commands": "module.exports = __vd.commands;",
-      "@revenge-mod/plugin": "module.exports = __vd.plugin;",
-      "@revenge-mod/storage": "module.exports = __vd.storage;",
-      "@revenge-mod/ui/components": "module.exports = __vd.ui.components;",
-      react: "module.exports = __vd.metro.common.React;",
-      "react-native": "module.exports = __vd.metro.common.ReactNative;",
-    };
-
-    build.onResolve({ filter: /.*/ }, (args) => {
-      if (loaders[args.path]) {
-        return { path: args.path, namespace: "vendetta-shim" };
-      }
-    });
-
-    build.onLoad({ filter: /.*/, namespace: "vendetta-shim" }, (args) => {
-      const contents = loaders[args.path];
-      if (!contents) {
-        return { errors: [{ text: `No Vendetta mapping for ${args.path}` }] };
-      }
-      return { contents, loader: "js" };
-    });
-  },
-};
-
 const result = await esbuild.build({
   entryPoints: ["src/index.tsx"],
   bundle: true,
@@ -53,25 +19,56 @@ const result = await esbuild.build({
   write: false,
   format: "cjs",
   platform: "neutral",
-  plugins: [vendettaShimPlugin],
+  // Drop optional chaining / nullish / ??= that older Hermes rejects at eval time.
+  // Keep ES2015 (let/const/class/arrow) — smoke uses those and enables successfully.
+  target: ["es2015"],
+  external: [
+    "react",
+    "react-native",
+    "@revenge-mod",
+    "@revenge-mod/metro",
+    "@revenge-mod/patcher",
+    "@revenge-mod/ui/toast",
+    "@revenge-mod/commands",
+    "@revenge-mod/plugin",
+    "@revenge-mod/storage",
+    "@revenge-mod/ui/components",
+  ],
 });
 
-const bundled = result.outputFiles[0].text;
+let bundled = result.outputFiles[0].text;
 
-// Match the shape of known-working Revenge plugins (IIFE closing over `vendetta`).
-const wrapped =
-  "(function(exports){" +
-  "var __vd=vendetta;" +
-  "var module={exports:exports};" +
-  bundled +
-  ";if(module.exports&&module.exports.__esModule&&module.exports.default!=null)" +
-  "{exports.default=module.exports.default;}" +
-  "else if(module.exports&&module.exports.default!=null)" +
-  "{exports.default=module.exports.default;}" +
-  "else{exports.default=module.exports;}" +
-  "Object.defineProperty(exports,'__esModule',{value:!0});" +
-  "return exports;" +
-  "})({})";
+// Official Vendetta template maps @vendetta/* → vendetta.* globals and react → window.React.
+// We close over the `vendetta` param from Revenge's eval wrapper the same way.
+const requireMap = {
+  react: "(vendetta.metro.common.React||window.React)",
+  "react-native": "(vendetta.metro.common.ReactNative||window.ReactNative)",
+  "@revenge-mod": "vendetta",
+  "@revenge-mod/metro": "vendetta.metro",
+  "@revenge-mod/patcher": "vendetta.patcher",
+  "@revenge-mod/ui/toast":
+    "{showToast:function(message,_type){return vendetta.ui.toasts.showToast(String(message));}}",
+  "@revenge-mod/commands": "vendetta.commands",
+  "@revenge-mod/plugin": "vendetta.plugin",
+  "@revenge-mod/storage": "vendetta.storage",
+  "@revenge-mod/ui/components": "vendetta.ui.components",
+};
+
+bundled = bundled.replace(/require\("([^"]+)"\)/g, (match, id) => {
+  const mapped = requireMap[id];
+  if (!mapped) {
+    throw new Error(`Unmapped require in bundle: ${id}`);
+  }
+  return mapped;
+});
+
+const wrapped = `(function(exports){var module={exports:exports};${bundled}
+var _exp=module.exports;
+var _plugin=(_exp&&_exp.__esModule&&_exp.default!=null)?_exp.default:(_exp&&_exp.default!=null?_exp.default:_exp);
+exports.default=_plugin;
+Object.defineProperty(exports,"__esModule",{value:!0});
+return exports;
+})({})`;
 
 writeFileSync("dist/index.js", wrapped);
 
