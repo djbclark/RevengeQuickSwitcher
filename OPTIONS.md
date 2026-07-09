@@ -40,7 +40,8 @@ Every option below must include an explicit **Risk** value.
 | **B14** | `/servers` missing from slash menu | **Done** (v4.4.5) | **Low** | Revenge inverted `shouldHide` filter; omit it + fill command metadata. |
 | **B15** | `/servers` silent + duplicate | **Done** (v4.4.7) | **Low** | `sendBotMessage` replies; unregister-before-register. |
 | **B16** | `/servers query` silent no-op | **Done** (v4.4.7) | **Medium** | Jump/error bot replies + harder nav + arg unwrap. |
-| **B17** | Switcher sheet + tappable picks (C5/C8) | **Done** (v4.5.1) | **Medium** | `openLazy` sheet + simple action sheet; bot-message fallback. |
+| **B17** | Switcher sheet + tappable picks (C5/C8) | **Done** (v4.5.0) | **Medium** | `openLazy` sheet + simple action sheet; bot-message fallback. |
+| **B18** | Top-docked switcher + paging | **Done** (v4.5.1) | **Low** | Avoid keyboard cover; Prev/Next pages of 8. |
 
 ---
 
@@ -121,7 +122,7 @@ Every option below must include an explicit **Risk** value.
 
 ### C8 — Dedicated switcher UI (not in-channel)
 
-**Status:** **Done** (v4.5.1) — `/servers` opens a searchable action sheet; settings has **Open switcher**; bot-message list remains fallback when sheet APIs are missing.
+**Status:** **Done** (v4.5.0 / v4.5.1) — `/servers` opens a **top-docked** searchable panel with Prev/Next paging; settings has **Open switcher**; bot-message list remains fallback when UI APIs are missing.
 
 **What it is:** Open a real UI surface for `/servers` instead of posting bot messages into the current channel.
 
