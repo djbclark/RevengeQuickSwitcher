@@ -19,7 +19,7 @@ make install
 ### Device (Revenge client)
 
 - Discord mobile with **Revenge** installed and working
-- Plugin URL: `https://github.com/djbclark/RevengeQuickSwitcher`
+- Plugin URL: `https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/`
 - At least **2 servers** joined (more is better for pagination and search tests)
 - Optional: **40+ servers** to exercise pagination fully
 - Optional: at least one **server folder** in the sidebar for flat-sidebar tests
@@ -47,8 +47,8 @@ All steps exit with code 0. You should see:
 
 ```
 Tests  86 passed (86)
-dist/index.js  ~16kb
-manifest ok (v4.4.0)
+dist/index.js  ~18kb
+manifest ok (v4.4.1)
 ```
 
 ### Individual commands
@@ -68,7 +68,7 @@ If local verification fails, fix the issue before testing on device.
 
 1. Open Discord on your device.
 2. Go to **User Settings → Revenge → Plugins**.
-3. **New install:** tap **+**, paste `https://github.com/djbclark/RevengeQuickSwitcher`, confirm.
+3. **New install:** tap **+**, paste `https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/`, confirm (allow unproxied if prompted).
 4. **Update:** remove and re-add the plugin, or use Revenge's update/reload control if available.
 5. **Reload Discord** fully (force-quit and reopen).
 6. Confirm **Quick Server Switcher** appears in the plugin list and is enabled.
@@ -363,7 +363,7 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.4.0** |
+| Version | Check plugin metadata if Revenge shows it | **4.4.1** |
 | Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
 | Excluded search | Exclude one of two similar names, query shared fragment | Only non-excluded server matches |
 | Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
@@ -385,13 +385,14 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 
 ---
 
-## Quick checklist — v4.4.0 device QA (A1)
+## Quick checklist — v4.4.1 device QA (A1)
 
-Copy this for the release candidate. Prefer a fresh plugin install/update from GitHub, then full Discord reload.
+Copy this for the release candidate. Prefer a fresh plugin install/update from the **raw** GitHub URL, then full Discord reload.
 
 ```
 [ ] make verify — all green locally (or CI green on main)
-[ ] Plugin installs / updates on Revenge without crash (shows 4.4.0 if version visible)
+[ ] Plugin installs / updates on Revenge without crash (shows 4.4.1 if version visible)
+  Install URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/
 [ ] Settings open; readable in light and dark theme
 [ ] /servers — alphabetical list, correct count
 [ ] /servers 2 — pagination (if 41+ servers or very long names)

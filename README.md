@@ -15,10 +15,18 @@ A high-performance server navigation utility built natively for the **Revenge** 
 
 ## Installation (Revenge Client)
 
-1. Copy this repository URL: `https://github.com/djbclark/RevengeQuickSwitcher`
+Revenge fetches `{url}/manifest.json`, so you must paste a **raw** base URL (not the GitHub repo page):
+
+```
+https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/
+```
+
+1. Copy the URL above (trailing slash is fine).
 2. Open Discord on your device and go to **User Settings → Revenge → Plugins**.
-3. Tap the **+** icon and paste the URL.
+3. Tap **Install a plugin** / **+**, paste the URL, and confirm (allow unproxied install if prompted).
 4. Reload the client.
+
+If install fails with “Failed to fetch manifest”, you almost certainly pasted `https://github.com/...` instead of the `raw.githubusercontent.com` URL.
 
 ## Development
 

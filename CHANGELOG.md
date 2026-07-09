@@ -14,6 +14,12 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.4.1
+
+- Fix Revenge install: use raw GitHub base URL (repo page URL cannot fetch `manifest.json`)
+- Emit Vendetta-compatible plugin bundle with polymanifest `hash`
+- Document correct install URL in README / TESTING
+
 ## 4.4.0
 
 - Exclude / mute servers from search (by name, id, or `~partial`)
