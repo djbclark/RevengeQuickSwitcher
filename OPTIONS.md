@@ -16,7 +16,7 @@ Every option below must include an explicit **Risk** value.
 
 | ID | Option | Risk | Why blocked | Notes |
 |----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.5.4**. Retest: tap a server in the switcher must **not** freeze; guild UI should switch (or show “Could not navigate” without hang). Copy debug logs after a tap. |
+| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.5.5**. Retest: tap must not freeze; logs must show `v4.5.5` on every line and `selectGuild` (not `CHANNEL_SELECT` / `selectChannel`). |
 
 ---
 
@@ -41,7 +41,7 @@ Every option below must include an explicit **Risk** value.
 | **B15** | `/servers` silent + duplicate | **Done** (v4.4.7) | **Low** | `sendBotMessage` replies; unregister-before-register. |
 | **B16** | `/servers query` silent no-op | **Done** (v4.4.7) | **Medium** | Jump/error bot replies + harder nav + arg unwrap. |
 | **B17** | Switcher sheet + tappable picks (C5/C8) | **Done** (v4.5.4) | **Medium** | `openLazy` sheet + simple action sheet; bot-message fallback. |
-| **B18** | Freeze on server tap (selectChannel) | **Done** (v4.5.4) | **High** | Drop loose `selectChannel`; Flux CHANNEL_SELECT/GUILD_SELECT + verified accept only. |
+| **B18** | Freeze on server tap (selectChannel) | **Done** (v4.5.5) | **High** | Drop `selectChannel` + `CHANNEL_SELECT`; prefer `selectGuild` / `GUILD_SELECT`; versioned debug lines. |
 
 ---
 

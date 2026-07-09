@@ -14,6 +14,11 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.5
+
+- Fix freeze after verified jump: stop dispatching Flux `CHANNEL_SELECT` (device logs showed store update then UI hang); prefer `selectGuild` / `transitionToGuild`, then `GUILD_SELECT` only
+- Stamp plugin version on every debug log line (`[v4.5.5 …]`) and clear the ring on upgrade so Copy debug logs is not a mix of builds
+
 ## 4.5.4
 
 - Fix complete freeze on server tap: stop calling loose `findByProps("selectChannel")` (device logs showed it hangs Discord) and remove the “unverified accept” success path

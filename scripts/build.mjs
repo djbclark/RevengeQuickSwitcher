@@ -12,6 +12,9 @@ import { readFileSync, writeFileSync } from "node:fs";
  * Important: target ES2015 so Hermes can parse the bundle. Discord's Hermes
  * historically chokes on ??= / some newer syntax that esbuild would otherwise keep.
  */
+const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+const pluginVersion = typeof pkg.version === "string" ? pkg.version : "0.0.0";
+
 const result = await esbuild.build({
   entryPoints: ["src/index.tsx"],
   bundle: true,
@@ -22,6 +25,9 @@ const result = await esbuild.build({
   // Drop optional chaining / nullish / ??= that older Hermes rejects at eval time.
   // Keep ES2015 (let/const/class/arrow) — smoke uses those and enables successfully.
   target: ["es2015"],
+  define: {
+    __QSS_VERSION__: JSON.stringify(pluginVersion),
+  },
   external: [
     "react",
     "react-native",

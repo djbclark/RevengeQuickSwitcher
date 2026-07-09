@@ -53,12 +53,17 @@ declare module "@revenge-mod/plugin" {
     aliases?: string;
     debugLogging?: boolean;
     debugLogText?: string;
+    /** Last plugin version that wrote the debug ring — used to clear stale lines on upgrade. */
+    debugLogPluginVersion?: string;
     recentIds?: string;
     recentHistorySize?: number;
     excludes?: string;
     hideExcludedFromList?: boolean;
   };
 }
+
+/** Injected by `scripts/build.mjs` from package.json; fallback used by typecheck/tests. */
+declare const __QSS_VERSION__: string | undefined;
 
 declare module "@revenge-mod/storage" {
   export function useProxy<T extends object>(target: T): void;

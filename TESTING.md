@@ -48,7 +48,7 @@ All steps exit with code 0. You should see:
 ```
 Tests  86 passed (86)
 dist/index.js  ~18kb
-manifest ok (v4.5.4)
+manifest ok (v4.5.5)
 ```
 
 ### Individual commands
@@ -369,7 +369,7 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.5.4** |
+| Version | Check plugin metadata if Revenge shows it | **4.5.5** |
 | Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
 | Excluded search | Exclude one of two similar names, query shared fragment | Only non-excluded server matches |
 | Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
@@ -391,17 +391,17 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 
 ---
 
-## Quick checklist — v4.5.4 device QA (A1)
+## Quick checklist — v4.5.5 device QA (A1)
 
 Copy this for the release candidate. Prefer a fresh plugin install/update from the **raw** GitHub URL, then full Discord reload.
 
-**Already confirmed on device (do not skip re-check after `main` install):** enable works, settings open, `/servers` appears once, list posts as a local bot reply; Copy debug logs pastes events.
+**Already confirmed on device (do not skip re-check after `main` install):** enable works, settings open, `/servers` appears once; Copy debug logs pastes events. v4.5.4 verified `CHANNEL_SELECT` then still froze.
 
-**Still needs human testing (priority):** tap a server — Discord must **not** freeze; guild UI should switch. If nav APIs are missing, toast “Could not navigate” and stay responsive. Paste **Copy debug logs** after the tap.
+**Still needs human testing (priority):** tap a server — Discord must **not** freeze. Logs must show **`v4.5.5`** on every line and **`selectGuild`** (not `CHANNEL_SELECT` / `selectChannel`).
 
 ```
 [ ] make verify — all green locally (or CI green on main)
-[ ] Plugin installs / updates on Revenge without crash (shows 4.5.4 if version visible)
+[ ] Plugin installs / updates on Revenge without crash (shows 4.5.5 if version visible)
   Install URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/
 [ ] Smoke plugin installs and ENABLES (toggle on, no X)
   Smoke URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
