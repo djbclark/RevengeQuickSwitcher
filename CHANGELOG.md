@@ -14,6 +14,11 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.4.2
+
+- Fix plugin failing to enable: register `/servers` with required `description`, isolate load errors
+- Lazy/fallback settings switch so the wrench works after a successful start
+
 ## 4.4.1
 
 - Fix Revenge install: use raw GitHub base URL (repo page URL cannot fetch `manifest.json`)

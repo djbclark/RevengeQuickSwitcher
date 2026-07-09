@@ -24,6 +24,8 @@ declare module "@revenge-mod" {
 declare module "@revenge-mod/commands" {
   export function registerCommand(command: {
     name: string;
+    description?: string;
+    shouldHide?: () => boolean;
     options?: Array<{ name: string; type: number; description: string }>;
     execute: (args: unknown) => unknown;
   }): () => void;

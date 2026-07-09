@@ -48,7 +48,7 @@ All steps exit with code 0. You should see:
 ```
 Tests  86 passed (86)
 dist/index.js  ~18kb
-manifest ok (v4.4.1)
+manifest ok (v4.4.2)
 ```
 
 ### Individual commands
@@ -363,7 +363,7 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.4.1** |
+| Version | Check plugin metadata if Revenge shows it | **4.4.2** |
 | Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
 | Excluded search | Exclude one of two similar names, query shared fragment | Only non-excluded server matches |
 | Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
@@ -385,13 +385,13 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 
 ---
 
-## Quick checklist — v4.4.1 device QA (A1)
+## Quick checklist — v4.4.2 device QA (A1)
 
 Copy this for the release candidate. Prefer a fresh plugin install/update from the **raw** GitHub URL, then full Discord reload.
 
 ```
 [ ] make verify — all green locally (or CI green on main)
-[ ] Plugin installs / updates on Revenge without crash (shows 4.4.1 if version visible)
+[ ] Plugin installs / updates on Revenge without crash (shows 4.4.2 if version visible)
   Install URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/
 [ ] Settings open; readable in light and dark theme
 [ ] /servers — alphabetical list, correct count

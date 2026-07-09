@@ -21,8 +21,6 @@ import {
 import { SidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
 import { getSettingsThemeColors } from "./theme";
 
-const { FormSwitchRow } = Forms;
-
 type GuildStore = {
   getGuild: (id: string) => { name?: string } | undefined;
   getGuilds: () => Record<string, { id?: string; name?: string; guildId?: string; guild_id?: string }>;
@@ -47,6 +45,12 @@ type ClipboardModule = {
   getString?: () => Promise<string>;
 };
 
+type SwitchRowProps = {
+  label: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+};
+
 // Caching Discord Metro modules for performance
 let _GuildStore: GuildStore | undefined;
 let _SortedGuildStore: SortedGuildStore | undefined;
@@ -64,14 +68,21 @@ const getNavigation = () =>
 const getClipboard = () =>
   (_Clipboard ??= findByProps("setString", "getString") as ClipboardModule | undefined);
 
-// Initialize plugin storage defaults
-if (storage.flatSidebar === undefined) storage.flatSidebar = false;
-if (storage.aliases === undefined) storage.aliases = "";
-if (storage.debugLogging === undefined) storage.debugLogging = false;
-if (storage.recentIds === undefined) storage.recentIds = "[]";
-if (storage.recentHistorySize === undefined) storage.recentHistorySize = DEFAULT_RECENT_HISTORY_SIZE;
-if (storage.excludes === undefined) storage.excludes = "";
-if (storage.hideExcludedFromList === undefined) storage.hideExcludedFromList = false;
+const ensureStorageDefaults = () => {
+  try {
+    if (storage.flatSidebar === undefined) storage.flatSidebar = false;
+    if (storage.aliases === undefined) storage.aliases = "";
+    if (storage.debugLogging === undefined) storage.debugLogging = false;
+    if (storage.recentIds === undefined) storage.recentIds = "[]";
+    if (storage.recentHistorySize === undefined) storage.recentHistorySize = DEFAULT_RECENT_HISTORY_SIZE;
+    if (storage.excludes === undefined) storage.excludes = "";
+    if (storage.hideExcludedFromList === undefined) storage.hideExcludedFromList = false;
+  } catch (error) {
+    logger.error?.("Failed to initialize plugin storage", error);
+  }
+};
+
+ensureStorageDefaults();
 
 let sidebarCache = new SidebarCache<SidebarNode>();
 let warnedMissingSortedGuildStore = false;
@@ -163,7 +174,11 @@ const handleExec = (rawArgs: unknown) => {
       navigateToGuild: (id) => {
         const Router = getRouter();
         const Navigation = getNavigation();
-        debugLog("navigateToGuild", { id, hasRouter: !!Router?.transitionToGuild, hasNav: !!Navigation?.push });
+        debugLog("navigateToGuild", {
+          id,
+          hasRouter: !!Router?.transitionToGuild,
+          hasNav: !!Navigation?.push,
+        });
         if (Router?.transitionToGuild) {
           Router.transitionToGuild(id);
         } else if (Navigation?.push) {
@@ -185,6 +200,30 @@ const handleExec = (rawArgs: unknown) => {
   }
 };
 
+const resolveSwitchRow = (): React.ComponentType<SwitchRowProps> => {
+  try {
+    const Candidate = (Forms as { FormSwitchRow?: React.ComponentType<SwitchRowProps> } | undefined)
+      ?.FormSwitchRow;
+    if (Candidate) return Candidate;
+  } catch (error) {
+    logger.error?.("FormSwitchRow unavailable", error);
+  }
+
+  // Minimal fallback so settings still render if Discord renamed FormSwitchRow.
+  return ({ label, value, onValueChange }) => (
+    <Pressable
+      onPress={() => onValueChange(!value)}
+      style={{ marginHorizontal: 16, marginVertical: 8, paddingVertical: 10 }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Text style={{ color: "#DBDEE1", fontWeight: "600" }}>
+        {label}: {value ? "On" : "Off"} (tap to toggle)
+      </Text>
+    </Pressable>
+  );
+};
+
 type PluginInstance = {
   _unreg?: () => void;
   _patch?: () => void;
@@ -195,8 +234,10 @@ type PluginInstance = {
 
 const plugin: PluginInstance = {
   settings: () => {
+    ensureStorageDefaults();
     useProxy(storage);
     const colors = getSettingsThemeColors();
+    const FormSwitchRow = resolveSwitchRow();
     const historySize = clampRecentHistorySize(storage.recentHistorySize);
     const recentCount = getStoredRecentIds().length;
     const actionStyle = {
@@ -217,15 +258,6 @@ const plugin: PluginInstance = {
             clearSidebarCache();
             debugLog("flatSidebar toggled", value);
             showToast(`Sidebar set to ${value ? "Flat" : "Standard"}`);
-          }}
-        />
-        <FormSwitchRow
-          label="Debug Logging"
-          value={storage.debugLogging ?? false}
-          onValueChange={(value: boolean) => {
-            storage.debugLogging = value;
-            showToast(`Debug logging ${value ? "on" : "off"}`);
-            if (value) debugLog("debug logging enabled");
           }}
         />
         <FormSwitchRow
@@ -399,44 +431,65 @@ const plugin: PluginInstance = {
   },
 
   onLoad() {
+    ensureStorageDefaults();
     debugLog("onLoad");
-    this._unreg = registerCommand({
-      name: "servers",
-      options: [
-        { name: "query", type: 3, description: "Search, page number, recent, or r1" },
-        { name: "page", type: 4, description: "Go to a specific page" },
-      ],
-      execute: handleExec,
-    });
 
-    const SortedGuildStore = getSortedGuildStore();
-    if (SortedGuildStore) {
-      debugLog("patching getSortedGuilds");
-      this._patch = after("getSortedGuilds", SortedGuildStore, (_args: unknown, returnValue: unknown) => {
-        const guildStore = getGuildStore();
-        return transformFlatSidebar(
-          returnValue,
-          !!storage.flatSidebar,
-          (id) => {
-            const guild = guildStore?.getGuild(id);
-            return guild?.name ?? null;
-          },
-          sidebarCache
-        );
-      });
-    } else if (storage.flatSidebar && !warnedMissingSortedGuildStore) {
-      warnedMissingSortedGuildStore = true;
-      logger.error("Flat sidebar enabled but SortedGuildStore was not found");
-      showToast("Flat sidebar unavailable on this client", "danger");
-    } else {
-      debugLog("SortedGuildStore not found; flat sidebar patch skipped");
+    try {
+      this._unreg = registerCommand({
+        name: "servers",
+        description: "List or jump to servers (fuzzy search, recent, pages)",
+        shouldHide: () => false,
+        options: [
+          { name: "query", type: 3, description: "Search, page number, recent, or r1" },
+          { name: "page", type: 4, description: "Go to a specific page" },
+        ],
+        execute: handleExec,
+      } as Parameters<typeof registerCommand>[0]);
+    } catch (error) {
+      logger.error("Failed to register /servers command", error);
+      showToast("Quick Switcher loaded, but /servers failed to register", "danger");
+    }
+
+    try {
+      const SortedGuildStore = getSortedGuildStore();
+      if (SortedGuildStore) {
+        debugLog("patching getSortedGuilds");
+        this._patch = after("getSortedGuilds", SortedGuildStore, (_args: unknown, returnValue: unknown) => {
+          const guildStore = getGuildStore();
+          return transformFlatSidebar(
+            returnValue,
+            !!storage.flatSidebar,
+            (id) => {
+              const guild = guildStore?.getGuild(id);
+              return guild?.name ?? null;
+            },
+            sidebarCache
+          );
+        });
+      } else if (storage.flatSidebar && !warnedMissingSortedGuildStore) {
+        warnedMissingSortedGuildStore = true;
+        logger.error("Flat sidebar enabled but SortedGuildStore was not found");
+        showToast("Flat sidebar unavailable on this client", "danger");
+      } else {
+        debugLog("SortedGuildStore not found; flat sidebar patch skipped");
+      }
+    } catch (error) {
+      logger.error("Failed to patch flat sidebar", error);
     }
   },
 
   onUnload() {
     debugLog("onUnload");
-    this._unreg?.();
-    this._patch?.();
+    try {
+      this._unreg?.();
+    } catch (error) {
+      logger.error("Failed to unregister /servers", error);
+    }
+    try {
+      this._patch?.();
+    } catch (error) {
+      logger.error("Failed to unpatch sidebar", error);
+    }
     clearSidebarCache();
   },
 };
