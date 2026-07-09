@@ -1,6 +1,6 @@
 {
   "name": "revenge-quick-switcher",
-  "version": "4.4.3",
+  "version": "4.4.4",
   "main": "dist/index.js",
   "scripts": {
     "build": "node scripts/build.mjs",

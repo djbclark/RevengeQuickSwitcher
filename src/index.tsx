@@ -18,7 +18,7 @@ import {
   pushRecentId,
   serializeRecentIds,
 } from "./recents";
-import { SidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
+import { createSidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
 import { getSettingsThemeColors } from "./theme";
 
 type GuildStore = {
@@ -82,22 +82,29 @@ const ensureStorageDefaults = () => {
   }
 };
 
-ensureStorageDefaults();
+// Do not touch storage at module eval time — Vendetta evals the whole file
+// before onLoad, and a throw here disables the plugin (X on the toggle).
 
-let sidebarCache = new SidebarCache<SidebarNode>();
+let sidebarCache = createSidebarCache<SidebarNode>();
 let warnedMissingSortedGuildStore = false;
+let unregisterCommand: (() => void) | undefined;
+let unpatchSidebar: (() => void) | undefined;
 
 const clearSidebarCache = () => {
   sidebarCache.clear();
-  sidebarCache = new SidebarCache<SidebarNode>();
+  sidebarCache = createSidebarCache<SidebarNode>();
 };
 
 const debugLog = (message: string, ...args: unknown[]) => {
-  if (!storage.debugLogging) return;
-  if (typeof logger.info === "function") {
-    logger.info(`[QuickSwitcher] ${message}`, ...args);
-  } else {
-    logger.error(`[QuickSwitcher:debug] ${message}`, ...args);
+  try {
+    if (!storage.debugLogging) return;
+    if (typeof logger.info === "function") {
+      logger.info(`[QuickSwitcher] ${message}`, ...args);
+    } else {
+      logger.error(`[QuickSwitcher:debug] ${message}`, ...args);
+    }
+  } catch {
+    /* ignore — never let logging break enable */
   }
 };
 
@@ -225,11 +232,9 @@ const resolveSwitchRow = (): React.ComponentType<SwitchRowProps> => {
 };
 
 type PluginInstance = {
-  _unreg?: () => void;
-  _patch?: () => void;
   settings: () => React.ReactElement;
-  onLoad(this: PluginInstance): void;
-  onUnload(this: PluginInstance): void;
+  onLoad(): void;
+  onUnload(): void;
 };
 
 const plugin: PluginInstance = {
@@ -431,11 +436,21 @@ const plugin: PluginInstance = {
   },
 
   onLoad() {
-    ensureStorageDefaults();
-    debugLog("onLoad");
+    // Vendetta calls onLoad() without a receiver — never use `this` here.
+    // Also never throw out of onLoad: any throw disables the plugin (X toggle).
+    try {
+      ensureStorageDefaults();
+      debugLog("onLoad");
+    } catch (error) {
+      try {
+        logger.error?.("Quick Switcher onLoad init failed", error);
+      } catch {
+        /* ignore */
+      }
+    }
 
     try {
-      this._unreg = registerCommand({
+      unregisterCommand = registerCommand({
         name: "servers",
         description: "List or jump to servers (fuzzy search, recent, pages)",
         shouldHide: () => false,
@@ -446,15 +461,19 @@ const plugin: PluginInstance = {
         execute: handleExec,
       } as Parameters<typeof registerCommand>[0]);
     } catch (error) {
-      logger.error("Failed to register /servers command", error);
-      showToast("Quick Switcher loaded, but /servers failed to register", "danger");
+      try {
+        logger.error("Failed to register /servers command", error);
+        showToast("Quick Switcher loaded, but /servers failed to register", "danger");
+      } catch {
+        /* ignore */
+      }
     }
 
     try {
       const SortedGuildStore = getSortedGuildStore();
       if (SortedGuildStore) {
         debugLog("patching getSortedGuilds");
-        this._patch = after("getSortedGuilds", SortedGuildStore, (_args: unknown, returnValue: unknown) => {
+        unpatchSidebar = after("getSortedGuilds", SortedGuildStore, (_args: unknown, returnValue: unknown) => {
           const guildStore = getGuildStore();
           return transformFlatSidebar(
             returnValue,
@@ -474,23 +493,51 @@ const plugin: PluginInstance = {
         debugLog("SortedGuildStore not found; flat sidebar patch skipped");
       }
     } catch (error) {
-      logger.error("Failed to patch flat sidebar", error);
+      try {
+        logger.error("Failed to patch flat sidebar", error);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    try {
+      showToast("Quick Server Switcher loaded");
+    } catch {
+      /* ignore */
     }
   },
 
   onUnload() {
-    debugLog("onUnload");
     try {
-      this._unreg?.();
-    } catch (error) {
-      logger.error("Failed to unregister /servers", error);
+      debugLog("onUnload");
+    } catch {
+      /* ignore */
     }
     try {
-      this._patch?.();
+      unregisterCommand?.();
     } catch (error) {
-      logger.error("Failed to unpatch sidebar", error);
+      try {
+        logger.error("Failed to unregister /servers", error);
+      } catch {
+        /* ignore */
+      }
     }
-    clearSidebarCache();
+    unregisterCommand = undefined;
+    try {
+      unpatchSidebar?.();
+    } catch (error) {
+      try {
+        logger.error("Failed to unpatch sidebar", error);
+      } catch {
+        /* ignore */
+      }
+    }
+    unpatchSidebar = undefined;
+    try {
+      clearSidebarCache();
+    } catch {
+      /* ignore */
+    }
   },
 };
 

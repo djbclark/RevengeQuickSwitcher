@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  createSidebarCache,
   flattenSidebarNodes,
-  SidebarCache,
   sortSidebarNodesByGuildName,
   transformFlatSidebar,
 } from "./sidebar";
@@ -47,9 +47,9 @@ describe("sortSidebarNodesByGuildName", () => {
   });
 });
 
-describe("SidebarCache", () => {
+describe("createSidebarCache", () => {
   it("reuses cached output when checksum is unchanged", () => {
-    const cache = new SidebarCache<{ id: string }>();
+    const cache = createSidebarCache<{ id: string }>();
     const source = [{ id: "2" }, { id: "1" }];
     let computeCount = 0;
 
@@ -66,7 +66,7 @@ describe("SidebarCache", () => {
   });
 
   it("recomputes when the source array identity changes", () => {
-    const cache = new SidebarCache<{ id: string }>();
+    const cache = createSidebarCache<{ id: string }>();
     let computeCount = 0;
 
     const compute = (source: { id: string }[]) => {
@@ -81,7 +81,7 @@ describe("SidebarCache", () => {
   });
 
   it("recomputes when nested folder membership changes on the same array", () => {
-    const cache = new SidebarCache<{ id?: string; type?: string; guilds?: { id: string }[] }>();
+    const cache = createSidebarCache<{ id?: string; type?: string; guilds?: { id: string }[] }>();
     const source = [{ type: "folder", id: "folder1", guilds: [{ id: "1" }, { id: "2" }] }];
     let computeCount = 0;
 
@@ -111,7 +111,7 @@ describe("SidebarCache", () => {
   });
 
   it("clears cached entries", () => {
-    const cache = new SidebarCache<{ id: string }>();
+    const cache = createSidebarCache<{ id: string }>();
     const source = [{ id: "2" }, { id: "1" }];
     let computeCount = 0;
     const compute = () => {
@@ -129,18 +129,18 @@ describe("SidebarCache", () => {
 
 describe("transformFlatSidebar", () => {
   it("returns input unchanged when flat sidebar is disabled", () => {
-    const cache = new SidebarCache();
+    const cache = createSidebarCache();
     const input = [{ id: "2" }, { id: "1" }];
     expect(transformFlatSidebar(input, false, getGuildName, cache)).toBe(input);
   });
 
   it("returns input unchanged for non-array values", () => {
-    const cache = new SidebarCache();
+    const cache = createSidebarCache();
     expect(transformFlatSidebar(null, true, getGuildName, cache)).toBeNull();
   });
 
   it("flattens folders and sorts when enabled", () => {
-    const cache = new SidebarCache();
+    const cache = createSidebarCache();
     const input = [
       { type: "folder", guilds: [{ id: "1" }, { id: "3" }] },
       { id: "2" },
