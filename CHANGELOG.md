@@ -14,6 +14,12 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.2
+
+- Fix stuck switcher overlay: remove nested RN `Modal`, hide panel locally on Close/pick, and dismiss via `dismissAlert` / `hideActionSheet` / legacy `close`
+- Navigate to the picked server **after** the overlay closes so the guild UI can update
+- Add **Copy debug logs** in plugin settings (ring buffer of recent switcher/nav events) for device QA without adb
+
 ## 4.5.1
 
 - Dock the `/servers` switcher to the **top** of the screen (alert/modal overlay) so the virtual keyboard no longer covers it

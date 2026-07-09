@@ -45,8 +45,11 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 1. **Safe Mode** — Revenge Settings → disable Safe Mode if enabled (plugins do not start in safe mode).
 2. **Developer settings** — Revenge Settings → Developer (may require tapping the version repeatedly). Useful: debugger URL, React DevTools, Eval command.
 3. **`/debug`** — built-in Revenge command; prints client/Revenge/React versions to chat.
-4. **Logcat (Android)** — with USB debugging: `adb logcat | grep -iE 'revenge|vendetta|Quick|plugin|hermes'`. Plugin start errors are logged as `Plugin <id> errored whilst loading`.
-5. **Plugin info sheet** — the `i` icon → Refetch after a main-branch update; Delete + reinstall if the hash is stuck.
+4. **In-plugin debug buffer (easiest to share)** — open Quick Server Switcher settings → **Copy debug logs**, then paste into chat/GitHub. This captures recent switcher/nav events even when logcat is unavailable.
+5. **Logcat (Android)** — with USB debugging: `adb logcat | grep -iE 'revenge|vendetta|Quick|plugin|hermes'`. Plugin start errors are logged as `Plugin <id> errored whilst loading`. Switcher lines are tagged `[QuickSwitcher]`.
+6. **Plugin info sheet** — the `i` icon → Refetch after a main-branch update; Delete + reinstall if the hash is stuck.
+
+When reporting a stuck switcher / failed jump, please include: Discord build (from `/debug`), whether Close dismisses the panel, whether the jump toast appeared, and the **Copy debug logs** paste.
 
 ## Development
 
