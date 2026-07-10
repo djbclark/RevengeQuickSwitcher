@@ -155,6 +155,11 @@ export const hideSwitcherSheet = () => {
     /* ignore */
   }
   try {
+    getSheetHost()?.hideActionSheet?.(SIMPLE_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
     getSheetHost()?.hideActionSheet?.();
   } catch {
     /* ignore */
@@ -164,6 +169,40 @@ export const hideSwitcherSheet = () => {
   } catch {
     /* ignore */
   }
+};
+
+/**
+ * Run work after the switcher overlay has had time to unmount.
+ * Device QA (v4.5.6): openUrl jumped successfully but taps stayed dead while scroll
+ * still worked — classic leftover alert/sheet shell. JumpTo always hideActionSheet
+ * before openUrl; we need a longer gap + a second dismiss pass.
+ */
+export const runAfterSwitcherDismissed = (action: () => void, delayMs = 420) => {
+  try {
+    hideSwitcherSheet();
+  } catch {
+    /* ignore */
+  }
+  setTimeout(() => {
+    try {
+      hideSwitcherSheet();
+    } catch {
+      /* ignore */
+    }
+    try {
+      action();
+    } catch {
+      /* ignore */
+    }
+    // openUrl can leave Discord’s host briefly; clear again after navigation starts.
+    setTimeout(() => {
+      try {
+        hideSwitcherSheet();
+      } catch {
+        /* ignore */
+      }
+    }, 180);
+  }, delayMs);
 };
 
 /** Tappable rows for ambiguous matches (C5). Returns false if the API is unavailable. */
@@ -183,7 +222,20 @@ export const openSimplePickSheet = (
       header: { title },
       options: limited.map((item) => ({
         label: item.name,
-        onPress: () => onPick(item),
+        onPress: () => {
+          // Match JumpTo: hide sheet before navigating.
+          try {
+            getSheetHost()?.hideActionSheet?.(SIMPLE_KEY);
+          } catch {
+            /* ignore */
+          }
+          try {
+            getSheetHost()?.hideActionSheet?.();
+          } catch {
+            /* ignore */
+          }
+          runAfterSwitcherDismissed(() => onPick(item), 280);
+        },
       })),
     });
     return true;
@@ -216,6 +268,10 @@ const COLORS: PanelColors = {
  * Top-docked searchable switcher panel.
  * Intentionally NOT wrapped in RN Modal — Discord's openAlert/openLazy already hosts
  * the tree. Nesting Modal made Close/dismiss leave a stuck overlay.
+ *
+ * Outer container uses pointerEvents="box-none" and there is NO full-screen Pressable
+ * scrim. A leftover host after jump must not keep eating taps (v4.5.6 device QA:
+ * jump worked, scroll worked, all buttons dead).
  */
 export const SwitcherTopPanel: React.ComponentType<
   SwitcherSheetProps & { onRequestClose: () => void }
@@ -254,15 +310,9 @@ export const SwitcherTopPanel: React.ComponentType<
       } catch {
         /* ignore */
       }
-      // Navigate after the overlay has a chance to unmount.
+      // Let Discord tear down the alert/sheet host before the pick callback navigates.
       if (after) {
-        setTimeout(() => {
-          try {
-            after();
-          } catch {
-            /* ignore */
-          }
-        }, 120);
+        runAfterSwitcherDismissed(after, 420);
       }
     },
     // Intentionally depend on the callback props only.
@@ -343,15 +393,13 @@ export const SwitcherTopPanel: React.ComponentType<
     ) : null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: "flex-start" }}>
-      <Pressable
-        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
-        onPress={() => finishClose()}
-        accessibilityRole="button"
-        accessibilityLabel="Dismiss switcher"
-      />
+    <View
+      pointerEvents="box-none"
+      style={{ flex: 1, backgroundColor: "transparent", justifyContent: "flex-start" }}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        pointerEvents="box-none"
         style={{ width: "100%" }}
       >
         <View
@@ -526,8 +574,10 @@ const openViaLazyModal = (props: SwitcherSheetProps): boolean => {
 
 /** Full searchable switcher UI docked to the top. Returns false if no host API works. */
 export const openSwitcherSheet = (props: SwitcherSheetProps): boolean => {
-  if (openViaAlert(props)) return true;
+  // Prefer Discord’s action-sheet host (JumpTo dismisses with hideActionSheet).
+  // openAlert can leave a touch-blocking shell after openUrl (v4.5.6).
   if (openViaLazyModal(props)) return true;
+  if (openViaAlert(props)) return true;
   return false;
 };
 

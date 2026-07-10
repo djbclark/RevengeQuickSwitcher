@@ -16,7 +16,7 @@ Every option below must include an explicit **Risk** value.
 
 | ID | Option | Risk | Why blocked | Notes |
 |----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.5.6**. Retest: logs must show `v4.5.6` and `openUrl` (not `selectGuild` / `GUILD_SELECT` / `CHANNEL_SELECT`). Tap must not freeze; guild UI should switch. |
+| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.5.7**. Retest: after jump, buttons (sidebar, channel list, chat input) must work — not only scroll. Logs: `v4.5.7` + `openUrl`. |
 
 ---
 
@@ -41,7 +41,7 @@ Every option below must include an explicit **Risk** value.
 | **B15** | `/servers` silent + duplicate | **Done** (v4.4.7) | **Low** | `sendBotMessage` replies; unregister-before-register. |
 | **B16** | `/servers query` silent no-op | **Done** (v4.4.7) | **Medium** | Jump/error bot replies + harder nav + arg unwrap. |
 | **B17** | Switcher sheet + tappable picks (C5/C8) | **Done** (v4.5.4) | **Medium** | `openLazy` sheet + simple action sheet; bot-message fallback. |
-| **B18** | Freeze on server tap (nav APIs) | **Done** (v4.5.6) | **High** | Jump via JumpTo-style `openUrl` deep link; avoid selectChannel/CHANNEL_SELECT/selectGuild/GUILD_SELECT. |
+| **B18** | Freeze / dead UI after jump | **Done** (v4.5.7) | **High** | JumpTo `openUrl` deep link + hard sheet dismiss; no leftover touch-blocking overlay. |
 
 ---
 
