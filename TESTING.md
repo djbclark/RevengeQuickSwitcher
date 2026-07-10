@@ -2,6 +2,8 @@
 
 This guide covers verification before a release: automated checks on your machine, then manual validation on a Revenge Discord client.
 
+Related: [HANDOFF.md](HANDOFF.md) (current state / nav invariants) · [HACKING.md](HACKING.md) (dev setup) · [OPTIONS.md](OPTIONS.md) (**A1** device QA).
+
 ## Prerequisites
 
 ### Local (developer machine)
@@ -46,7 +48,7 @@ This runs, in order:
 All steps exit with code 0. You should see:
 
 ```
-Tests  86 passed (86)
+Tests  96 passed (96)
 dist/index.js  ~18kb
 manifest ok (v4.5.9)
 ```

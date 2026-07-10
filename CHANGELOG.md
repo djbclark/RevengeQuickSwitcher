@@ -12,7 +12,7 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 ## [Unreleased]
 
-_Nothing yet._
+- Docs: add stayturgid-style `HANDOFF.md` / `HACKING.md`; README documentation index; cross-links from OPTIONS/TESTING
 
 ## 4.5.9
 

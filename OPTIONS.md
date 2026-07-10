@@ -2,6 +2,8 @@
 
 Living backlog of product and engineering options. Keep this file current whenever priorities change, and push updates to GitHub with the related work.
 
+Agent cold-start: [HANDOFF.md](HANDOFF.md) · Dev setup: [HACKING.md](HACKING.md) · Device checklist: [TESTING.md](TESTING.md).
+
 **How to reference:** each section has a letter; each option has a number. Say **A1**, **C3**, etc.
 
 Status legend: **Ready** · **Needs input** · **Done** · **Idea**
