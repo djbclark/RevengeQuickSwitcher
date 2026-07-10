@@ -48,7 +48,7 @@ All steps exit with code 0. You should see:
 ```
 Tests  86 passed (86)
 dist/index.js  ~18kb
-manifest ok (v4.5.8)
+manifest ok (v4.5.9)
 ```
 
 ### Individual commands
@@ -369,7 +369,7 @@ If local verification fails, fix the issue before testing on device.
 | Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
 | Long server names | Name > 100 chars | Truncated safely in lists and toasts |
 | Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.5.8** |
+| Version | Check plugin metadata if Revenge shows it | **4.5.9** |
 | Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
 | Excluded search | Exclude one of two similar names, query shared fragment | Only non-excluded server matches |
 | Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
@@ -391,17 +391,17 @@ For device-only bugs, note that local tests passed — that helps separate Reven
 
 ---
 
-## Quick checklist — v4.5.8 device QA (A1)
+## Quick checklist — v4.5.9 device QA (A1)
 
 Copy this for the release candidate. Prefer a fresh plugin install/update from the **raw** GitHub URL, then full Discord reload.
 
-**Already confirmed:** `openUrl` jumps to the right guild. v4.5.6–4.5.7 left taps dead (custom overlay host).
+**Already confirmed:** `openUrl` jumps work and taps stay alive (v4.5.8). Bottom ActionSheet was covered by the keyboard.
 
-**Still needs human testing:** `/servers` should open a **native bottom ActionSheet** (not a top floating panel). After jump, sidebar / channels / composer taps must work.
+**Still needs human testing:** `/servers` opens a **top-docked** panel; Filter does not auto-open the keyboard; if you tap Filter, the list stays usable above the keyboard; after jump, taps still work.
 
 ```
 [ ] make verify — all green locally (or CI green on main)
-[ ] Plugin installs / updates on Revenge without crash (shows 4.5.8 if version visible)
+[ ] Plugin installs / updates on Revenge without crash (shows 4.5.9 if version visible)
   Install URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/
 [ ] Smoke plugin installs and ENABLES (toggle on, no X)
   Smoke URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/

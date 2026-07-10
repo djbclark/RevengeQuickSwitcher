@@ -1,6 +1,7 @@
 import React from "react";
 import { findByProps } from "@revenge-mod/metro";
 import {
+  Platform,
   Pressable,
   ScrollView,
   TextInput,
@@ -28,6 +29,11 @@ type LazyActionSheetHost = {
   hideActionSheet?: (key?: string) => void;
 };
 
+type AlertHost = {
+  openAlert?: (key: string, element: React.ReactElement) => void;
+  dismissAlert?: (key?: string) => void;
+};
+
 type SimpleActionSheetApi = {
   showSimpleActionSheet?: (opts: {
     key: string;
@@ -36,32 +42,12 @@ type SimpleActionSheetApi = {
   }) => void;
 };
 
-type ActionSheetModule = {
-  ActionSheet?: React.ComponentType<{ children?: React.ReactNode; scrollable?: boolean }>;
-};
-
-type TitleHeaderModule = {
-  ActionSheetTitleHeader?: React.ComponentType<{
-    title: string;
-    subtitle?: string;
-    trailing?: React.ReactNode;
-  }>;
-  BottomSheetTitleHeader?: React.ComponentType<{
-    title: string;
-    trailing?: React.ReactNode;
-  }>;
-};
-
-type CloseButtonModule = {
-  ActionSheetCloseButton?: React.ComponentType<{ onPress?: () => void }>;
-};
-
 const SHEET_KEY = "quick-switcher-sheet";
+const ALERT_KEY = "quick-switcher-top";
 const SIMPLE_KEY = "quick-switcher-simple";
-/** Keep simple sheets short — Discord’s native simple sheet auto-dismisses on press. */
 const MAX_SIMPLE_OPTIONS = 12;
 
-/** Rows per page in the native ActionSheet body. */
+/** Rows per page — keeps the top panel short enough to sit above the keyboard. */
 export const SHEET_PAGE_SIZE = 8;
 
 export const sheetPageCount = (itemCount: number, pageSize = SHEET_PAGE_SIZE) =>
@@ -89,11 +75,9 @@ export const filterSwitcherItems = (items: SwitcherItem[], query: string) => {
 };
 
 let _lazySheet: LazyActionSheetHost | undefined;
+let _alertHost: AlertHost | undefined;
 let _simpleSheet: SimpleActionSheetApi | undefined;
-let _ActionSheet: React.ComponentType<{ children?: React.ReactNode; scrollable?: boolean }> | undefined;
-let _TitleHeader: React.ComponentType<{ title: string; subtitle?: string; trailing?: React.ReactNode }> | undefined;
-let _CloseButton: React.ComponentType<{ onPress?: () => void }> | undefined;
-let _lookedUpNative = false;
+let _activeClose: (() => void) | undefined;
 
 const getLazyActionSheet = () => {
   if (_lazySheet) return _lazySheet;
@@ -105,6 +89,16 @@ const getLazyActionSheet = () => {
     _lazySheet = undefined;
   }
   return _lazySheet;
+};
+
+const getAlertHost = () => {
+  if (_alertHost) return _alertHost;
+  try {
+    _alertHost = findByProps("openAlert", "dismissAlert") as AlertHost | undefined;
+  } catch {
+    _alertHost = undefined;
+  }
+  return _alertHost;
 };
 
 const getSimpleActionSheet = () => {
@@ -120,43 +114,27 @@ const getSimpleActionSheet = () => {
 };
 
 /**
- * Resolve Discord’s native ActionSheet pieces the way Stealmoji / Bunny plugins do.
- * Custom Views opened via openLazy WITHOUT this wrapper leave a touch-blocking shell
- * after hideActionSheet + openUrl (device QA v4.5.6–4.5.7).
+ * Dismiss every known host. Stealmoji/JumpTo always hideActionSheet before follow-ups;
+ * top-docked UI also needs dismissAlert (v4.5.6–4.5.7 dead-tap QA).
  */
-const ensureNativeSheetParts = () => {
-  if (_lookedUpNative) return;
-  _lookedUpNative = true;
-  try {
-    const sheetMod = findByProps("ActionSheet") as ActionSheetModule | undefined;
-    _ActionSheet = sheetMod?.ActionSheet;
-  } catch {
-    /* ignore */
-  }
-  try {
-    const titleMod = findByProps("ActionSheetTitleHeader") as TitleHeaderModule | undefined;
-    _TitleHeader = titleMod?.ActionSheetTitleHeader;
-  } catch {
-    /* ignore */
-  }
-  if (!_TitleHeader) {
-    try {
-      const bottom = findByProps("BottomSheetTitleHeader") as TitleHeaderModule | undefined;
-      _TitleHeader = bottom?.BottomSheetTitleHeader;
-    } catch {
-      /* ignore */
-    }
-  }
-  try {
-    const closeMod = findByProps("ActionSheetCloseButton") as CloseButtonModule | undefined;
-    _CloseButton = closeMod?.ActionSheetCloseButton;
-  } catch {
-    /* ignore */
-  }
-};
-
-/** Hide Discord’s LazyActionSheet host (JumpTo / Stealmoji / Bunny). */
 export const hideSwitcherSheet = () => {
+  try {
+    _activeClose?.();
+  } catch {
+    /* ignore */
+  }
+  _activeClose = undefined;
+
+  try {
+    getAlertHost()?.dismissAlert?.(ALERT_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    getAlertHost()?.dismissAlert?.();
+  } catch {
+    /* ignore */
+  }
   try {
     getLazyActionSheet()?.hideActionSheet?.(SHEET_KEY);
   } catch {
@@ -175,10 +153,10 @@ export const hideSwitcherSheet = () => {
 };
 
 /**
- * Stealmoji / JumpTo pattern: hideActionSheet first, then run the action.
- * Never navigate while a custom overlay is still mounted.
+ * Stealmoji / JumpTo pattern: dismiss host first, then run the action.
+ * Never call openUrl while an overlay is still mounted.
  */
-export const dismissThenRun = (action: () => void, delayMs = 160) => {
+export const dismissThenRun = (action: () => void, delayMs = 200) => {
   try {
     hideSwitcherSheet();
   } catch {
@@ -193,7 +171,7 @@ export const dismissThenRun = (action: () => void, delayMs = 160) => {
   }, delayMs);
 };
 
-/** @deprecated use dismissThenRun — kept for callers that imported the old name */
+/** @deprecated use dismissThenRun */
 export const runAfterSwitcherDismissed = dismissThenRun;
 
 const COLORS = {
@@ -206,12 +184,24 @@ const COLORS = {
 };
 
 /**
- * Body rendered INSIDE Discord’s native ActionSheet (Stealmoji AddToServer pattern).
- * Do not use a full-screen flex:1 overlay or openAlert — those leave dead taps after jump.
+ * Top-docked searchable panel (v4.5.1 keyboard fix).
+ *
+ * Hosted by openAlert so it sits at the top of the screen — bottom ActionSheets
+ * are covered by the Android keyboard (v4.5.8 screenshot).
+ *
+ * Critical vs broken v4.5.6 overlay:
+ * - No full-screen Pressable scrim
+ * - Outer container pointerEvents="box-none" (no leftover touch sink)
+ * - Pick path: hide/dismiss first, then onPick → openUrl (Stealmoji)
+ * - TextInput never autoFocus (keyboard only when user taps Filter)
  */
-const SwitcherSheetBody: React.ComponentType<SwitcherSheetProps> = (sheetProps) => {
+export const SwitcherTopPanel: React.ComponentType<
+  SwitcherSheetProps & { onRequestClose: () => void }
+> = (sheetProps) => {
+  const [visible, setVisible] = React.useState(true);
   const [query, setQuery] = React.useState(sheetProps.initialQuery || "");
   const [page, setPage] = React.useState(1);
+  const closedRef = React.useRef(false);
   const colors = COLORS;
 
   const recent = sheetProps.recentItems || [];
@@ -222,55 +212,46 @@ const SwitcherSheetBody: React.ComponentType<SwitcherSheetProps> = (sheetProps) 
     setPage(1);
   }, [query]);
 
-  const pick = (item: SwitcherItem) => {
-    // Match Stealmoji: hideActionSheet before the follow-up action.
-    dismissThenRun(() => {
+  const finishClose = React.useCallback(
+    (after?: () => void) => {
+      if (closedRef.current) return;
+      closedRef.current = true;
+      setVisible(false);
+      try {
+        sheetProps.onRequestClose();
+      } catch {
+        /* ignore */
+      }
+      try {
+        hideSwitcherSheet();
+      } catch {
+        /* ignore */
+      }
       try {
         sheetProps.onClose?.();
       } catch {
         /* ignore */
       }
-      sheetProps.onPick(item);
-    });
+      if (after) {
+        dismissThenRun(after, 200);
+      }
+    },
+    [sheetProps.onRequestClose, sheetProps.onClose]
+  );
+
+  const pick = (item: SwitcherItem) => {
+    finishClose(() => sheetProps.onPick(item));
   };
 
-  const closeOnly = () => {
-    hideSwitcherSheet();
-    try {
-      sheetProps.onClose?.();
-    } catch {
-      /* ignore */
-    }
-  };
-
-  ensureNativeSheetParts();
-  const ActionSheet = _ActionSheet;
-  const TitleHeader = _TitleHeader;
-  const CloseButton = _CloseButton;
-
-  const header =
-    TitleHeader && CloseButton ? (
-      <TitleHeader
-        title={sheetProps.title}
-        subtitle={sheetProps.subtitle}
-        trailing={<CloseButton onPress={closeOnly} />}
-      />
-    ) : (
-      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 }}>
-        <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", flex: 1 }}>{sheetProps.title}</Text>
-        <Pressable onPress={closeOnly} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-          <Text style={{ color: colors.accent, fontWeight: "600" }}>Close</Text>
-        </Pressable>
-      </View>
-    );
+  if (!visible) return null;
 
   const row = (item: SwitcherItem, keyPrefix: string) => (
     <Pressable
       key={`${keyPrefix}:${item.id}`}
       onPress={() => pick(item)}
       style={{
-        paddingVertical: 14,
-        paddingHorizontal: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 4,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
       }}
@@ -281,131 +262,231 @@ const SwitcherSheetBody: React.ComponentType<SwitcherSheetProps> = (sheetProps) 
     </Pressable>
   );
 
-  const body = (
-    <>
-      {header}
-      {sheetProps.subtitle && !TitleHeader ? (
-        <Text style={{ color: colors.muted, fontSize: 13, paddingHorizontal: 16, marginBottom: 8 }}>
-          {sheetProps.subtitle}
-        </Text>
-      ) : null}
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Filter servers"
-        placeholderTextColor={colors.faint}
-        autoFocus={false}
+  const pager =
+    totalPages > 1 ? (
+      <View
         style={{
-          marginHorizontal: 16,
-          marginBottom: 8,
-          backgroundColor: "#1E1F22",
-          color: colors.text,
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginTop: 10,
         }}
-      />
-      <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
-        {!query.trim() && recent.length > 0 && safePage === 1 ? (
-          <View style={{ marginBottom: 8 }}>
-            <Text
-              style={{
-                color: colors.muted,
-                fontSize: 11,
-                fontWeight: "700",
-                textTransform: "uppercase",
-                paddingHorizontal: 16,
-                marginBottom: 4,
-              }}
-            >
-              Recent
-            </Text>
-            {recent.slice(0, 5).map((item) => row(item, "recent"))}
-          </View>
-        ) : null}
-        <Text
+      >
+        <Pressable
+          onPress={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={safePage <= 1}
           style={{
-            color: colors.muted,
-            fontSize: 11,
-            fontWeight: "700",
-            textTransform: "uppercase",
-            paddingHorizontal: 16,
-            marginBottom: 4,
-          }}
-        >
-          {query.trim()
-            ? `Matches (${filtered.length})`
-            : `Servers (${filtered.length}) · page ${safePage}/${totalPages}`}
-        </Text>
-        {pageItems.length === 0 ? (
-          <Text style={{ color: colors.faint, padding: 16 }}>No servers match.</Text>
-        ) : (
-          pageItems.map((item) => row(item, "all"))
-        )}
-      </ScrollView>
-      {totalPages > 1 ? (
-        <View
-          style={{
-            flexDirection: "row",
+            flex: 1,
+            marginRight: 6,
+            paddingVertical: 10,
+            borderRadius: 8,
+            backgroundColor: safePage <= 1 ? "#3A3C41" : colors.accent,
             alignItems: "center",
-            justifyContent: "space-between",
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            paddingBottom: 20,
+            opacity: safePage <= 1 ? 0.5 : 1,
           }}
+          accessibilityRole="button"
+          accessibilityLabel="Previous page"
         >
-          <Pressable
-            onPress={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={safePage <= 1}
-            style={{
-              flex: 1,
-              marginRight: 6,
-              paddingVertical: 10,
-              borderRadius: 8,
-              backgroundColor: safePage <= 1 ? "#3A3C41" : colors.accent,
-              alignItems: "center",
-              opacity: safePage <= 1 ? 0.5 : 1,
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Previous page"
-          >
-            <Text style={{ color: colors.text, fontWeight: "600" }}>Previous</Text>
-          </Pressable>
-          <Text style={{ color: colors.muted, fontSize: 13, minWidth: 72, textAlign: "center" }}>
-            {safePage} / {totalPages}
+          <Text style={{ color: colors.text, fontWeight: "600" }}>Previous</Text>
+        </Pressable>
+        <Text style={{ color: colors.muted, fontSize: 13, minWidth: 72, textAlign: "center" }}>
+          {safePage} / {totalPages}
+        </Text>
+        <Pressable
+          onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={safePage >= totalPages}
+          style={{
+            flex: 1,
+            marginLeft: 6,
+            paddingVertical: 10,
+            borderRadius: 8,
+            backgroundColor: safePage >= totalPages ? "#3A3C41" : colors.accent,
+            alignItems: "center",
+            opacity: safePage >= totalPages ? 0.5 : 1,
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Next page"
+        >
+          <Text style={{ color: colors.text, fontWeight: "600" }}>Next</Text>
+        </Pressable>
+      </View>
+    ) : null;
+
+  // Top-aligned panel only — no full-bleed flex:1 touch sink under the keyboard.
+  return (
+    <View pointerEvents="box-none" style={{ flex: 1, justifyContent: "flex-start" }}>
+      <View
+        style={{
+          marginTop: Platform.OS === "ios" ? 48 : 28,
+          marginHorizontal: 12,
+          backgroundColor: colors.panel,
+          borderRadius: 12,
+          paddingHorizontal: 14,
+          paddingTop: 12,
+          paddingBottom: 14,
+          maxHeight: 380,
+          borderWidth: 1,
+          borderColor: colors.border,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+          <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", flex: 1 }}>
+            {sheetProps.title}
           </Text>
           <Pressable
-            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={safePage >= totalPages}
-            style={{
-              flex: 1,
-              marginLeft: 6,
-              paddingVertical: 10,
-              borderRadius: 8,
-              backgroundColor: safePage >= totalPages ? "#3A3C41" : colors.accent,
-              alignItems: "center",
-              opacity: safePage >= totalPages ? 0.5 : 1,
-            }}
+            onPress={() => finishClose()}
             accessibilityRole="button"
-            accessibilityLabel="Next page"
+            accessibilityLabel="Close switcher"
+            hitSlop={12}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: "#3A3C41",
+            }}
           >
-            <Text style={{ color: colors.text, fontWeight: "600" }}>Next</Text>
+            <Text style={{ color: colors.text, fontSize: 15, fontWeight: "600" }}>Close</Text>
           </Pressable>
         </View>
-      ) : (
-        <View style={{ height: 16 }} />
-      )}
-    </>
+        {sheetProps.subtitle ? (
+          <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 10 }}>{sheetProps.subtitle}</Text>
+        ) : null}
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Filter servers"
+          placeholderTextColor={colors.faint}
+          // Never auto-focus — keyboard must not cover the list until the user taps Filter.
+          autoFocus={false}
+          style={{
+            backgroundColor: "#1E1F22",
+            color: colors.text,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            marginBottom: 10,
+          }}
+        />
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          style={{ flexGrow: 0 }}
+          nestedScrollEnabled={true}
+        >
+          {!query.trim() && recent.length > 0 && safePage === 1 ? (
+            <View style={{ marginBottom: 10 }}>
+              <Text
+                style={{
+                  color: colors.muted,
+                  fontSize: 11,
+                  fontWeight: "700",
+                  textTransform: "uppercase",
+                  marginBottom: 4,
+                }}
+              >
+                Recent
+              </Text>
+              {recent.slice(0, 5).map((item) => row(item, "recent"))}
+            </View>
+          ) : null}
+          <Text
+            style={{
+              color: colors.muted,
+              fontSize: 11,
+              fontWeight: "700",
+              textTransform: "uppercase",
+              marginBottom: 4,
+            }}
+          >
+            {query.trim()
+              ? `Matches (${filtered.length})`
+              : `Servers (${filtered.length}) · page ${safePage}/${totalPages}`}
+          </Text>
+          {pageItems.length === 0 ? (
+            <Text style={{ color: colors.faint, paddingVertical: 16 }}>No servers match.</Text>
+          ) : (
+            pageItems.map((item) => row(item, "all"))
+          )}
+        </ScrollView>
+        {pager}
+      </View>
+    </View>
   );
-
-  if (ActionSheet) {
-    return <ActionSheet scrollable>{body}</ActionSheet>;
-  }
-  // Last resort: still open via LazyActionSheet but without ActionSheet chrome.
-  return <View style={{ backgroundColor: colors.panel }}>{body}</View>;
 };
 
-/** Native Discord simple sheet — auto-dismisses on option press (JumpTo-adjacent). */
+/** Top-docked via openAlert — stays above the Android keyboard. */
+const openViaAlert = (props: SwitcherSheetProps): boolean => {
+  try {
+    const host = getAlertHost();
+    if (typeof host?.openAlert !== "function") return false;
+
+    const close = () => {
+      try {
+        host.dismissAlert?.(ALERT_KEY);
+      } catch {
+        /* ignore */
+      }
+      try {
+        host.dismissAlert?.();
+      } catch {
+        /* ignore */
+      }
+      try {
+        getLazyActionSheet()?.hideActionSheet?.();
+      } catch {
+        /* ignore */
+      }
+    };
+    _activeClose = close;
+
+    host.openAlert!(
+      ALERT_KEY,
+      React.createElement(SwitcherTopPanel, {
+        ...props,
+        onRequestClose: close,
+      })
+    );
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Fallback: LazyActionSheet with the same top panel body (no ActionSheet chrome). */
+const openViaLazy = (props: SwitcherSheetProps): boolean => {
+  try {
+    const host = getLazyActionSheet();
+    if (typeof host?.openLazy !== "function") return false;
+
+    const close = () => {
+      try {
+        host.hideActionSheet?.(SHEET_KEY);
+      } catch {
+        /* ignore */
+      }
+      try {
+        host.hideActionSheet?.();
+      } catch {
+        /* ignore */
+      }
+      try {
+        getAlertHost()?.dismissAlert?.(ALERT_KEY);
+      } catch {
+        /* ignore */
+      }
+    };
+    _activeClose = close;
+
+    const Sheet: React.ComponentType<SwitcherSheetProps> = (sheetProps) => (
+      <SwitcherTopPanel {...sheetProps} onRequestClose={close} />
+    );
+
+    host.openLazy!(Promise.resolve({ default: Sheet }), SHEET_KEY, props);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const openSimplePickSheet = (
   title: string,
   items: SwitcherItem[],
@@ -426,7 +507,6 @@ export const openSimplePickSheet = (
       options: limited.map((item) => ({
         label: item.name,
         onPress: () => {
-          // Native simple sheet usually dismisses itself; still hide + delay like Stealmoji.
           dismissThenRun(() => onPick(item), 120);
         },
       })),
@@ -437,24 +517,13 @@ export const openSimplePickSheet = (
   }
 };
 
-/** Full searchable switcher inside Discord’s LazyActionSheet + ActionSheet. */
+/** Prefer top-docked alert (keyboard-safe); fall back to LazyActionSheet. */
 export const openSwitcherSheet = (props: SwitcherSheetProps): boolean => {
-  try {
-    ensureNativeSheetParts();
-    const host = getLazyActionSheet();
-    if (typeof host?.openLazy !== "function") return false;
-
-    host.openLazy!(Promise.resolve({ default: SwitcherSheetBody }), SHEET_KEY, props);
-    return true;
-  } catch {
-    return false;
-  }
+  if (openViaAlert(props)) return true;
+  if (openViaLazy(props)) return true;
+  return false;
 };
 
-/**
- * Prefer native ActionSheet host; use simple sheet for short lists.
- * Never use openAlert — device QA showed leftover touch-blocking shells.
- */
 export const openSwitcherUi = (
   props: SwitcherSheetProps & { preferSimple?: boolean }
 ): "sheet" | "simple" | null => {

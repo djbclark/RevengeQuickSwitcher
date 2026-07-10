@@ -137,7 +137,7 @@ const postCommandReply = (channelId: string | undefined, content: string) => {
 
 /** Injected at build time from package.json; keep fallback in sync when bumping. */
 const PLUGIN_VERSION =
-  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.8";
+  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.9";
 
 const ensureStorageDefaults = () => {
   try {

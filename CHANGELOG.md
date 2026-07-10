@@ -14,6 +14,11 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.9
+
+- Restore **top-docked** switcher so the Android keyboard no longer covers the list (v4.5.8 bottom ActionSheet regression)
+- Keep Stealmoji dismiss-then-`openUrl` jump path; no full-screen touch scrim; Filter field does not auto-focus
+
 ## 4.5.8
 
 - Rewrite switcher UI to match known-good Revenge plugins (**Stealmoji** / **Bunny ActionSheet** / **JumpTo**): open Discord’s native `ActionSheet` via `openLazy`, call `hideActionSheet()` before `openUrl`
