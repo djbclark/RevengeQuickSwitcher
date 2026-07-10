@@ -31,23 +31,27 @@ type SortedGuildStore = {
   getSortedGuilds: () => SidebarNode[];
 };
 
-type GuildActionsModule = {
-  transitionToGuild?: (id: string) => void;
-  selectGuild?: (id: string) => void;
-};
-
-type FluxDispatcherModule = {
-  dispatch?: (payload: Record<string, unknown>) => void;
-  _currentDispatchActionType?: unknown;
-};
-
 type ChannelIdStore = {
   getLastSelectedChannelId?: (guildId: string) => string | undefined | null;
   getChannelId?: (guildId?: string) => string | undefined | null;
 };
 
+type GuildChannelStore = {
+  getChannels?: (guildId: string) =>
+    | { SELECTABLE?: Array<{ channel?: { id?: string }; id?: string }> }
+    | Array<{ id?: string }>
+    | undefined;
+  getDefaultChannel?: (guildId: string) => { id?: string } | string | undefined | null;
+};
+
 type SelectedGuildStore = {
   getGuildId?: () => string | undefined | null;
+};
+
+/** Discord deep-link opener — same module aliernfrog/JumpTo uses on Revenge Android. */
+type OpenUrlModule = {
+  openUrl?: (href: string) => void;
+  openURL?: (href: string) => void;
 };
 
 type ClipboardModule = {
@@ -77,36 +81,36 @@ type SwitchRowProps = {
 // Caching Discord Metro modules for performance
 let _GuildStore: GuildStore | undefined;
 let _SortedGuildStore: SortedGuildStore | undefined;
-let _GuildActions: GuildActionsModule | undefined;
 let _Clipboard: ClipboardModule | undefined;
 let _MessageUtil: MessageUtilModule | undefined;
-let _FluxDispatcher: FluxDispatcherModule | undefined;
 let _ChannelIdStore: ChannelIdStore | undefined;
+let _GuildChannelStore: GuildChannelStore | undefined;
 let _SelectedGuildStore: SelectedGuildStore | undefined;
+let _OpenUrl: OpenUrlModule | undefined;
 
 const getGuildStore = () => (_GuildStore ??= findByProps("getGuild", "getGuilds") as GuildStore | undefined);
 const getSortedGuildStore = () =>
   (_SortedGuildStore ??= findByProps("getSortedGuilds") as SortedGuildStore | undefined);
-const getGuildActions = () =>
-  (_GuildActions ??=
-    (findByProps("transitionToGuild", "selectGuild") as GuildActionsModule | undefined) ||
-    (findByProps("selectGuild") as GuildActionsModule | undefined) ||
-    (findByProps("transitionToGuild") as GuildActionsModule | undefined));
 const getClipboard = () =>
   (_Clipboard ??= findByProps("setString", "getString") as ClipboardModule | undefined);
 const getMessageUtil = () =>
   (_MessageUtil ??= findByProps("sendBotMessage") as MessageUtilModule | undefined);
-/** Prefer Discord's real Flux dispatcher — `dispatch`+`subscribe` matches too many modules. */
-const getFluxDispatcher = () =>
-  (_FluxDispatcher ??=
-    (findByProps("_currentDispatchActionType", "dispatch") as FluxDispatcherModule | undefined) ||
-    (findByProps("_interceptors", "dispatch") as FluxDispatcherModule | undefined));
 const getChannelIdStore = () =>
   (_ChannelIdStore ??=
     (findByProps("getLastSelectedChannelId") as ChannelIdStore | undefined) ||
     (findByProps("getChannelId", "getVoiceChannelId") as ChannelIdStore | undefined));
+const getGuildChannelStore = () =>
+  (_GuildChannelStore ??=
+    (findByProps("getChannels", "getDefaultChannel") as GuildChannelStore | undefined) ||
+    (findByProps("getDefaultChannel") as GuildChannelStore | undefined));
 const getSelectedGuildStore = () =>
   (_SelectedGuildStore ??= findByProps("getGuildId", "getLastSelectedGuildId") as SelectedGuildStore | undefined);
+/** Match JumpTo: `findByProps("openUrl")`, with common mobile casing fallbacks. */
+const getOpenUrl = () =>
+  (_OpenUrl ??=
+    (findByProps("openUrl") as OpenUrlModule | undefined) ||
+    (findByProps("openURL", "openDeeplink") as OpenUrlModule | undefined) ||
+    (findByProps("openURL") as OpenUrlModule | undefined));
 
 const readSelectedGuildId = () => {
   try {
@@ -133,7 +137,7 @@ const postCommandReply = (channelId: string | undefined, content: string) => {
 
 /** Injected at build time from package.json; keep fallback in sync when bumping. */
 const PLUGIN_VERSION =
-  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.5";
+  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.6";
 
 const ensureStorageDefaults = () => {
   try {
@@ -303,16 +307,52 @@ const debugLog = (message: string, ...args: unknown[]) => {
   }
 };
 
+/** Resolve a channel id in the target guild (needed for discord.com/channels/{guild}/{channel}). */
+const resolveChannelIdForGuild = (guildId: string): string | null => {
+  const ChannelIdStore = getChannelIdStore();
+  const fromSelected =
+    ChannelIdStore?.getLastSelectedChannelId?.(guildId) || ChannelIdStore?.getChannelId?.(guildId) || null;
+  if (fromSelected) return String(fromSelected);
+
+  try {
+    const GuildChannels = getGuildChannelStore();
+    const def = GuildChannels?.getDefaultChannel?.(guildId);
+    if (typeof def === "string" && def) return def;
+    if (def && typeof def === "object" && def.id) return String(def.id);
+
+    const channels = GuildChannels?.getChannels?.(guildId);
+    if (Array.isArray(channels)) {
+      const first = channels.find((c) => c?.id);
+      if (first?.id) return String(first.id);
+    } else if (channels && typeof channels === "object") {
+      const selectable = (channels as { SELECTABLE?: Array<{ channel?: { id?: string }; id?: string }> })
+        .SELECTABLE;
+      if (Array.isArray(selectable)) {
+        for (const entry of selectable) {
+          const cid = entry?.channel?.id || entry?.id;
+          if (cid) return String(cid);
+        }
+      }
+    }
+  } catch (error) {
+    debugLog("resolveChannelIdForGuild failed", String(error));
+  }
+  return null;
+};
+
 /**
- * Switch guild without channel-select APIs.
+ * Switch guild via Discord's own channel deep link.
  *
- * Device history:
- * - v4.5.3: loose `selectChannel` freezes; store goes null; old unverified-accept claimed success.
- * - v4.5.4: Flux `CHANNEL_SELECT` updates SelectedGuildStore then still freezes the UI.
+ * Research (Revenge Android–tested plugins):
+ * - aliernfrog/JumpTo (stable on latest Revenge): `findByProps("openUrl").openUrl("https://discord.com/channels/...")`
+ * - Vencord KeepCurrentChannel (desktop): `NavigationRouter.transitionTo("/channels/...")` — same route shape
  *
- * Prefer `selectGuild` / `transitionToGuild`, then Flux `GUILD_SELECT` only.
- * Never dispatch `CHANNEL_SELECT` or call `selectChannel`.
- * When the selected-guild store is readable, only report success if it matches the target.
+ * Device history for THIS plugin (do not reuse):
+ * - v4.5.3: loose `selectChannel(guildId, channelId)` freezes
+ * - v4.5.4: Flux `CHANNEL_SELECT` verifies store then freezes UI
+ * - v4.5.5: `selectGuild` / `GUILD_SELECT` do not stick; failure toast then freeze
+ *
+ * Never call selectChannel / CHANNEL_SELECT / selectGuild / GUILD_SELECT.
  */
 const navigateToGuild = (id: string): boolean => {
   if (!id) {
@@ -326,70 +366,46 @@ const navigateToGuild = (id: string): boolean => {
     return true;
   }
 
-  const GuildActions = getGuildActions();
-  const ChannelIdStore = getChannelIdStore();
-  const FluxDispatcher = getFluxDispatcher();
-  const lastChannel =
-    ChannelIdStore?.getLastSelectedChannelId?.(id) || ChannelIdStore?.getChannelId?.(id) || null;
-  const storeReadable = before != null;
+  const channelId = resolveChannelIdForGuild(id);
+  const OpenUrl = getOpenUrl();
+  const openFn =
+    (typeof OpenUrl?.openUrl === "function" && OpenUrl.openUrl) ||
+    (typeof OpenUrl?.openURL === "function" && OpenUrl.openURL) ||
+    null;
 
   debugLog("navigateToGuild", {
     id,
     before,
-    storeReadable,
-    hasTransition: typeof GuildActions?.transitionToGuild === "function",
-    hasSelectGuild: typeof GuildActions?.selectGuild === "function",
-    hasFlux: typeof FluxDispatcher?.dispatch === "function",
-    lastChannel,
+    channelId,
+    hasOpenUrl: !!openFn,
   });
 
-  const acceptAfter = (label: string, after: string | null | undefined): boolean | "continue" => {
+  if (!channelId) {
+    debugLog("navigateToGuild no channel for guild", { id });
+    return false;
+  }
+  if (!openFn) {
+    debugLog("navigateToGuild openUrl module missing");
+    return false;
+  }
+
+  const href = `https://discord.com/channels/${id}/${channelId}`;
+  try {
+    openFn(href);
+    const after = readSelectedGuildId();
+    debugLog("navigateToGuild openUrl ok", { href, after });
+    // JumpTo treats openUrl as fire-and-forget; Discord often updates selection async.
+    // Accept the call if it did not throw — do not chain any other nav APIs after.
     if (after === id) {
-      debugLog("navigateToGuild verified", { label, after });
-      return true;
+      debugLog("navigateToGuild verified", { label: "openUrl", after });
+    } else {
+      debugLog("navigateToGuild openUrl accepted (async)", { after, expected: id });
     }
-    // Store was readable before the call but is now null — treat as failure (do not accept).
-    if (storeReadable && after == null) {
-      debugLog("navigateToGuild store cleared after attempt", { label, before });
-      return "continue";
-    }
-    if (!storeReadable && after == null) {
-      debugLog("navigateToGuild unverified skip", { label });
-      return "continue";
-    }
-    debugLog("navigateToGuild did not stick", { label, after, expected: id });
-    return "continue";
-  };
-
-  // Guild-only APIs first. CHANNEL_SELECT verified the store on device but still froze Discord.
-  const attempts: Array<[string, () => void]> = [];
-  if (typeof GuildActions?.selectGuild === "function") {
-    attempts.push(["selectGuild", () => GuildActions.selectGuild!(id)]);
+    return true;
+  } catch (error) {
+    debugLog("navigateToGuild openUrl failed", String(error));
+    return false;
   }
-  if (typeof GuildActions?.transitionToGuild === "function") {
-    attempts.push(["transitionToGuild", () => GuildActions.transitionToGuild!(id)]);
-  }
-  if (typeof FluxDispatcher?.dispatch === "function") {
-    attempts.push([
-      "GUILD_SELECT",
-      () => FluxDispatcher.dispatch!({ type: "GUILD_SELECT", guildId: id }),
-    ]);
-  }
-
-  for (const [label, run] of attempts) {
-    try {
-      run();
-      const after = readSelectedGuildId();
-      debugLog("navigateToGuild attempt ok", { label, after });
-      const result = acceptAfter(label, after);
-      if (result === true) return true;
-    } catch (error) {
-      debugLog("navigateToGuild attempt failed", label, String(error));
-    }
-  }
-
-  debugLog("navigateToGuild exhausted all APIs", { id, before });
-  return false;
 };
 
 const getStoredRecentIds = () => parseRecentIds(storage.recentIds);

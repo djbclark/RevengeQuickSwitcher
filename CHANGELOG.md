@@ -14,6 +14,11 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.6
+
+- Navigate via Discord deep links (`openUrl` + `https://discord.com/channels/{guild}/{channel}`), matching **aliernfrog/JumpTo** (Revenge Android–tested)
+- Stop calling `selectGuild` / `GUILD_SELECT` (device log: both ran, selection did not stick, then freeze after the failure toast)
+
 ## 4.5.5
 
 - Fix freeze after verified jump: stop dispatching Flux `CHANNEL_SELECT` (device logs showed store update then UI hang); prefer `selectGuild` / `transitionToGuild`, then `GUILD_SELECT` only
