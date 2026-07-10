@@ -1,4 +1,4 @@
-.PHONY: help build test typecheck verify clean clean-all install qa qa-dry \
+.PHONY: help build test typecheck verify clean clean-all install qa qa-dry lease-status \
 	vlm-install vlm-server vlm-check vlm-stop vlm-smoke \
 	vlm-service-install vlm-service-uninstall vlm-service-start vlm-service-stop vlm-service-restart vlm-service-status
 
@@ -11,8 +11,9 @@ help:
 	@echo "  make test       - Run unit tests"
 	@echo "  make typecheck  - Type-check all src/ modules"
 	@echo "  make verify     - Run typecheck, tests, build, and manifest check"
-	@echo "  make qa         - Device QA harness (Handsets + stayturgid; QSS_DEVICE=p7a)"
+	@echo "  make qa         - Device QA harness (Handsets + stayturgid; QSS_DEVICE=s24)"
 	@echo "  make qa-dry     - Reachability + Discord package check only"
+	@echo "  make lease-status - Cross-project screen-control leases (DSCL v1)"
 	@echo "  make vlm-install - brew + download UI-TARS weights (~6GB) to ~/.local/share/ui-tars/"
 	@echo "  make vlm-check   - Smoke-test VLM server health"
 	@echo "  (UI-TARS start/stop: launchctl — see PATHS.md; make vlm-service-* are thin wrappers)"
@@ -31,17 +32,25 @@ test:
 typecheck:
 	npm run typecheck
 
-QSS_DEVICE ?= p7a
+QSS_DEVICE ?= s24
 QSS_GUILD ?= dcs
 
 verify:
 	npm run verify
 
+STAYTURGID_REPO ?= $(HOME)/stayturgid
+
 qa:
-	STAYTURGID_PRESENCE_QUIET=1 QSS_VLM=1 python3 scripts/device_qa_qss.py $(QSS_DEVICE) --guild $(QSS_GUILD)
+	DEVICE_SCREEN_CONTROL_PROJECT=RevengeQuickSwitcher \
+	STAYTURGID_SCREEN_PURPOSE=qss-qa \
+	STAYTURGID_PRESENCE_QUIET=1 QSS_VLM=1 \
+	python3 scripts/device_qa_qss.py $(QSS_DEVICE) --guild $(QSS_GUILD)
 
 qa-dry:
 	python3 scripts/device_qa_qss.py --dry-reach $(QSS_DEVICE)
+
+lease-status:
+	python3 $(STAYTURGID_REPO)/control/bin/screen_lease.py status
 
 vlm-install:
 	bash scripts/vlm_install.sh

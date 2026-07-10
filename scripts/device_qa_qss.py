@@ -5,13 +5,14 @@ Mirrors stayturgid ``control/bin/gui_audit.py``: one ScreenControlSession, Hands
 primary, screenshots + ``report.json`` per run.
 
   STAYTURGID_PRESENCE_QUIET=1  — no torch / vibrate / dialogs
-  QSS_DEVICE=p7a               — fleet alias (default: p7a)
+  QSS_DEVICE=s24               — fleet alias (default: s24)
   QSS_SERIAL=35261JEHN12374    — override ADB serial (USB preferred when online)
   QSS_GUILD=dcs|lldc           — safe test guild to work in (default: dcs)
   QSS_SERVER_NAME=...          — switcher row to jump (must be Danny Clark's / LL/DC)
   QSS_OPEN=settings            — only settings→Open switcher (slash posts to chat!)
   QSS_VLM=1                    — local UI-TARS vision gates (make vlm-server)
   QSS_VLM_STRICT=1             — block QA actions when VLM server is down
+  QSS_SAFE_MODE=1              — never type without VLM + a11y proof (default on)
   QSS_VLM_PORT=8081            — llama-server port for UI-TARS
   QSS_VLM_TIMEOUT=900          — per-image local VLM budget (seconds; keep high)
 
@@ -25,7 +26,9 @@ not subject to those caps — each gate may take 10–90s on Metal.
 **Safety:** All UI work happens on operator-owned test guilds only, verified by
 channel name (not server title): ``#dc-general``, ``#dc-games`` (preferred),
 ``#ogden``, ``#college``. Sidebar icons ``DCs`` / ``LL/DC`` are hints only.
-Never runs slash commands in-channel. Switcher opens via settings → Plugins → **Open switcher**.
+Never runs slash commands in-channel unless ``QSS_ALLOW_SLASH=1``. Switcher opens
+via settings → Plugins → **Open switcher**. With ``QSS_SAFE_MODE=1`` (default),
+no ``handsets type/fill`` runs on DM threads or without VLM ``before_type`` gate.
 
 Artifacts: ~/.local/share/RevengeQuickSwitcher/artifacts/qss-qa/<YYYY-MM-DD>/<host>/
 Log:       ~/.local/share/RevengeQuickSwitcher/logs/qss-qa.log
@@ -71,8 +74,13 @@ if not _ST_LIB.is_dir():
 sys.path.insert(0, str(_ST_LIB))
 
 import stayturgid_device as dev  # noqa: E402
+import device_screen_lease as dsl  # noqa: E402
 import screen_control as sc  # noqa: E402
 import ui_driver as uid  # noqa: E402
+
+# DSCL v1 — distinct project slug so stayturgid and QSS do not fight silently.
+os.environ.setdefault("DEVICE_SCREEN_CONTROL_PROJECT", "RevengeQuickSwitcher")
+os.environ.setdefault("STAYTURGID_SCREEN_PURPOSE", "qss-qa")
 
 sys.path.insert(0, str(REPO / "scripts"))
 try:
@@ -201,6 +209,39 @@ def adb_connect(serial: str) -> bool:
         timeout=15,
     )
     return probe.returncode == 0 and "ok" in (probe.stdout or "")
+
+
+def device_ids_for_lease(host: str, serial: str) -> list[str]:
+    """Aliases/serials for DSCL v1 lease matching (see stayturgid screen-control-lease.md)."""
+    ids = [host, serial]
+    try:
+        row = dev.device_row(host)
+        if row:
+            usb, ts_ip, lan = row
+            if usb and usb != "-":
+                ids.append(usb)
+            if ts_ip and ts_ip != "-":
+                ids.append("%s:5555" % ts_ip)
+            if lan and lan != "-":
+                ids.append("%s:5555" % lan)
+    except (OSError, ValueError, TypeError):
+        pass
+    seen: set[str] = set()
+    out: list[str] = []
+    for i in ids:
+        s = str(i).strip()
+        if s and s.lower() not in seen:
+            seen.add(s.lower())
+            out.append(s)
+    return out
+
+
+def preflight_screen_lease(host: str, serial: str) -> str | None:
+    """Return holder summary if another project holds the glass (DSCL v1)."""
+    lease = dsl.find_active_lease(*device_ids_for_lease(host, serial))
+    if lease and not dsl.ours(lease):
+        return dsl.format_holder(lease)
+    return None
 
 
 def resolve_device_serial(host: str) -> str:
@@ -335,18 +376,56 @@ def wait_ui(hs: uid.HandsetsSession, *needles: str, timeout: float = UI_WAIT_MED
     )
 
 
-def wait_discord_ready(hs: uid.HandsetsSession, *, timeout: float = UI_WAIT_MED) -> bool:
-    """Discord foreground + bottom bar or channel chrome visible."""
-
-    def ready() -> bool:
+def dismiss_blocking_screens(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession | None = None
+) -> None:
+    """Dismiss modal overlays (e.g. sponsored video, Wordle pill) that block Discord chrome."""
+    ui = hs.ui()
+    if any(
+        m in ui
+        for m in ("Visit Advertiser", "Sponsored", "Advertiser", "3:00", "3:01")
+    ):
+        dismiss_sponsored_video_overlay(hs, session)
+    if ui_wordle_quest_prompt(ui):
+        dismiss_wordle_quest_prompt(hs, session)
+    for _ in range(6):
         ui = hs.ui()
-        if not ui_looks_like_discord(ui):
-            return False
-        if any(", Online" in ln and "Button" in ln for ln in ui.splitlines()):
-            return True
-        return "message #" in ui.lower() or "chat_input_edit_text" in ui
+        if dismiss_top_alert(hs, session):
+            continue
+        if ui_has_button(ui, "Okay") and tap_button_by_label(hs, session, "Okay"):
+            time.sleep(0.6)
+            continue
+        if ui_has_button(ui, "OK") and tap_button_by_label(hs, session, "OK"):
+            time.sleep(0.6)
+            continue
+        if tap_button_by_label(hs, session, "Dismiss alert"):
+            time.sleep(0.5)
+            continue
+        if not ui_has_button(ui, "Okay") and not ui_has_button(ui, "OK"):
+            break
+    dismiss_system_dialogs(hs, session)
 
-    return wait_until(ready, timeout=timeout, label="discord_ready")
+
+def wait_discord_ready(
+    hs: uid.HandsetsSession,
+    *,
+    timeout: float = UI_WAIT_MED,
+    session: sc.ScreenControlSession | None = None,
+) -> bool:
+    """Discord foreground + bottom bar or channel chrome visible."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        dismiss_blocking_screens(hs, session)
+        ui = hs.ui()
+        if ui_looks_like_discord(ui) and (
+            any(", Online" in ln and "Button" in ln for ln in ui.splitlines())
+            or "message #" in ui.lower()
+            or "chat_input_edit_text" in ui
+        ):
+            return True
+        time.sleep(UI_POLL)
+    log("wait_until timeout: discord_ready")
+    return False
 
 
 def set_animations_enabled(serial: str, enabled: bool) -> None:
@@ -471,6 +550,195 @@ def handsets_type(hs: uid.HandsetsSession, text: str) -> bool:
     return r.returncode == 0
 
 
+def safe_mode_enabled() -> bool:
+    return os.environ.get("QSS_SAFE_MODE", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+
+
+def ui_dm_thread(ui: str) -> bool:
+    """True when the message composer targets a DM (@user), not a #channel."""
+    low = ui.lower()
+    if re.search(r"message\s+#", low):
+        return False
+    if re.search(r"message\s+@", low):
+        return True
+    for line in ui.splitlines():
+        if "chat_input" not in line.lower() and "fill" not in line.lower():
+            continue
+        if re.search(r'message\s+@', line, re.I):
+            return True
+    # In-thread: header shows user name without #channel (e.g. kuriboh, Idle, Member List).
+    if re.search(r",\s*member list", low) and "message #" not in low:
+        if re.search(r"\(channel\)", low) is None and re.search(
+            r"message\s+#", low
+        ) is None:
+            for line in ui.splitlines():
+                if "member list" in line.lower() and "#" not in line:
+                    if "dc-general" not in line and "dc-games" not in line:
+                        if "ogden" not in line and "college" not in line:
+                            return True
+    return False
+
+
+def typing_safety_gate(
+    hs: uid.HandsetsSession,
+    purpose: str,
+    text: str,
+    *,
+    serial: str | None = None,
+    issues: list[str] | None = None,
+) -> bool:
+    """Hard stop before any handsets type/fill — DM surfaces and misfocused fields."""
+    ui = hs.ui()
+    if ui_dm_thread(ui):
+        log(
+            "SAFETY: refuse type %r — DM composer active (purpose=%s)"
+            % (text[:24], purpose)
+        )
+        if issues is not None and "safety_dm_thread" not in issues:
+            issues.append("safety_dm_thread")
+        return False
+    if purpose == "switcher_filter" and not ui_switcher_open(ui):
+        log("SAFETY: refuse filter type %r — switcher not open" % text[:24])
+        if issues is not None and "safety_switcher_closed" not in issues:
+            issues.append("safety_switcher_closed")
+        return False
+    if purpose == "plugin_install" and not (
+        "Install a plugin" in ui or "Type in the source URL" in ui
+    ):
+        log("SAFETY: refuse plugin URL type — install dialog not visible")
+        if issues is not None and "safety_not_plugin_install" not in issues:
+            issues.append("safety_not_plugin_install")
+        return False
+    if purpose == "slash_command" and not ui_on_safe_channel(ui):
+        log("SAFETY: refuse slash type — not on allowlisted test channel")
+        if issues is not None and "safety_not_safe_channel" not in issues:
+            issues.append("safety_not_safe_channel")
+        return False
+    if safe_mode_enabled() and serial and _vlm_gate is None:
+        log("SAFETY: refuse type — QSS_SAFE_MODE requires VLM (start UI-TARS)")
+        if issues is not None and "safety_vlm_required" not in issues:
+            issues.append("safety_vlm_required")
+        return False
+    if serial and _vlm_gate is not None:
+        cap = vlm_capture(
+            serial, "pre_type_%s.png" % re.sub(r"\W+", "_", text[:24])
+        )
+        if not vlm_require(
+            cap, "before_type", "type:%s" % text[:40], issues=issues
+        ):
+            return False
+        if purpose == "switcher_filter" and not vlm_require(
+            cap, "switcher_open", "switcher_before_type", issues=issues
+        ):
+            return False
+    return True
+
+
+def composer_draft_text(ui: str) -> str | None:
+    """Best-effort read of channel composer draft from Handsets dump."""
+    for line in ui.splitlines():
+        low = line.lower()
+        if "chat_input" not in low and "fill" not in low:
+            continue
+        lbl = _ui_label(line)
+        if lbl and not lbl.startswith("Message "):
+            return lbl
+        if line.strip().lower().startswith("fill"):
+            m = re.search(r'fill\s+\S+\s+"([^"]*)"', line, re.I)
+            if m and not m.group(1).startswith("Message "):
+                return m.group(1)
+    return None
+
+
+def verify_after_type(
+    hs: uid.HandsetsSession,
+    serial: str,
+    text: str,
+    label: str,
+    *,
+    issues: list[str] | None = None,
+    surface: str = "composer",
+    purpose: str = "unknown",
+) -> bool:
+    """Screenshot + a11y check immediately after type/fill — catch //servers-style misfires."""
+    ui = hs.ui()
+    draft = composer_draft_text(ui) if surface == "composer" else None
+    slug = re.sub(r"[^a-zA-Z0-9._-]+", "_", label or text[:24])
+    cap = vlm_capture(serial, "after_type_%s.png" % slug)
+    log(
+        "after_type %s: typed=%r composer=%r"
+        % (label, text[:40], (draft[:60] if draft else None))
+    )
+    if surface == "composer" and draft is not None:
+        if "//" in draft and "/" in text:
+            log("SAFETY: double-slash in composer after type: %r" % draft)
+            if issues is not None and "safety_double_slash" not in issues:
+                issues.append("safety_double_slash")
+            return False
+        if purpose == "slash_command" and draft.startswith("//"):
+            log("SAFETY: slash command typo %r — would post to chat" % draft)
+            if issues is not None and "safety_slash_typo" not in issues:
+                issues.append("safety_slash_typo")
+            return False
+        if text and text not in draft and not draft.startswith(text.rstrip("/")):
+            if len(text) > 1 or text not in ("/",):
+                log(
+                    "SAFETY: composer mismatch — typed %r, saw %r"
+                    % (text[:40], draft[:60])
+                )
+                if issues is not None and "safety_type_mismatch" not in issues:
+                    issues.append("safety_type_mismatch")
+                return False
+    if cap and _vlm_gate is not None:
+        if not vlm_require(cap, "after_type", label or text[:20], issues=issues):
+            return False
+    return True
+
+
+def discard_composer_draft(
+    hs: uid.HandsetsSession,
+    session: sc.ScreenControlSession,
+    serial: str,
+) -> None:
+    """Clear channel composer without sending — recover from slash/type misfires."""
+    if not ui_on_safe_channel(hs.ui()) and ui_dm_thread(hs.ui()):
+        log("SAFETY: refuse discard_composer_draft on DM thread")
+        return
+    hs.tap_id("chat_input_edit_text", timeout_ms=1500)
+    time.sleep(0.25)
+    for _ in range(48):
+        session.shell("input", "keyevent", "KEYCODE_DEL")
+    time.sleep(0.3)
+    unfocus_composer(hs, session)
+    cap = vlm_capture(serial, "after_discard_composer.png")
+    log("discard_composer_draft: cleared (composer=%r)" % composer_draft_text(hs.ui()))
+    if cap and _vlm_gate is not None:
+        vlm_require(cap, "after_type", "discard_composer", issues=None)
+
+
+def tap_ui_line_containing(
+    hs: uid.HandsetsSession,
+    session: sc.ScreenControlSession,
+    needle: str,
+) -> bool:
+    """Tap a tappable line by coord — avoids tap_text re-typing into composer."""
+    for line in hs.ui().splitlines():
+        if needle not in line:
+            continue
+        if "Button" not in line and not line.strip().lower().startswith("tap"):
+            continue
+        pt = _ui_xy(line)
+        if pt:
+            session.shell("input", "tap", str(pt[0]), str(pt[1]))
+            time.sleep(0.4)
+            return True
+    return False
+
+
 def init_vlm(artifact_dir: Path) -> bool:
     """Start local UI-TARS gates; optional cloud fallback when configured."""
     global _vlm_gate, _vlm_dir, _vlm_records
@@ -550,6 +818,22 @@ def vlm_require(
         if isinstance(detail.get("parsed"), dict):
             notes = str(detail["parsed"].get("notes", ""))
         log("VLM blocked %s: %s (%.1fs)" % (label or check, notes, detail.get("elapsed_s", 0)))
+        if vlm_cloud is not None and vlm_cloud.cloud_configured():
+            cloud = vlm_cloud.CloudVlmGate()
+            if cloud.ready:
+                log("VLM cloud retry for %s (%s)" % (check, cloud.model))
+                c_ok, c_detail = cloud.verify(image_path, check)
+                c_detail["label"] = (label or check) + "_cloud"
+                _vlm_records.append(c_detail)
+                if _vlm_dir is not None:
+                    safe = re.sub(r"[^a-zA-Z0-9._-]+", "_", (label or check) + "_cloud")
+                    (_vlm_dir / ("%s.json" % safe)).write_text(
+                        json.dumps(c_detail, indent=2), encoding="utf-8"
+                    )
+                if c_ok:
+                    if issues is not None and msg in issues:
+                        issues.remove(msg)
+                    return True
     return ok
 
 
@@ -571,15 +855,39 @@ def handsets_fill(
     *,
     serial: str | None = None,
     issues: list[str] | None = None,
+    purpose: str = "unknown",
 ) -> bool:
-    if serial and _vlm_gate is not None:
-        cap = vlm_capture(serial, "pre_type_%s.png" % re.sub(r"\W+", "_", text[:24]))
-        if not vlm_require(cap, "before_type", "type:%s" % text[:40], issues=issues):
-            return False
+    if purpose == "unknown":
         if "Filter" in selector or "filter" in text.lower():
-            vlm_require(cap, "switcher_open", "switcher_before_type", issues=issues)
+            purpose = "switcher_filter"
+        elif "github" in text.lower() or text.startswith("http"):
+            purpose = "plugin_install"
+    if not typing_safety_gate(
+        hs, purpose, text, serial=serial, issues=issues
+    ):
+        return False
     r = hs.hs("fill", selector, text, timeout=20)
-    return r.returncode == 0
+    if r.returncode != 0:
+        return False
+    if serial:
+        surface = (
+            "filter"
+            if purpose == "switcher_filter"
+            else "composer"
+            if purpose in ("slash_command", "unknown")
+            else "any"
+        )
+        if not verify_after_type(
+            hs,
+            serial,
+            text,
+            "fill:%s" % text[:20],
+            issues=issues,
+            surface=surface,
+            purpose=purpose,
+        ):
+            return False
+    return True
 
 
 def handsets_type_safe(
@@ -588,18 +896,134 @@ def handsets_type_safe(
     *,
     serial: str | None = None,
     issues: list[str] | None = None,
+    purpose: str = "switcher_filter",
 ) -> bool:
-    if serial and _vlm_gate is not None:
-        cap = vlm_capture(serial, "pre_type_%s.png" % re.sub(r"\W+", "_", text[:24]))
-        if not vlm_require(cap, "before_type", "type:%s" % text[:40], issues=issues):
+    if not typing_safety_gate(
+        hs, purpose, text, serial=serial, issues=issues
+    ):
+        return False
+    if not handsets_type(hs, text):
+        return False
+    if serial:
+        surface = "filter" if purpose == "switcher_filter" else "composer"
+        if not verify_after_type(
+            hs,
+            serial,
+            text,
+            "type:%s" % text[:20],
+            issues=issues,
+            surface=surface,
+            purpose=purpose,
+        ):
             return False
-    return handsets_type(hs, text)
+    return True
+
+
+def reveal_bottom_nav_bar(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession
+) -> None:
+    """Discord hides the bottom profile strip while chat is scrolled — reveal it."""
+    ui = hs.ui()
+    if "Danny, Online" in ui or "Danny, Idle" in ui or "Show Settings Drawer" in ui:
+        return
+    if not ui_in_channel_chat(ui):
+        return
+    unfocus_composer(hs, session)
+    w, h = screen_size(session.serial)
+    # Scroll chat upward so the bottom bar (profile chip) is exposed.
+    for y1, y2 in ((0.55, 0.78), (0.45, 0.72)):
+        session.shell(
+            "input",
+            "swipe",
+            str(int(w * 0.5)),
+            str(int(h * y1)),
+            str(int(w * 0.5)),
+            str(int(h * y2)),
+            "280",
+        )
+        time.sleep(0.35)
+        if "Danny, Online" in hs.ui() or "Danny, Idle" in hs.ui():
+            return
+    if hs.tap_text("Jump To Present", timeout_ms=800):
+        time.sleep(0.4)
+
+
+def _profile_sheet_open(ui: str) -> bool:
+    if any(
+        m in ui
+        for m in (
+            "User Settings",
+            "Set Status",
+            "Switch Accounts",
+            "Edit Profile",
+        )
+    ):
+        return True
+    # Revenge profile sheet — top-right Settings tab (S24) without "User Settings" row.
+    return "Edit Profile" in ui and re.search(
+        r'Button\s+"Settings"\s+\d+,\d+', ui
+    ) is not None
+
+
+def _after_profile_tap(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession | None = None
+) -> bool:
+    time.sleep(0.9)
+    if session is not None:
+        dismiss_system_dialogs(hs, session)
+    return _profile_sheet_open(hs.ui())
 
 
 def tap_profile_chip(
     hs: uid.HandsetsSession, session: sc.ScreenControlSession | None = None
 ) -> bool:
     """Open profile sheet via footer name row (not the server-list button coords)."""
+    if session is not None:
+        prepare_profile_access(hs, session)
+    ui = hs.ui()
+    if (
+        session is not None
+        and "Danny, Online" not in ui
+        and "Danny, Idle" not in ui
+        and "Show Settings Drawer" not in ui
+    ):
+        reveal_bottom_nav_bar(hs, session)
+        ui = hs.ui()
+    for line in ui.splitlines():
+        if "Button" not in line:
+            continue
+        label = _ui_label(line) or ""
+        if label not in ("Danny, Online", "Danny, Idle") and not label.startswith(
+            "Danny,"
+        ):
+            continue
+        pt = _ui_xy(line)
+        if pt and pt[1] > 2100 and session is not None:
+            session.shell("input", "tap", str(pt[0]), str(pt[1]))
+            if _after_profile_tap(hs, session):
+                return True
+    if hs.tap_desc("Show Settings Drawer", timeout_ms=2500) or hs.tap_text(
+        "Show Settings Drawer", timeout_ms=2000
+    ):
+        if _after_profile_tap(hs, session):
+            return True
+    if session is not None and _tap_danny_profile_text(hs, session):
+        if _after_profile_tap(hs, session):
+            return True
+    if hs.tap_text("Danny, Online", timeout_ms=3000) or hs.tap_text(
+        "Danny, Idle", timeout_ms=2000
+    ):
+        if _after_profile_tap(hs, session):
+            return True
+    ui = hs.ui()
+    for line in ui.splitlines():
+        if "TextView" not in line or "Danny" not in line or "Online" in line:
+            continue
+        pt = _ui_xy(line)
+        if pt and pt[1] > 2100 and pt[0] < 400:
+            if hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
+                if _after_profile_tap(hs, session):
+                    return True
     ui = hs.ui()
     for line in ui.splitlines():
         if "Button" not in line or "Danny, Online" not in line:
@@ -608,41 +1032,13 @@ def tap_profile_chip(
         if not pt or pt[1] < 2100:
             continue
         if hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
-            time.sleep(0.9)
-            ui = hs.ui()
-            if any(
-                m in ui
-                for m in (
-                    "User Settings",
-                    "Set Status",
-                    "Switch Accounts",
-                    "Edit Profile",
-                )
-            ):
+            if _after_profile_tap(hs, session):
                 return True
     if session is not None:
         dismiss_emoji_panels(hs, session)
-        unfocus_composer(hs, session)
+        if ui_in_channel_chat(hs.ui()):
+            unfocus_composer(hs, session)
         time.sleep(0.3)
-        w, h = screen_size(session.serial)
-        if ui_shows_server_sidebar(hs.ui()):
-            session.shell("input", "tap", str(int(w * 0.55)), str(int(h * 0.45)))
-            time.sleep(0.5)
-        for x_frac in (0.88, 0.78, 0.92, 0.72):
-            x, y = int(w * x_frac), int(h * 0.96)
-            if hs.hs("tap", str(x), str(y), timeout=10).returncode == 0:
-                time.sleep(0.9)
-                ui = hs.ui()
-                if any(
-                    m in ui
-                    for m in (
-                        "User Settings",
-                        "Set Status",
-                        "Switch Accounts",
-                        "Edit Profile",
-                    )
-                ):
-                    return True
     ui = hs.ui()
     lines = ui.splitlines()
     for i, line in enumerate(lines):
@@ -656,23 +1052,59 @@ def tap_profile_chip(
             m = re.search(r"(\d+)\s*,\s*(\d+)", follow)
             if m and int(m.group(1)) < 320:
                 if hs.hs("tap", m.group(1), m.group(2), timeout=10).returncode == 0:
-                    return True
+                    if _after_profile_tap(hs, session):
+                        return True
         m = re.search(r'"([^"]+)"', line)
         if m and hs.tap_text(m.group(1), timeout_ms=3000):
-            return True
-    return (
-        hs.tap_desc("You", timeout_ms=2000)
-        or hs.tap_desc("Account", timeout_ms=1500)
-        or hs.tap_text("You", timeout_ms=2000)
-    )
+            if _after_profile_tap(hs, session):
+                return True
+    for label in ("You", "Account"):
+        if hs.tap_desc(label, timeout_ms=2000) or hs.tap_text(label, timeout_ms=2000):
+            if _after_profile_tap(hs, session):
+                return True
+    return False
+
+
+def quest_bar_blocks_profile(hs: uid.HandsetsSession) -> bool:
+    """Quest/promo strip covers the bottom profile chip (common on S24)."""
+    return ui_quest_overlay(hs.ui()) and not _profile_sheet_open(hs.ui())
 
 
 def dismiss_system_dialogs(
     hs: uid.HandsetsSession, session: sc.ScreenControlSession | None = None
 ) -> None:
     """Dismiss Android runtime permission / grant dialogs that block Discord taps."""
-    for _ in range(4):
+    for _ in range(6):
         ui = hs.ui()
+        if dismiss_top_alert(hs, session):
+            time.sleep(0.6)
+            continue
+        if ui_has_button(ui, "Okay") and tap_button_by_label(hs, session, "Okay"):
+            time.sleep(0.6)
+            continue
+        if ui_has_button(ui, "OK") and tap_button_by_label(hs, session, "OK"):
+            time.sleep(0.6)
+            continue
+        if "Discard your feedback?" in ui:
+            if hs.tap_text("Discard", timeout_ms=1200) or hs.tap_desc(
+                "Discard", timeout_ms=1000
+            ):
+                time.sleep(0.7)
+                continue
+            if session is not None:
+                session.shell("input", "keyevent", "KEYCODE_BACK")
+                time.sleep(0.6)
+                continue
+        if "Send feedback to Google" in ui or "Close Feedback" in ui:
+            if hs.tap_desc("Close Feedback", timeout_ms=1200) or hs.tap_text(
+                "Close Feedback", timeout_ms=1000
+            ):
+                time.sleep(0.6)
+                continue
+            if session is not None:
+                session.shell("input", "keyevent", "KEYCODE_BACK")
+                time.sleep(0.6)
+                continue
         if "permission_message" not in ui and "Allow " not in ui:
             if "grant_dialog" not in ui and "grant_singleton" not in ui:
                 break
@@ -688,7 +1120,7 @@ def dismiss_system_dialogs(
             time.sleep(0.6)
             continue
         if session is not None:
-            dismiss_keyboard(session)
+            dismiss_keyboard(session, hs)
         break
 
 
@@ -713,25 +1145,47 @@ def open_user_settings(
     hs: uid.HandsetsSession, session: sc.ScreenControlSession | None = None
 ) -> bool:
     """Bottom profile chip → User Settings."""
+    ui = hs.ui()
+    if ui_in_user_settings(ui):
+        return True
     if not tap_profile_chip(hs, session):
         return False
     if not wait_until(
-        lambda: "User Settings" in hs.ui()
-        or "Set Status" in hs.ui()
-        or "Switch Accounts" in hs.ui(),
+        lambda: (
+            "User Settings" in hs.ui()
+            or "Set Status" in hs.ui()
+            or "Switch Accounts" in hs.ui()
+            or "Edit Profile" in hs.ui()
+            or "Settings" in hs.ui()
+            or ui_in_user_settings(hs.ui())
+        ),
         timeout=UI_WAIT_SHORT,
         label="profile_sheet",
     ):
         return False
+    ui = hs.ui()
+    if ui_in_user_settings(ui):
+        return True
+    for line in ui.splitlines():
+        if "Button" not in line or _ui_label(line) != "Settings":
+            continue
+        pt = _ui_xy(line)
+        if pt and pt[1] < 400 and session is not None:
+            session.shell("input", "tap", str(pt[0]), str(pt[1]))
+            time.sleep(0.8)
+            if ui_in_user_settings(hs.ui()):
+                return True
     if hs.tap_text("User Settings", timeout_ms=2500) or hs.tap_desc(
         "User Settings", timeout_ms=2000
+    ) or hs.tap_text("Settings", timeout_ms=2500) or hs.tap_desc(
+        "Settings", timeout_ms=2000
     ):
         wait_until(
-            lambda: "Plugins" in hs.ui() or "Log Out" in hs.ui(),
+            lambda: ui_in_user_settings(hs.ui()),
             timeout=UI_WAIT_SHORT,
             label="user_settings_open",
         )
-        return True
+        return ui_in_user_settings(hs.ui())
     return False
 
 
@@ -748,6 +1202,8 @@ def dismiss_channel_promos(
     hs: uid.HandsetsSession, session: sc.ScreenControlSession
 ) -> None:
     """Scroll chat and dismiss promos that cover the profile chip."""
+    if ui_shows_server_sidebar(hs.ui()) and not ui_in_channel_chat(hs.ui()):
+        return
     w, h = screen_size(session.serial)
     session.shell(
         "input", "swipe", str(int(w * 0.5)), str(int(h * 0.55)), str(int(w * 0.5)), str(int(h * 0.25)), "350"
@@ -759,13 +1215,335 @@ def dismiss_channel_promos(
 
 
 def ui_quest_overlay(ui: str) -> bool:
-    return any(m in ui for m in ("Quest Bar", "Watch 3m", "Get Reward!", "Unlock 1.2x"))
+    return any(
+        m in ui
+        for m in (
+            "Quest Bar",
+            "Watch 3m",
+            "Get Reward!",
+            "Unlock 1.2x",
+            "Watch to earn rewards",
+            "How's Wordle",
+            "Hows Wordle",
+            "Wordle go",
+        )
+    )
+
+
+WORDLE_PROMPT_MARKERS = ("How's Wordle", "Hows Wordle", "Wordle go?")
+
+
+def ui_wordle_quest_prompt(ui: str) -> bool:
+    return any(m in ui for m in WORDLE_PROMPT_MARKERS)
+
+
+def _wordle_prompt_close_coords(serial: str) -> tuple[int, int]:
+    """X on the Wordle activity pill — right of \"How's Wordle go?\" (S24 1080×2340)."""
+    return _wordle_prompt_close_coord_candidates(serial)[0]
+
+
+def _sponsored_overlay_close_coords(serial: str) -> tuple[int, int]:
+    """Top-left X on sponsored in-app video overlays (often missing from Handsets dump)."""
+    w, h = screen_size(serial)
+    return int(w * 0.07), int(h * 0.09)
+
+
+def _wordle_prompt_close_coord_candidates(serial: str) -> tuple[tuple[int, int], ...]:
+    w, h = screen_size(serial)
+    # Pill is bottom-center; X is on the right edge of the pill (not screen edge).
+    return (
+        (int(w * 0.72), int(h * 0.968)),
+        (int(w * 0.68), int(h * 0.965)),
+        (int(w * 0.76), int(h * 0.962)),
+    )
+
+
+def dismiss_sponsored_video_overlay(
+    hs: uid.HandsetsSession,
+    session: sc.ScreenControlSession | None,
+    *,
+    force: bool = False,
+) -> bool:
+    """Close sponsored video card — large X in the top-left."""
+    if session is None:
+        return False
+    ui = hs.ui()
+    if not force and not any(
+        m in ui
+        for m in ("Visit Advertiser", "Sponsored", "Advertiser", "3:00", "3:01")
+    ):
+        return False
+    x, y = _sponsored_overlay_close_coords(session.serial)
+    log("dismiss_sponsored_video_overlay: tap top-left X at %d,%d" % (x, y))
+    session.shell("input", "tap", str(x), str(y))
+    time.sleep(0.7)
+    return True
+
+
+def _close_control_right_of_text(
+    ui: str, *text_markers: str, y_slop: int = 120, min_x_gap: int = 80
+) -> tuple[int, int] | None:
+    """Find a close/X control to the right of prompt text (Handsets dump)."""
+    anchor_x: int | None = None
+    anchor_y: int | None = None
+    for marker in text_markers:
+        for line in ui.splitlines():
+            if marker not in line:
+                continue
+            pt = _ui_xy(line)
+            if pt:
+                anchor_x, anchor_y = pt
+                break
+        if anchor_y is not None:
+            break
+    if anchor_y is None:
+        return None
+    best: tuple[int, int, int] | None = None
+    for line in ui.splitlines():
+        if not any(k in line for k in ("Button", "ImageButton")):
+            continue
+        pt = _ui_xy(line)
+        if not pt:
+            continue
+        x, y = pt
+        if abs(y - anchor_y) > y_slop:
+            continue
+        if x <= (anchor_x or 0) + min_x_gap:
+            continue
+        lbl = (_ui_label(line) or "").lower()
+        score = x
+        if lbl in ("close", "dismiss", "x") or "close" in lbl:
+            score += 10_000
+        if "ImageButton" in line and not lbl:
+            score += 5_000
+        if best is None or score > best[0]:
+            best = (score, x, y)
+    if best is None:
+        return None
+    return best[1], best[2]
+
+
+def dismiss_wordle_quest_prompt(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession | None
+) -> bool:
+    """Dismiss Wordle activity pill — tap X to the right of \"How's Wordle go?\"."""
+    if session is None:
+        return False
+    ui = hs.ui()
+    on_safe = ui_on_safe_channel(ui)
+    if not ui_wordle_quest_prompt(ui) and not (
+        on_safe and "Quest Bar" in ui and ui_quest_overlay(ui)
+    ):
+        return False
+    if ui_dm_thread(ui) and not on_safe:
+        log(
+            "dismiss_wordle_quest_prompt: skip coord tap on DM thread "
+            "(navigate to safe channel first)"
+        )
+        return False
+    pt = _close_control_right_of_text(ui, *WORDLE_PROMPT_MARKERS)
+    if pt is None:
+        pt = _wordle_prompt_close_coords(session.serial)
+        log(
+            "dismiss_wordle_quest_prompt: coord X at %d,%d (pill often absent from a11y)"
+            % pt
+        )
+    else:
+        log("dismiss_wordle_quest_prompt: tap close at %d,%d" % pt)
+    session.shell("input", "tap", str(pt[0]), str(pt[1]))
+    time.sleep(0.6)
+    return True
+
+
+def prepare_profile_access(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession
+) -> None:
+    """Quest/emoji/chrome cleanup before tapping the profile chip."""
+    ui = hs.ui()
+    if ui_shows_server_sidebar(ui) and (
+        "Danny, Online" in ui or "Danny, Idle" in ui or "Show Settings Drawer" in ui
+    ):
+        dismiss_quest_overlay(hs, session)
+        return
+    if ui_keyboard_or_ime_visible(ui):
+        dismiss_emoji_keyboard(hs, session)
+    reveal_bottom_nav_bar(hs, session)
+    dismiss_quest_overlay(hs, session)
+    if ui_keyboard_or_ime_visible(hs.ui()):
+        dismiss_emoji_keyboard(hs, session)
+
+
+def _tap_midscreen_promo_dismiss(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession
+) -> bool:
+    """Dismiss in-chat promo banner (Handsets: Button \"Dismiss\" around y=1100–1700)."""
+    for line in hs.ui().splitlines():
+        if "Button" not in line or _ui_label(line) != "Dismiss":
+            continue
+        pt = _ui_xy(line)
+        if not pt or not (900 < pt[1] < 1900):
+            continue
+        session.shell("input", "tap", str(pt[0]), str(pt[1]))
+        time.sleep(0.5)
+        return True
+    return False
+
+
+def _tap_danny_profile_text(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession
+) -> bool:
+    """Tap footer name TextView above quest bar (S24: Danny ~247,2206)."""
+    for line in hs.ui().splitlines():
+        if "TextView" not in line or _ui_label(line) != "Danny":
+            continue
+        pt = _ui_xy(line)
+        if pt and pt[1] > 2150 and pt[0] < 400:
+            session.shell("input", "tap", str(pt[0]), str(pt[1]))
+            time.sleep(0.5)
+            return True
+    return False
+
+
+def _tap_quest_bar_more(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession
+) -> bool:
+    """Tap the quest strip's More control (S24: collapses bar; text tap hits wrong More)."""
+    ui = hs.ui()
+    if "Quest Bar" not in ui:
+        return False
+    for line in ui.splitlines():
+        if "Button" not in line or _ui_label(line) != "More":
+            continue
+        pt = _ui_xy(line)
+        if pt and pt[1] > 1800:
+            session.shell("input", "tap", str(pt[0]), str(pt[1]))
+            time.sleep(0.5)
+            return True
+    w, h = screen_size(session.serial)
+    session.shell("input", "tap", str(int(w * 0.7)), str(int(h * 0.925)))
+    time.sleep(0.5)
+    return True
+
+
+def _dismiss_top_quest_strip(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession
+) -> bool:
+    """Dismiss quest promo docked at the top of the channel view (S24)."""
+    ui = hs.ui()
+    if not any(m in ui for m in ("Watch 3m", "Get Reward!", "Unlock 1.2x", "Watch to earn")):
+        return False
+    pt = _close_control_right_of_text(
+        ui, "Watch 3m", "Get Reward!", "Unlock 1.2x", y_slop=80, min_x_gap=40
+    )
+    if pt is None:
+        for line in ui.splitlines():
+            if not any(m in line for m in ("Watch 3m", "Get Reward!", "Unlock 1.2x")):
+                continue
+            anchor = _ui_xy(line)
+            if not anchor or anchor[1] > 500:
+                continue
+            pt = _close_control_right_of_text(
+                ui, "Watch 3m", "Get Reward!", "Unlock 1.2x", y_slop=80, min_x_gap=40
+            )
+            break
+    if pt is None or pt[1] > 500:
+        return False
+    log("dismiss_top_quest_strip: tap at %d,%d" % pt)
+    session.shell("input", "tap", str(pt[0]), str(pt[1]))
+    time.sleep(0.6)
+    return True
+
+
+def dismiss_quest_overlay(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession
+) -> None:
+    """Collapse Discord quest/promo bar that covers the profile chip."""
+    ui = hs.ui()
+    if any(
+        m in ui
+        for m in ("Visit Advertiser", "Sponsored", "Advertiser", "3:00", "3:01")
+    ):
+        dismiss_sponsored_video_overlay(hs, session)
+    _dismiss_top_quest_strip(hs, session)
+    dismiss_wordle_quest_prompt(hs, session)
+    _tap_midscreen_promo_dismiss(hs, session)
+    for _ in range(5):
+        ui = hs.ui()
+        if not ui_quest_overlay(ui):
+            return
+        if _tap_quest_bar_more(hs, session):
+            time.sleep(0.5)
+            dismiss_wordle_quest_prompt(hs, session)
+            _tap_midscreen_promo_dismiss(hs, session)
+            if not ui_quest_overlay(hs.ui()):
+                return
+        if ui_has_button(hs.ui(), "Okay") and tap_button_by_label(
+            hs, session, "Okay"
+        ):
+            time.sleep(0.5)
+            if not ui_quest_overlay(hs.ui()):
+                return
+            continue
+        if _tap_midscreen_promo_dismiss(hs, session):
+            continue
+        if hs.tap_text("Dismiss", timeout_ms=1000):
+            time.sleep(0.5)
+            continue
+        w, h = screen_size(session.serial)
+        # Tap channel header to steal focus from quest strip.
+        session.shell("input", "tap", str(int(w * 0.5)), str(int(h * 0.12)))
+        time.sleep(0.4)
+        # Swipe quest strip down.
+        session.shell(
+            "input",
+            "swipe",
+            str(int(w * 0.5)),
+            str(int(h * 0.92)),
+            str(int(w * 0.5)),
+            str(int(h * 0.99)),
+            "300",
+        )
+        time.sleep(0.45)
+        if not ui_quest_overlay(hs.ui()):
+            return
+        unfocus_composer(hs, session)
+        time.sleep(0.3)
+
+
+def dismiss_emoji_keyboard(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession
+) -> None:
+    """Close emoji/GIF panel or soft keyboard covering the profile chip."""
+    ui = hs.ui()
+    if not ui_keyboard_or_ime_visible(ui):
+        return
+    if any(
+        m in ui for m in ("Find the perfect emoji", "GIFs", "Stickers", "Emoji")
+    ):
+        for line in ui.splitlines():
+            if "Toggle emoji keyboard" not in line:
+                continue
+            pt = _ui_xy(line)
+            if pt:
+                session.shell("input", "tap", str(pt[0]), str(pt[1]))
+                time.sleep(0.5)
+                break
+    dismiss_keyboard(session, hs)
+    if "Toggle emoji keyboard" in hs.ui():
+        for line in hs.ui().splitlines():
+            if "Toggle emoji keyboard" not in line:
+                continue
+            pt = _ui_xy(line)
+            if pt:
+                session.shell("input", "tap", str(pt[0]), str(pt[1]))
+                time.sleep(0.4)
+                break
 
 
 def dismiss_emoji_panels(
     hs: uid.HandsetsSession, session: sc.ScreenControlSession
 ) -> None:
-    """Close sticker/emoji overlays that block profile chip taps."""
+    """Close sticker/emoji/attachment overlays that block navigation taps."""
     for _ in range(3):
         ui = hs.ui()
         if "Filter servers" in ui:
@@ -773,12 +1551,16 @@ def dismiss_emoji_panels(
         if not any(
             m in ui
             for m in (
+                "Bottom sheet backdrop",
                 "Yantra Launcher",
                 "emoji",
                 "Emoji",
                 "Stickers",
                 "GIF",
                 "chat_input_emoji",
+                "Photos",
+                "Poll",
+                "Files",
             )
         ):
             break
@@ -786,11 +1568,32 @@ def dismiss_emoji_panels(
             time.sleep(0.4)
             continue
         unfocus_composer(hs, session)
-        session.shell("input", "keyevent", "KEYCODE_BACK")
+        dismiss_keyboard(session, hs)
         time.sleep(0.4)
 
 
-def dismiss_keyboard(session: sc.ScreenControlSession) -> None:
+def ui_keyboard_or_ime_visible(ui: str) -> bool:
+    """True when the chat composer or emoji panel likely has focus."""
+    if any(
+        m in ui
+        for m in ("Find the perfect emoji", "GIFs", "Stickers", "Emoji", "Toggle emoji keyboard")
+    ):
+        return True
+    for line in ui.splitlines():
+        low = line.lower()
+        if "chat_input" in line and "fill" in low:
+            return True
+    return False
+
+
+def dismiss_keyboard(
+    session: sc.ScreenControlSession, hs: uid.HandsetsSession | None = None
+) -> None:
+    """Hide soft keyboard — never BACK out of Discord from the server sidebar."""
+    if hs is not None:
+        ui = hs.ui()
+        if not ui_keyboard_or_ime_visible(ui) and not ui_in_channel_chat(ui):
+            return
     session.shell("input", "keyevent", "KEYCODE_BACK")
     time.sleep(0.4)
 
@@ -805,6 +1608,67 @@ def _ui_xy(line: str) -> tuple[int, int] | None:
 def _ui_label(line: str) -> str | None:
     m = re.search(r'"([^"]+)"', line)
     return m.group(1).strip() if m else None
+
+
+def ui_has_button(ui: str, label: str) -> bool:
+    """True when a Button line's quoted label equals `label` (not substring in chat)."""
+    for line in ui.splitlines():
+        if "Button" in line and _ui_label(line) == label:
+            return True
+    return False
+
+
+def tap_button_by_label(
+    hs: uid.HandsetsSession,
+    session: sc.ScreenControlSession | None,
+    label: str,
+    *,
+    min_y: int | None = None,
+    max_y: int | None = None,
+) -> bool:
+    """Tap a Button whose quoted accessibility label equals `label`."""
+    for line in hs.ui().splitlines():
+        if "Button" not in line:
+            continue
+        if _ui_label(line) != label:
+            continue
+        pt = _ui_xy(line)
+        if not pt:
+            continue
+        if min_y is not None and pt[1] < min_y:
+            continue
+        if max_y is not None and pt[1] > max_y:
+            continue
+        if session is not None:
+            session.shell("input", "tap", str(pt[0]), str(pt[1]))
+        elif not (hs.tap_text(label, timeout_ms=1200) or hs.tap_desc(label, timeout_ms=1000)):
+            return False
+        time.sleep(0.35)
+        return True
+    return bool(hs.tap_text(label, timeout_ms=1500) or hs.tap_desc(label, timeout_ms=1200))
+
+
+def dismiss_top_alert(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession | None
+) -> bool:
+    """Dismiss the thin alert strip at the top of Revenge (Handsets: Button \"Dismiss\" y<250)."""
+    for line in hs.ui().splitlines():
+        if "Button" not in line:
+            continue
+        lbl = _ui_label(line)
+        if lbl not in ("Dismiss alert", "Dismiss"):
+            continue
+        pt = _ui_xy(line)
+        if not pt or pt[1] > 280:
+            continue
+        if session is not None:
+            session.shell("input", "tap", str(pt[0]), str(pt[1]))
+            time.sleep(0.4)
+            return True
+    return bool(
+        hs.tap_text("Dismiss alert", timeout_ms=1200)
+        or hs.tap_desc("Dismiss alert", timeout_ms=1000)
+    )
 
 
 SIDEBAR_X = 94
@@ -863,16 +1727,128 @@ def ui_lists_safe_channel(ui: str, guild_key: str | None = None) -> bool:
     return any(ch in low for ch in SAFE_CHANNELS)
 
 
-def ui_in_voice_channel(ui: str) -> bool:
-    """Voice/stage UI without an active text-channel composer."""
+QSS_INSTALL_URL = os.environ.get(
+    "QSS_INSTALL_URL",
+    "https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/",
+)
+
+
+def install_qss_plugin(
+    hs: uid.HandsetsSession,
+    session: sc.ScreenControlSession,
+    serial: str,
+    pkg: str,
+) -> bool:
+    """Install QSS from raw URL when the Plugins list is empty (unproxied Continue flow)."""
+    if not ensure_discord_foreground(serial, pkg, hs):
+        return False
+    dismiss_quest_overlay(hs, session)
+    dismiss_emoji_panels(hs, session)
+    unfocus_composer(hs, session)
+    dismiss_system_dialogs(hs, session)
+    open_server_list(hs, session, serial, pkg)
+    reveal_bottom_nav_bar(hs, session)
+    if not open_user_settings(hs, session):
+        log("install_qss_plugin: could not open user settings")
+        return False
+    if not tap_plugins_settings(hs, session):
+        log("install_qss_plugin: could not open Plugins list")
+        return False
+    ui = hs.ui()
+    if "Quick Server Switcher" in ui:
+        log("install_qss_plugin: already installed")
+        return True
+    if not ui_plugins_empty(ui):
+        log("install_qss_plugin: Plugins list not empty but QSS missing")
+        return False
+    if not hs.tap_text("Install a plugin", timeout_ms=3500):
+        log("install_qss_plugin: Install a plugin button not found")
+        return False
+    time.sleep(0.9)
+    url = QSS_INSTALL_URL.rstrip("/") + "/"
+    adb_shell(serial, "cmd", "clipboard", "set", url)
+    time.sleep(0.25)
+    if not hs.tap_text("Import from clipboard", timeout_ms=3000):
+        handsets_fill(
+            hs,
+            "EditText",
+            url,
+            serial=serial,
+            purpose="plugin_install",
+        )
+    time.sleep(0.5)
+    if not hs.tap_text("Install", timeout_ms=3500):
+        log("install_qss_plugin: Install confirm not found")
+        return False
+    time.sleep(1.2)
+    for label in ("Continue", "OK", "Okay", "Allow", "Install"):
+        if hs.tap_text(label, timeout_ms=2500):
+            log("install_qss_plugin: tapped %s on install dialog" % label)
+            time.sleep(2.0)
+    for attempt in range(15):
+        time.sleep(2)
+        ui = hs.ui()
+        if "Quick Server Switcher" in ui:
+            log("install_qss_plugin: Quick Server Switcher appeared (attempt %d)" % (attempt + 1))
+            hs.tap_text("Quick Server Switcher", timeout_ms=3000)
+            time.sleep(0.8)
+            return True
+        hs.tap_text("Dismiss alert", timeout_ms=800)
+        if not ui_plugins_empty(ui) and attempt > 3:
+            log("install_qss_plugin: plugins list changed but QSS not listed")
+            break
+    ok = "Quick Server Switcher" in hs.ui()
+    if not ok:
+        log("install_qss_plugin: failed — enable manually on device")
+    return ok
+
+
+def ui_plugins_empty(ui: str) -> bool:
+    """Revenge Plugins list with no plugins installed yet."""
+    return "Nothing to see here" in ui and "Install a plugin" in ui
+
+
+def ui_on_direct_messages_home(ui: str) -> bool:
+    """DM list / Friends home — sidebar visible but no guild channel list yet."""
     low = ui.lower()
+    if "direct messages" not in low:
+        return False
+    if "(direct message)" in low or "add friends" in low:
+        return True
+    return False
+
+
+def ui_in_voice_channel(ui: str) -> bool:
+    """True when voice UI blocks navigation (not merely connected in sidebar)."""
+    low = ui.lower()
+    # Text channel composer visible — safe to navigate even if voice is connected.
     if re.search(r"message\s+#", low):
         return False
+    for ch in SAFE_CHANNELS:
+        esc = re.escape(ch)
+        if re.search(r"%s,\s*member list" % esc, low):
+            return False
+        if re.search(r"\"%s\"\s+.*member list" % esc, low):
+            return False
+    if "disconnect" in low and any(
+        m in low
+        for m in (
+            "unmute",
+            "turn camera",
+            "share your screen",
+            "open soundboard",
+        )
+    ):
+        return True
+    if "show chat" in low and "unmute" in low:
+        return True
+    if "stream room" in low and "voice channel" in low:
+        if re.search(r"member list", low):
+            return False
+        return True
     voice_markers = (
         "voice connected",
-        "disconnect",
         "join voice",
-        "stream room",
         "share screen",
         "voice channel",
         "stage channel",
@@ -888,21 +1864,39 @@ def leave_voice_channel(
     guild_key: str,
 ) -> None:
     """Exit voice/stage view so text-channel navigation can proceed."""
-    if not ui_in_voice_channel(hs.ui()):
+    ui = hs.ui()
+    if ui_on_safe_channel(ui):
+        return
+    if not ui_in_voice_channel(ui):
         return
     log("voice channel open — leaving for text channel")
-    for _ in range(3):
-        if hs.tap_text("Disconnect", timeout_ms=1200) or hs.tap_desc(
-            "Disconnect", timeout_ms=1000
+    if hs.tap_text("Show Chat", timeout_ms=1500) or hs.tap_desc("Show Chat", timeout_ms=1200):
+        time.sleep(0.8)
+        if not ui_in_voice_channel(hs.ui()):
+            ensure_discord_foreground(serial, pkg, hs)
+            return
+    for _ in range(4):
+        ui = hs.ui()
+        if not ui_in_voice_channel(ui):
+            break
+        if hs.tap_text("Disconnect", timeout_ms=1500) or hs.tap_desc(
+            "Disconnect", timeout_ms=1200
+        ):
+            time.sleep(0.8)
+            continue
+        if hs.tap_text("Minimize", timeout_ms=1200) or hs.tap_desc(
+            "Minimize", timeout_ms=1000
         ):
             time.sleep(0.6)
-            break
+            continue
         if hs.tap_desc("Back", timeout_ms=1000) or hs.tap_text("Back", timeout_ms=800):
             time.sleep(0.6)
             continue
         session.shell("input", "keyevent", "KEYCODE_BACK")
         time.sleep(0.5)
     ensure_discord_foreground(serial, pkg, hs)
+    if detect_safe_channel(hs.ui(), guild_key):
+        return
     ok, _ch = open_safe_channel(hs, guild_key)
     if not ok:
         open_server_list(hs, session, serial, pkg)
@@ -911,14 +1905,20 @@ def leave_voice_channel(
 
 def detect_safe_channel(ui: str, guild_key: str | None = None) -> str | None:
     """Return the active safe channel name, or None (never bare #general)."""
-    if ui_in_voice_channel(ui):
-        return None
     low = ui.lower()
     order: tuple[str, ...]
     if guild_key:
         order = safe_channels_for_guild(guild_key)
     else:
         order = SAFE_CHANNELS
+    for ch in order:
+        esc = re.escape(ch)
+        if re.search(r"%s,\s*member list" % esc, low):
+            return ch
+        if re.search(r"\"%s\"\s+.*member list" % esc, low):
+            return ch
+    if ui_in_voice_channel(ui):
+        return None
     for ch in order:
         esc = re.escape(ch)
         if re.search(r"message\s+#%s\b" % esc, low):
@@ -944,7 +1944,19 @@ def open_safe_channel(
     channels = safe_channels_for_guild(guild_key)
 
     def try_labels() -> tuple[bool, str]:
+        ui = hs.ui()
         for ch in channels:
+            for line in ui.splitlines():
+                if "text channel" not in line.lower() or ch not in line:
+                    continue
+                pt = _ui_xy(line)
+                if pt and pt[1] > 0:
+                    if hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
+                        for _ in range(8):
+                            time.sleep(0.5)
+                            found = detect_safe_channel(hs.ui(), guild_key)
+                            if found:
+                                return True, found
             for label in (
                 ch,
                 "%s (text channel)" % ch,
@@ -1012,8 +2024,31 @@ def ui_looks_like_discord(ui: str) -> bool:
         "Unread messages,",
         "(text channel)",
         "Notifications,",
+        "Log Out",
+        "Install a plugin",
+        "Nothing to see here",
     )
     return any(m in ui for m in markers)
+
+
+def ui_foreign_app(ui: str) -> bool:
+    """Clipboard managers and other apps that steal focus during QA."""
+    return any(
+        m in ui
+        for m in (
+            "Clip History",
+            "Octoclip",
+            "navigation_clip",
+            "Search Clip History",
+            "BuiltIn Alias",
+        )
+    )
+
+
+def ui_in_user_settings(ui: str) -> bool:
+    if "Log Out" in ui or "Account" in ui:
+        return True
+    return find_plugins_row(ui) is not None
 
 
 def ui_looks_like_launcher(ui: str) -> bool:
@@ -1028,6 +2063,10 @@ def ensure_discord_foreground(
     serial: str, pkg: str, hs: uid.HandsetsSession | None
 ) -> bool:
     """Stay in Revenge/Discord — relaunch if we landed on Niagara or another app."""
+    if hs is not None and ui_foreign_app(hs.ui()):
+        log("foreign app detected (e.g. Clips) — relaunching %s" % pkg)
+        launch_discord(serial, pkg)
+        time.sleep(1.2)
     if foreground_is_discord(serial) and hs is not None and ui_looks_like_discord(hs.ui()):
         return True
     if hs is not None and ui_looks_like_launcher(hs.ui()):
@@ -1040,7 +2079,12 @@ def ensure_discord_foreground(
 
 def ui_in_channel_chat(ui: str) -> bool:
     """Inside a channel composer / chat — one Back reveals the server icon column."""
-    if "message #" in ui.lower() or "chat_input_edit_text" in ui:
+    low = ui.lower()
+    if "message #" in low or "chat_input_edit_text" in ui:
+        return True
+    if "bottom sheet backdrop" in ui:
+        return True
+    if re.search(r",\s*member list", low):
         return True
     for line in ui.splitlines():
         if "fill" in line.lower() and "chat_input" in line:
@@ -1066,12 +2110,23 @@ def open_server_list(
     serial: str,
     pkg: str,
 ) -> bool:
-    """From channel chat, one top-left Back reveals the server icon column."""
+    """From channel chat, reveal the server icon column."""
     ensure_discord_foreground(serial, pkg, hs)
-    if ui_shows_server_sidebar(hs.ui()):
+    ui = hs.ui()
+    if not ui_in_channel_chat(ui) and ui_shows_server_sidebar(ui):
         return True
-    if not ui_in_channel_chat(hs.ui()):
-        return ui_shows_server_sidebar(hs.ui())
+
+    w, h = screen_size(serial)
+    # Prefer edge swipe — header Back can leave Discord entirely on S24.
+    session.shell(
+        "input", "swipe", "5", str(int(h * 0.5)), str(int(w * 0.78)), str(int(h * 0.5)), "450"
+    )
+    if wait_until(
+        lambda: ui_shows_server_sidebar(hs.ui()) and not ui_in_channel_chat(hs.ui()),
+        timeout=UI_WAIT_SHORT,
+        label="sidebar_after_swipe",
+    ):
+        return True
 
     ui = hs.ui()
     tapped = False
@@ -1086,20 +2141,15 @@ def open_server_list(
             if hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
                 tapped = True
                 break
-    if not tapped:
-        hs.tap_desc("Back", timeout_ms=1000)
-    wait_until(
-        lambda: ui_shows_server_sidebar(hs.ui()),
+    if not tapped and foreground_is_discord(serial):
+        session.shell("input", "tap", "73", "191")
+    if wait_until(
+        lambda: ui_shows_server_sidebar(hs.ui()) and not ui_in_channel_chat(hs.ui()),
         timeout=UI_WAIT_SHORT,
         label="sidebar_after_back",
-    )
-    if not ui_shows_server_sidebar(hs.ui()):
-        session.shell("input", "keyevent", "KEYCODE_BACK")
-        wait_until(
-            lambda: ui_shows_server_sidebar(hs.ui()),
-            timeout=UI_WAIT_SHORT,
-            label="sidebar_after_keyback",
-        )
+    ):
+        return True
+
     if not foreground_is_discord(serial):
         log("Back left Discord — relaunching")
         ensure_discord_foreground(serial, pkg, hs)
@@ -1214,6 +2264,13 @@ def tap_sidebar_guild(
 
     def try_tap() -> bool:
         ui = hs.ui()
+        for name in needles:
+            if len(name) >= 8 and (
+                hs.tap_text(name, timeout_ms=2500)
+                or hs.tap_desc(name, timeout_ms=2000)
+            ):
+                time.sleep(0.8)
+                return True
         for line in ui.splitlines():
             if "Button" not in line:
                 continue
@@ -1225,8 +2282,9 @@ def tap_sidebar_guild(
             for name in needles:
                 if name not in line:
                     continue
-                if hs.hs("tap", str(SIDEBAR_X), str(pt[1]), timeout=10).returncode == 0:
-                    return True
+                session.shell("input", "tap", str(pt[0]), str(pt[1]))
+                time.sleep(0.8)
+                return True
         return False
 
     cfg = SAFE_GUILDS[guild_key]
@@ -1276,6 +2334,27 @@ def navigate_to_safe_guild(
     if active:
         return True, guild_key, active
 
+    ui = hs.ui()
+    if ui_on_direct_messages_home(ui) or (
+        ui_shows_server_sidebar(ui)
+        and not ui_lists_safe_channel(ui, guild_key)
+        and not ui_in_channel_chat(ui)
+    ):
+        if tap_sidebar_guild(hs, session, serial, pkg, guild_key):
+            wait_until(
+                lambda: ui_lists_safe_channel(hs.ui(), guild_key)
+                or detect_safe_channel(hs.ui(), guild_key) is not None,
+                timeout=UI_WAIT_SHORT,
+                label="guild_channel_list_%s" % guild_key,
+            )
+            for _ in range(4):
+                ok, ch = open_safe_channel(hs, guild_key)
+                if ok:
+                    log("safe channel #%s on guild %s (DM home → guild)" % (ch, guild_key))
+                    return True, guild_key, ch
+                hs.swipe("up")
+                time.sleep(0.6)
+
     # Wrong guild — switch before probing slots.
     for other in ("lldc", "dcs"):
         if other == guild_key:
@@ -1298,6 +2377,27 @@ def navigate_to_safe_guild(
         log("server sidebar not visible — relaunch and retry")
         ensure_discord_foreground(serial, pkg, hs)
 
+    if tap_sidebar_guild(hs, session, serial, pkg, guild_key):
+        wait_until(
+            lambda: ui_lists_safe_channel(hs.ui(), guild_key)
+            or detect_safe_channel(hs.ui(), guild_key) is not None,
+            timeout=UI_WAIT_SHORT,
+            label="guild_channel_list_%s" % guild_key,
+        )
+        for _ in range(4):
+            ok, ch = open_safe_channel(hs, guild_key)
+            if ok:
+                log("safe channel #%s on guild %s" % (ch, guild_key))
+                return True, guild_key, ch
+            ui = hs.ui()
+            if ui_lists_safe_channel(ui, guild_key):
+                ok, ch = open_safe_channel(hs, guild_key)
+                if ok:
+                    log("safe channel #%s on guild %s" % (ch, guild_key))
+                    return True, guild_key, ch
+            hs.swipe("up")
+            time.sleep(0.6)
+
     ok, key, ch = probe_sidebar_slots(hs, session, serial, pkg, guild_key)
     if ok and key == guild_key:
         log("safe channel #%s on guild %s (sidebar slot)" % (ch, key))
@@ -1314,7 +2414,7 @@ def navigate_to_safe_guild(
         lambda: ui_lists_safe_channel(hs.ui(), guild_key)
         or detect_safe_channel(hs.ui(), guild_key) is not None,
         timeout=UI_WAIT_SHORT,
-        label="guild_channel_list_%s" % guild_key,
+        label="guild_channel_list_%s_retry" % guild_key,
     )
     for _ in range(4):
         ok, ch = open_safe_channel(hs, guild_key)
@@ -1711,10 +2811,27 @@ def tap_revenge_settings(hs: uid.HandsetsSession) -> bool:
     return False
 
 
-def scroll_settings_toward_top(hs: uid.HandsetsSession, *, passes: int = 8) -> None:
+def scroll_settings_toward_top(
+    hs: uid.HandsetsSession,
+    session: sc.ScreenControlSession | None = None,
+    *,
+    passes: int = 16,
+) -> None:
     """Recover when settings was scrolled to the bottom (Log Out / Developer visible)."""
     for _ in range(passes):
-        hs.swipe("down")
+        if session is not None:
+            w, h = screen_size(session.serial)
+            session.shell(
+                "input",
+                "swipe",
+                str(int(w * 0.5)),
+                str(int(h * 0.25)),
+                str(int(w * 0.5)),
+                str(int(h * 0.9)),
+                "550",
+            )
+        else:
+            hs.swipe("down")
         time.sleep(0.35)
 
 
@@ -1725,12 +2842,27 @@ def settings_scrolled_past_revenge(ui: str) -> bool:
         if label not in ("Log Out", "Developer Settings", "App Version"):
             continue
         pt = _ui_xy(line)
-        if pt and 0 < pt[1] < 2300:
+        if pt and 0 < pt[1] < 3200:
             return True
     return False
 
 
-def find_plugins_row(ui: str) -> tuple[int, int] | None:
+def ui_on_plugins_list(ui: str) -> bool:
+    """Revenge Plugins sub-page (installed list or empty state)."""
+    if "Quick Server Switcher" in ui or ui_plugins_empty(ui):
+        return True
+    for line in ui.splitlines():
+        if "View" not in line or _ui_label(line) != "Plugins":
+            continue
+        pt = _ui_xy(line)
+        if pt and pt[1] < 280:
+            return True
+    return False
+
+
+def find_plugins_row(
+    ui: str, *, max_y: int = 3200
+) -> tuple[int, int] | None:
     """Plugins button just under the Revenge heading — must be on-screen (positive y)."""
     lines = ui.splitlines()
     revenge_y: int | None = None
@@ -1756,7 +2888,7 @@ def find_plugins_row(ui: str) -> tuple[int, int] | None:
         if not pt or pt[1] <= 0:
             continue
         x, y = pt
-        if y < 280 or y > 2280:
+        if y < 280 or y > max_y:
             continue
         if revenge_y is not None and (y <= revenge_y or y - revenge_y > 350):
             continue
@@ -1764,24 +2896,64 @@ def find_plugins_row(ui: str) -> tuple[int, int] | None:
     return None
 
 
-def tap_plugins_settings(hs: uid.HandsetsSession) -> bool:
+def tap_plugins_settings(
+    hs: uid.HandsetsSession, session: sc.ScreenControlSession | None = None
+) -> bool:
     """Tap Plugins under the Revenge heading — plain row, no icon. Do not open Revenge."""
+    serial = session.serial if session is not None else None
+    _w, max_h = screen_size(serial) if serial else (1080, 3120)
+    max_y = int(max_h * 0.96)
+
+    def open_plugins_list() -> bool:
+        if wait_until(
+            lambda: ui_on_plugins_list(hs.ui()),
+            timeout=UI_WAIT_SHORT,
+            label="plugins_list",
+        ):
+            return True
+        return ui_on_plugins_list(hs.ui())
+
     ui = hs.ui()
-    if settings_scrolled_past_revenge(ui):
-        scroll_settings_toward_top(hs)
+    if ui_on_plugins_list(ui):
+        return True
+    if settings_scrolled_past_revenge(ui) or (
+        "Plugins" in ui and find_plugins_row(ui, max_y=max_y) is None
+    ):
+        scroll_settings_toward_top(hs, session)
         ui = hs.ui()
 
-    pt = find_plugins_row(ui)
-    if pt:
-        return hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0
+    if hs.tap_text("Plugins", timeout_ms=3000) or hs.tap_desc("Plugins", timeout_ms=2500):
+        if open_plugins_list():
+            return True
+
+    pt = find_plugins_row(hs.ui(), max_y=max_y)
+    if pt and hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
+        if open_plugins_list():
+            return True
 
     # Revenge/Plugins sit a little below Account — small scrolls, not to the list end.
     for _ in range(6):
-        hs.swipe("up")
+        if session is not None:
+            w, h = screen_size(session.serial)
+            session.shell(
+                "input",
+                "swipe",
+                str(int(w * 0.5)),
+                str(int(h * 0.78)),
+                str(int(w * 0.5)),
+                str(int(h * 0.42)),
+                "350",
+            )
+        else:
+            hs.swipe("up")
         time.sleep(0.45)
-        pt = find_plugins_row(hs.ui())
-        if pt:
-            return hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0
+        if hs.tap_text("Plugins", timeout_ms=2000):
+            if open_plugins_list():
+                return True
+        pt = find_plugins_row(hs.ui(), max_y=max_y)
+        if pt and hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
+            if open_plugins_list():
+                return True
     return False
 
 
@@ -1825,9 +2997,17 @@ def tap_qss_plugin(hs: uid.HandsetsSession) -> bool:
     return False
 
 
-def open_switcher_via_settings(hs: uid.HandsetsSession, session: sc.ScreenControlSession) -> bool:
+def open_switcher_via_settings(
+    hs: uid.HandsetsSession,
+    session: sc.ScreenControlSession,
+    *,
+    guild_key: str = "dcs",
+    pkg: str | None = None,
+) -> bool:
     """Profile → Settings → Plugins → Quick Server Switcher → Open switcher."""
-    if not navigate_to_qss_plugin(hs, session):
+    if not navigate_to_qss_plugin(
+        hs, session, guild_key=guild_key, pkg=pkg, serial=session.serial
+    ):
         return False
     ensure_debug_logging(hs)
     if not (
@@ -1849,39 +3029,43 @@ def open_switcher_via_slash(
     serial: str | None = None,
     issues: list[str] | None = None,
 ) -> bool:
-    """Channel composer → pick /servers from slash UI → send (no free-text args)."""
+    """Channel composer → /servers autocomplete only — never Send //servers to chat."""
+    serial = serial or session.serial
+    if not ui_on_safe_channel(hs.ui()):
+        log("slash: not on safe test channel — abort")
+        return False
     dismiss_discord_chrome(hs, session)
-    dismiss_keyboard(session)
+    dismiss_keyboard(session, hs)
     if not hs.tap_id("chat_input_edit_text", timeout_ms=2500):
         w, h = screen_size(session.serial)
-        session.tap(w // 2, int(h * 0.92))
+        session.shell("input", "tap", str(w // 2), str(int(h * 0.92)))
     time.sleep(0.35)
-    handsets_fill(
+    if not handsets_fill(
         hs,
         "EditText#chat_input_edit_text",
-        "/",
-        serial=serial or session.serial,
+        "/servers",
+        serial=serial,
         issues=issues,
-    )
-    time.sleep(0.5)
-    if not (hs.tap_text("/ servers", timeout_ms=3000) or hs.tap_text("servers", timeout_ms=2000)):
+        purpose="slash_command",
+    ):
+        discard_composer_draft(hs, session, serial)
         return False
+    time.sleep(0.6)
+    if ui_switcher_open(hs.ui()):
+        return True
+    for needle in ("/ servers", "/servers", "servers"):
+        if tap_ui_line_containing(hs, session, needle):
+            time.sleep(0.8)
+            break
     if wait_until(
-        lambda: _ui_has(hs, "Filter servers", "Close"),
+        lambda: ui_switcher_open(hs.ui()),
         timeout=UI_WAIT_SHORT,
         label="slash_switcher",
     ):
         return True
-    # Slash form with optional query/page — send bare command.
-    if hs.tap_desc("Send", timeout_ms=2000) or hs.tap_id("chat_input_send_button", timeout_ms=2000):
-        pass
-    else:
-        session.shell("input", "keyevent", "KEYCODE_ENTER")
-    return wait_until(
-        lambda: _ui_has(hs, "Filter servers", "Close", "Quick Server Switcher"),
-        timeout=UI_WAIT_MED,
-        label="slash_switcher_send",
-    )
+    log("slash: switcher not open — discarding composer draft (will not tap Send)")
+    discard_composer_draft(hs, session, serial)
+    return False
 
 
 def default_jump_server(guild_key: str) -> str:
@@ -2109,9 +3293,17 @@ def assert_taps_alive(
 
 
 def navigate_to_qss_plugin(
-    hs: uid.HandsetsSession, session: sc.ScreenControlSession
+    hs: uid.HandsetsSession,
+    session: sc.ScreenControlSession,
+    *,
+    guild_key: str = "dcs",
+    pkg: str | None = None,
+    serial: str | None = None,
 ) -> bool:
     """Profile → Settings → Plugins → Quick Server Switcher plugin page."""
+    serial = serial or session.serial
+    pkg = pkg or resolve_discord_package(serial) or "app.revenge"
+    ensure_discord_foreground(serial, pkg, hs)
     ui = hs.ui()
     if "Quick Server Switcher" in ui and (
         "Copy debug logs" in ui or "Open switcher" in ui
@@ -2122,28 +3314,80 @@ def navigate_to_qss_plugin(
             "Close switcher", timeout_ms=1000
         )
         wait_until(lambda: not ui_switcher_open(hs.ui()), timeout=6, label="close_switcher")
-    dismiss_emoji_panels(hs, session)
-    dismiss_channel_promos(hs, session)
-    unfocus_composer(hs, session)
+    if ui_in_user_settings(ui):
+        if tap_plugins_settings(hs, session):
+            if ui_on_plugins_list(hs.ui()) or "Quick Server Switcher" in hs.ui():
+                if "Quick Server Switcher" not in hs.ui():
+                    tap_qss_plugin(hs)
+                return "Quick Server Switcher" in hs.ui()
+    if not detect_safe_channel(hs.ui(), guild_key):
+        leave_voice_channel(hs, session, serial, pkg, guild_key)
+    dismiss_system_dialogs(hs, session)
+    dismiss_emoji_keyboard(hs, session)
+    if not open_server_list(hs, session, serial, pkg):
+        log("navigate_to_qss_plugin: server drawer not open")
+        return False
+    prepare_profile_access(hs, session)
+    if ui_in_channel_chat(hs.ui()):
+        dismiss_channel_promos(hs, session)
+        unfocus_composer(hs, session)
     dismiss_discord_chrome(hs, session)
+    if not ensure_discord_foreground(serial, pkg, hs):
+        log("navigate_to_qss_plugin: Discord not foreground before profile")
+        return False
+    if not (
+        ui_shows_server_sidebar(hs.ui())
+        and ("Danny, Online" in hs.ui() or "Danny, Idle" in hs.ui())
+    ):
+        open_server_list(hs, session, serial, pkg)
+        prepare_profile_access(hs, session)
     for attempt in range(2):
+        debug_dir = Path(os.environ.get("QSS_DEBUG_DIR", "")).expanduser()
+        if str(debug_dir) and str(debug_dir) != ".":
+            try:
+                debug_dir.mkdir(parents=True, exist_ok=True)
+                (debug_dir / ("profile_attempt_%d_before.txt" % (attempt + 1))).write_text(
+                    hs.ui(), encoding="utf-8"
+                )
+                shot(serial, debug_dir / ("profile_attempt_%d_before.png" % (attempt + 1)))
+            except OSError:
+                pass
         if open_user_settings(hs, session):
             break
+        debug_dir = Path(os.environ.get("QSS_DEBUG_DIR", "")).expanduser()
+        if str(debug_dir) and str(debug_dir) != ".":
+            try:
+                (debug_dir / ("profile_attempt_%d_after.txt" % (attempt + 1))).write_text(
+                    hs.ui(), encoding="utf-8"
+                )
+                shot(serial, debug_dir / ("profile_attempt_%d_after.png" % (attempt + 1)))
+            except OSError:
+                pass
         log("navigate_to_qss_plugin: open_user_settings attempt %d failed" % (attempt + 1))
-        dismiss_emoji_panels(hs, session)
-        unfocus_composer(hs, session)
+        ensure_discord_foreground(serial, pkg, hs)
+        open_server_list(hs, session, serial, pkg)
+        prepare_profile_access(hs, session)
     else:
         if ui_quest_overlay(hs.ui()):
             log("navigate_to_qss_plugin: quest/promo overlay may block profile chip")
         log("navigate_to_qss_plugin: profile chip not found")
         return False
     if not wait_until(
-        lambda: "Plugins" in hs.ui() or settings_scrolled_past_revenge(hs.ui()),
+        lambda: "Log Out" in hs.ui()
+        or "Account" in hs.ui()
+        or find_plugins_row(hs.ui()) is not None,
         timeout=UI_WAIT_MED,
         label="user_settings",
     ):
-        if not tap_plugins_settings(hs):
-            return False
+        return False
+    if not tap_plugins_settings(hs, session):
+        return False
+    if ui_plugins_empty(hs.ui()):
+        log(
+            "navigate_to_qss_plugin: Quick Server Switcher not installed — "
+            "install from raw.githubusercontent.com/.../main/ on this device"
+        )
+        return False
     if not wait_until(
         lambda: "Quick Server Switcher" in hs.ui() and "Copy debug logs" in hs.ui(),
         timeout=UI_WAIT_SHORT,
@@ -2151,7 +3395,16 @@ def navigate_to_qss_plugin(
     ):
         if not tap_qss_plugin(hs):
             for _ in range(3):
-                hs.swipe("up")
+                w, h = screen_size(session.serial)
+                session.shell(
+                    "input",
+                    "swipe",
+                    str(int(w * 0.5)),
+                    str(int(h * 0.78)),
+                    str(int(w * 0.5)),
+                    str(int(h * 0.42)),
+                    "350",
+                )
                 time.sleep(0.4)
                 if tap_qss_plugin(hs):
                     break
@@ -2268,12 +3521,27 @@ def audit_host(
     report["discordPackage"] = pkg
 
     log("%s start serial=%s pkg=%s quiet=1" % (host, serial, pkg))
+    foreign = preflight_screen_lease(host, serial)
+    if foreign:
+        issues.append("screen_lease_foreign_hold")
+        log(
+            "%s blocked — foreign screen lease (%s). "
+            "Run: python3 ~/stayturgid/control/bin/screen_lease.py status"
+            % (host, foreign)
+        )
+        report["issues"] = issues
+        report["screenLease"] = {"held": True, "holder": foreign}
+        return report
     clear_logcat(serial)
     set_animations_enabled(serial, False)
     vlm_on = init_vlm(out)
 
     try:
-        with sc.ScreenControlSession(host, label="QSS QA") as session:
+        with sc.ScreenControlSession(host, label="QSS QA", restore_screen=False) as session:
+            # Screen-control clearance may temporarily surface Android settings/feedback.
+            # Relaunch after acquiring the lease so Handsets starts from Discord.
+            launch_discord(serial, pkg)
+            time.sleep(1.2)
             with uid.try_handsets(serial, host) as hs:
                 if hs is None:
                     issues.append("handsets_unavailable")
@@ -2281,7 +3549,7 @@ def audit_host(
                 # Do not force-stop — cold start breaks profile-chip hit targets on p7a.
                 launch_discord(serial, pkg)
                 if hs is not None:
-                    wait_discord_ready(hs, timeout=UI_WAIT_MED)
+                    wait_discord_ready(hs, timeout=UI_WAIT_MED, session=session)
                     ensure_discord_foreground(serial, pkg, hs)
                 shot(serial, out / "00_discord_home.png")
                 if vlm_on:
@@ -2293,6 +3561,11 @@ def audit_host(
                     )
 
                 if hs is not None:
+                    if ui_dm_thread(hs.ui()):
+                        log(
+                            "SAFETY: session started on DM thread — "
+                            "navigating to test guild before any typing"
+                        )
                     dismiss_system_dialogs(hs, session)
                     nav_ok, active_guild, active_ch = navigate_to_safe_guild(
                         hs, session, serial, pkg, guild_key
@@ -2301,7 +3574,7 @@ def audit_host(
                         log("nav retry after relaunch for guild %s" % guild_key)
                         launch_discord(serial, pkg)
                         if hs is not None:
-                            wait_discord_ready(hs, timeout=UI_WAIT_MED)
+                            wait_discord_ready(hs, timeout=UI_WAIT_MED, session=session)
                         ensure_discord_foreground(serial, pkg, hs)
                         nav_ok, active_guild, active_ch = navigate_to_safe_guild(
                             hs, session, serial, pkg, guild_key
@@ -2366,14 +3639,43 @@ def audit_host(
                 if nav_ready:
                     leave_voice_channel(hs, session, serial, pkg, guild_key)
                     dismiss_system_dialogs(hs, session)
+                    if os.environ.get("QSS_AUTO_INSTALL", "").strip() in ("1", "true", "yes"):
+                        install_qss_plugin(hs, session, serial, pkg)
                     # Settings → Open switcher only (slash posts to chat on misfire).
-                    opened = open_switcher_via_settings(hs, session)
+                    opened = open_switcher_via_settings(
+                        hs, session, guild_key=guild_key, pkg=pkg
+                    )
                     if not opened and os.environ.get("QSS_ALLOW_SLASH") == "1":
                         opened = open_switcher_via_slash(
                             hs, session, serial=serial, issues=issues
                         )
                     if not opened:
+                        if ui_plugins_empty(hs.ui()):
+                            issues.append("qss_plugin_not_installed")
+                            log(
+                                "Quick Server Switcher not installed on %s — "
+                                "Revenge → Plugins → Install: "
+                                "https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/"
+                                % host
+                            )
+                        elif quest_bar_blocks_profile(hs):
+                            issues.append("quest_bar_blocks_profile")
+                            log(
+                                "%s — Quest Bar covers profile chip; dismiss quest on device "
+                                "then re-run (S24 Jul 2026)" % host
+                            )
                         issues.append("switcher_open_failed")
+                        shot(serial, out / "01_profile_fail.png")
+                        plugin_missing = "qss_plugin_not_installed" in issues
+                        if vlm_on and not plugin_missing:
+                            vlm_require(
+                                vlm_capture(serial, "01_profile_fail_vlm.png"),
+                                "profile_chip",
+                                "profile_chip",
+                                issues=issues,
+                            )
+                        elif plugin_missing:
+                            log("skip profile_chip VLM — plugin not installed on device")
                         if vlm_cloud is not None:
                             vlm_cloud.write_cloud_vlm_request(
                                 out,
@@ -2389,7 +3691,7 @@ def audit_host(
 
                 if nav_ready:
                     shot(serial, out / "01_switcher.png")
-                    if vlm_on:
+                    if vlm_on and "qss_plugin_not_installed" not in issues:
                         vlm_require(
                             vlm_capture(serial, "01_switcher_vlm.png"),
                             "switcher_open",
@@ -2580,7 +3882,7 @@ def main(argv: list[str] | None = None) -> int:
     os.environ["STAYTURGID_PRESENCE_QUIET"] = "1"
     os.environ.pop("STAYTURGID_SKIP_PRESENCE", None)
 
-    default_host = os.environ.get("QSS_DEVICE", "p7a")
+    default_host = os.environ.get("QSS_DEVICE", "s24")
     hosts = args.hosts or [default_host]
 
     if args.dry_reach:

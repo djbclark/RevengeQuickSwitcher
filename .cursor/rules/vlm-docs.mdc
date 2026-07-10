@@ -1,0 +1,13 @@
+---
+description: Keep VLM.md current after QA and vision-gate discoveries
+alwaysApply: true
+---
+
+# VLM documentation maintenance
+
+When working on device QA (`scripts/device_qa_qss.py`), vision gates (`scripts/ui_tars_local.py`, `scripts/vlm_cloud.py`), or hybrid local+cloud VLM workflows:
+
+1. After any **interesting discovery** (new blocker, model/provider quirk, harness pitfall, timing budget, env var, or best practice), update **`VLM.md`** in the same session before finishing.
+2. Prefer adding to the existing **Hybrid local + cloud** and **Device state before blaming VLM** sections rather than new scattered docs.
+3. Include concrete symptoms (UI dump strings, issue codes, artifact paths) when documenting blockers.
+4. Do not create separate markdown files for VLM ops unless the user explicitly asks — `VLM.md` is canonical.

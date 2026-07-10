@@ -17,8 +17,8 @@ Keys (provider-specific or generic):
 Models (override per provider):
   QSS_VLM_CLOUD_MODEL=...           — default model for primary provider
   QSS_VLM_OPENAI_MODEL=gpt-4o-mini
-  QSS_VLM_ANTHROPIC_MODEL=claude-3-5-haiku-20241022
-  QSS_VLM_GOOGLE_MODEL=gemini-2.0-flash
+  QSS_VLM_ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+  QSS_VLM_GOOGLE_MODEL=gemini-flash-latest
 
 Escalation for a stuck nav step (agent re-run):
   QSS_VLM_CLOUD_STEP=switcher_open  — pick provider from STEP_RECOMMENDATIONS
@@ -57,6 +57,12 @@ except ImportError:
 IMAGE_MAX_WIDTH = int(os.environ.get("QSS_VLM_CLOUD_MAX_WIDTH", "720"))
 
 # Default models — cheap tier unless overridden.
+# Anthropic: Haiku 4.5 (fast vision, JSON gates). Google: flash-latest alias
+# auto-tracks the current Flash tier (gemini-3.5-flash as of 2026-07).
+ANTHROPIC_HAIKU = "claude-haiku-4-5-20251001"
+GOOGLE_FLASH = "gemini-flash-latest"
+ANTHROPIC_SONNET = "claude-sonnet-4-6"
+
 PROVIDERS: dict[str, dict[str, Any]] = {
     "openai": {
         "label": "OpenAI",
@@ -67,14 +73,14 @@ PROVIDERS: dict[str, dict[str, Any]] = {
     },
     "anthropic": {
         "label": "Anthropic",
-        "default_model": "claude-3-5-haiku-20241022",
+        "default_model": ANTHROPIC_HAIKU,
         "model_env": "QSS_VLM_ANTHROPIC_MODEL",
         "key_envs": ("ANTHROPIC_API_KEY", "QSS_VLM_CLOUD_API_KEY"),
         "signup": "https://console.anthropic.com/settings/keys",
     },
     "google": {
         "label": "Google Gemini",
-        "default_model": "gemini-2.0-flash",
+        "default_model": GOOGLE_FLASH,
         "model_env": "QSS_VLM_GOOGLE_MODEL",
         "key_envs": ("GOOGLE_API_KEY", "GEMINI_API_KEY", "QSS_VLM_CLOUD_API_KEY"),
         "signup": "https://aistudio.google.com/apikey",
@@ -103,30 +109,30 @@ STEP_RECOMMENDATIONS: dict[str, dict[str, Any]] = {
     "safe_test_channel": {
         "primary": "openai",
         "model": "gpt-4o-mini",
-        "alt": ("anthropic", "claude-3-5-haiku-20241022"),
+        "alt": ("anthropic", ANTHROPIC_HAIKU),
         "why": "Read channel header/composer; escalate to Claude if mini mis-reads voice vs text.",
     },
     "switcher_open": {
         "primary": "anthropic",
-        "model": "claude-3-5-haiku-20241022",
-        "alt": ("google", "gemini-2.0-flash"),
+        "model": ANTHROPIC_HAIKU,
+        "alt": ("google", GOOGLE_FLASH),
         "why": "Software overlay UI — Claude/Gemini read mobile app chrome better than budget GPT.",
     },
     "settings_plugins_path": {
         "primary": "google",
-        "model": "gemini-2.0-flash",
-        "alt": ("anthropic", "claude-3-5-haiku-20241022"),
+        "model": GOOGLE_FLASH,
+        "alt": ("anthropic", ANTHROPIC_HAIKU),
         "why": "Dense settings lists with subtle scroll position — Gemini strong on dense UIs.",
     },
     "profile_chip": {
         "primary": "google",
-        "model": "gemini-2.0-flash",
-        "alt": ("anthropic", "claude-3-5-haiku-20241022"),
+        "model": GOOGLE_FLASH,
+        "alt": ("anthropic", ANTHROPIC_HAIKU),
         "why": "Bottom bar + promos/quest overlays — need dense control reading and obstruction ID.",
     },
     "jump_target_visible": {
         "primary": "anthropic",
-        "model": "claude-3-5-haiku-20241022",
+        "model": ANTHROPIC_HAIKU,
         "alt": ("openai", "gpt-4o"),
         "why": "Filtered list rows in switcher overlay — Claude best at software list UIs.",
     },
@@ -135,10 +141,15 @@ STEP_RECOMMENDATIONS: dict[str, dict[str, Any]] = {
         "model": "gpt-4o-mini",
         "why": "Pre-type safety gate; keep cost low.",
     },
+    "after_type": {
+        "primary": "openai",
+        "model": "gpt-4o-mini",
+        "why": "Post-type screenshot verify — catch //servers and DM composer misfires.",
+    },
     "ambiguous": {
         "primary": "anthropic",
-        "model": "claude-sonnet-4-20250514",
-        "alt": ("google", "gemini-2.0-flash"),
+        "model": ANTHROPIC_SONNET,
+        "alt": ("google", GOOGLE_FLASH),
         "why": "Second opinion when local + mini disagree — use sparingly (higher cost).",
     },
 }
@@ -424,7 +435,7 @@ def ask_image_google(
         ],
         "generationConfig": {
             "temperature": 0.1,
-            "maxOutputTokens": 256,
+            "maxOutputTokens": 1024,
             "responseMimeType": "application/json",
         },
     }

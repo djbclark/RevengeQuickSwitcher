@@ -67,8 +67,18 @@ CHECK_PROMPTS: dict[str, str] = {
     "before_type": (
         "We are about to TYPE text into a search/filter field on Android Discord QA.\n"
         "Confirm: (1) we are in Revenge/Discord not launcher, (2) a text field is focused "
-        "or visible for typing, (3) we are NOT in a public channel composer that would "
-        "send chat to a non-test server.\n"
+        "or visible for typing, (3) we are NOT in a DM composer (Message @username) — "
+        "only switcher Filter servers, plugin install URL, or Message #dc-general / "
+        "#dc-games / #ogden / #college is acceptable.\n"
+        'Reply JSON only: {"ok":true,"confidence":0.0-1.0,"notes":"..."}'
+    ),
+    "after_type": (
+        "We just TYPED into an Android Discord QA field. Inspect the screenshot.\n"
+        "Set ok:false if: (1) DM composer (Message @username), (2) channel composer holds "
+        "accidental chat text (e.g. //servers, lone comma, partial slash commands), "
+        "(3) text would be sent to chat instead of opening switcher/filter UI.\n"
+        "Set ok:true if switcher Filter servers shows the query, slash autocomplete shows "
+        "/servers (single leading slash), or plugin install URL field has the URL.\n"
         'Reply JSON only: {"ok":true,"confidence":0.0-1.0,"notes":"..."}'
     ),
     "jump_target_visible": (
@@ -77,6 +87,15 @@ CHECK_PROMPTS: dict[str, str] = {
         "(allowlisted test guilds only)?\n"
         "NOT acceptable: only unrelated servers (Bee, BetterDiscord) or plugin settings.\n"
         'Reply JSON only: {"ok":true,"target":"LL/DC","confidence":0.0-1.0,"notes":"..."}'
+    ),
+    "profile_chip": (
+        "Can we open user profile or settings from this Discord/Revenge screenshot?\n"
+        "Look for: bottom profile chip (name + Online), or 'Show Settings Drawer'.\n"
+        "Identify obstructions: Quest Bar, voice call bar (Unmute/Disconnect), "
+        "emoji keyboard, permission dialogs, promo banners.\n"
+        'Reply JSON only: {"ok":true,"obstruction":"none|quest|voice|emoji|other",'
+        '"confidence":0.0-1.0,"notes":"..."}\n'
+        "ok:true only if profile/settings is clearly reachable."
     ),
 }
 

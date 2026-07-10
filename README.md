@@ -15,6 +15,7 @@ A high-performance server navigation utility built natively for the **Revenge** 
 | [VLM.md](VLM.md) | Local UI-TARS-1.5-7B vision gates for Android screenshots |
 | [PATHS.md](PATHS.md) | Runtime directories, `launchctl` commands, AI ops |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes and semver policy |
+| [.cursor/rules/](.cursor/rules/) | Cursor agent rules (`.mdc`) — persistent AI instructions; read on handoff |
 
 ---
 
