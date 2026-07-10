@@ -10,7 +10,7 @@ A high-performance server navigation utility built natively for the **Revenge** 
 |----------|---------|
 | [HANDOFF.md](HANDOFF.md) | Maintainer / AI cold-start — current state, nav invariants, gotchas |
 | [HACKING.md](HACKING.md) | Developer setup, Hermes/IIFE constraints, debug loop |
-| [OPTIONS.md](OPTIONS.md) | Living backlog (reference IDs like `A1`, `C4`) |
+| [OPTIONS.md](OPTIONS.md) | Open work menu (reference IDs like `A1`, `C4`) |
 | [TESTING.md](TESTING.md) | Local `make verify` + Revenge device checklist |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes and semver policy |
 
@@ -152,7 +152,7 @@ After changing source files, run `make build` (or `make verify`) and commit the 
 
 Configure **Flat Sidebar**, **Debug Logging**, **Excluded servers**, **Recent servers**, and **Custom Aliases** (with **Copy** / **Import**) under the plugin settings. Use **Open switcher** or **Copy debug logs** from settings as needed.
 
-See **[OPTIONS.md](OPTIONS.md)** for the product backlog and **[CHANGELOG.md](CHANGELOG.md)** for release notes and the semver policy.
+See **[OPTIONS.md](OPTIONS.md)** for open work (and closed IDs) and **[CHANGELOG.md](CHANGELOG.md)** for release notes and the semver policy.
 
 ---
 

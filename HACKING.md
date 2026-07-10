@@ -254,7 +254,7 @@ RevengeQuickSwitcher/
   README.md          — user-facing overview + install
   HACKING.md         — this file
   HANDOFF.md         — AI / maintainer cold-start
-  OPTIONS.md         — backlog (A/B/C/D IDs)
+  OPTIONS.md         — open work menu (stable IDs)
   TESTING.md         — verify + device QA
   CHANGELOG.md       — semver + release notes
   Makefile           — install / build / test / verify
