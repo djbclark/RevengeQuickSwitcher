@@ -50,6 +50,14 @@ from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "scripts"))
+try:
+    from load_qss_secrets import load_secrets_env  # noqa: E402
+
+    load_secrets_env()
+except ImportError:
+    pass
+
 STAYTURGID_REPO = Path(
     os.environ.get("STAYTURGID_REPO", os.path.expanduser("~/stayturgid"))
 )

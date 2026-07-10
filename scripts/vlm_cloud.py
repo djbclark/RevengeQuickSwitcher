@@ -28,6 +28,17 @@ See VLM.md for when to use which provider (research-backed).
 """
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
+try:
+    from load_qss_secrets import load_secrets_env as _load_secrets_env
+except ImportError:
+    _load_secrets_env = None  # type: ignore
+
+if _load_secrets_env is not None:
+    _load_secrets_env()
+
 import base64
 import json
 import os

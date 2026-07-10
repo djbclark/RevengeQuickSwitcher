@@ -97,6 +97,10 @@ One-time migration from old `~/.config/stayturgid/models/ui-tars-*` layout:
 | Data home | `~/.local/share/RevengeQuickSwitcher/` | `QSS_DATA_HOME` |
 | QA artifacts | `~/.local/share/RevengeQuickSwitcher/artifacts/qss-qa/<date>/<host>/` | — |
 | QA log | `~/.local/share/RevengeQuickSwitcher/logs/qss-qa.log` | — |
+| Cloud VLM API keys | `~/.config/RevengeQuickSwitcher/secrets.env` (`chmod 600`) | `QSS_SECRETS` |
+
+Copy `secrets.env.example` → `~/.config/RevengeQuickSwitcher/secrets.env`. **Never commit** real keys. Loaded automatically by `scripts/load_qss_secrets.py` when running QA or `vlm_cloud.py`.
+
 | Source / scripts | git checkout (e.g. `~/src/RevengeQuickSwitcher/`) | — |
 
 VLM gate JSON from QA runs: `…/artifacts/qss-qa/<date>/<host>/vlm/`.
