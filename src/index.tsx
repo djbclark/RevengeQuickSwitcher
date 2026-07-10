@@ -19,7 +19,7 @@ import {
   serializeRecentIds,
 } from "./recents";
 import { createSidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
-import { hideSwitcherSheet, openSwitcherUi, type SwitcherItem } from "./sheets";
+import { openSwitcherUi, type SwitcherItem } from "./sheets";
 import { getSettingsThemeColors } from "./theme";
 
 type GuildStore = {
@@ -137,7 +137,7 @@ const postCommandReply = (channelId: string | undefined, content: string) => {
 
 /** Injected at build time from package.json; keep fallback in sync when bumping. */
 const PLUGIN_VERSION =
-  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.7";
+  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.8";
 
 const ensureStorageDefaults = () => {
   try {
@@ -493,14 +493,8 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
     const navigated: { ok: boolean } = { ok: false };
     const jumpToItem = (item: SwitcherItem) => {
       debugLog("jumpToItem", { id: item.id, name: item.name });
-      // Overlay finishClose already schedules dismiss+delay; do the jump here only.
-      // Extra hide passes live in runAfterSwitcherDismissed when called from Close paths.
+      // sheets.tsx already called hideActionSheet + delay (Stealmoji/JumpTo pattern).
       navigated.ok = navigateToGuild(item.id);
-      try {
-        hideSwitcherSheet();
-      } catch {
-        /* ignore */
-      }
       if (navigated.ok) {
         recordRecentJump(item.id);
         showToast(`Jumped to ${item.name}`, "success");
@@ -641,11 +635,7 @@ const openSwitcherFromSettings = () => {
         items: result.items,
         recentItems: Array.isArray(result.recentItems) ? result.recentItems : [],
         onPick: (item) => {
-          try {
-            hideSwitcherSheet();
-          } catch {
-            /* ignore */
-          }
+          // Sheet body already dismissed via hideActionSheet before this runs.
           if (navigateToGuild(item.id)) {
             recordRecentJump(item.id);
             showToast(`Jumped to ${item.name}`, "success");
