@@ -137,7 +137,7 @@ const postCommandReply = (channelId: string | undefined, content: string) => {
 
 /** Injected at build time from package.json; keep fallback in sync when bumping. */
 const PLUGIN_VERSION =
-  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.6";
+  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.7";
 
 const ensureStorageDefaults = () => {
   try {
@@ -493,13 +493,14 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
     const navigated: { ok: boolean } = { ok: false };
     const jumpToItem = (item: SwitcherItem) => {
       debugLog("jumpToItem", { id: item.id, name: item.name });
-      // Overlay should already be closing; hide again as a safety net.
+      // Overlay finishClose already schedules dismiss+delay; do the jump here only.
+      // Extra hide passes live in runAfterSwitcherDismissed when called from Close paths.
+      navigated.ok = navigateToGuild(item.id);
       try {
         hideSwitcherSheet();
       } catch {
         /* ignore */
       }
-      navigated.ok = navigateToGuild(item.id);
       if (navigated.ok) {
         recordRecentJump(item.id);
         showToast(`Jumped to ${item.name}`, "success");
@@ -640,6 +641,11 @@ const openSwitcherFromSettings = () => {
         items: result.items,
         recentItems: Array.isArray(result.recentItems) ? result.recentItems : [],
         onPick: (item) => {
+          try {
+            hideSwitcherSheet();
+          } catch {
+            /* ignore */
+          }
           if (navigateToGuild(item.id)) {
             recordRecentJump(item.id);
             showToast(`Jumped to ${item.name}`, "success");

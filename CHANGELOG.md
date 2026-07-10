@@ -14,6 +14,11 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.7
+
+- Fix dead taps after a successful jump: dismiss the switcher host fully before `openUrl`, prefer Discord’s action-sheet host (JumpTo’s `hideActionSheet` path), remove the full-screen touch scrim, and re-dismiss after navigation starts
+- Device QA (v4.5.6): jump worked and chat scrolled, but all buttons were inoperable — leftover overlay shell
+
 ## 4.5.6
 
 - Navigate via Discord deep links (`openUrl` + `https://discord.com/channels/{guild}/{channel}`), matching **aliernfrog/JumpTo** (Revenge Android–tested)
