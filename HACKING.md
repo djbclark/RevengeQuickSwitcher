@@ -205,7 +205,7 @@ UI host: prefer **top-docked** alert panel so the Android keyboard does not cove
 1. Branch from `main` (cloud agents: `cursor/<name>-db57`).
 2. Implement in `src/`; add/adjust Vitest coverage for pure helpers.
 3. `make verify`.
-4. Update OPTIONS.md statuses / CHANGELOG when behavior ships.
+4. Replace completed IDs in OPTIONS.md (keep IDs stable) and update CHANGELOG when behavior ships.
 5. PR → merge → device **A1** checklist in TESTING.md.
 
 ### 5.2 What belongs in unit tests

@@ -156,7 +156,7 @@ scripts/
 smoke/               # Tiny plugin to isolate Revenge load failures
 dist/index.js        # Committed bundle Revenge evals
 manifest.json        # name, version, hash, authors
-OPTIONS.md           # Living backlog (A1, B*, C*, D*)
+OPTIONS.md           # Open work menu (A1, C2–C4, D1, …; closed at bottom)
 TESTING.md           # Local verify + device checklist
 HACKING.md           # Dev setup
 HANDOFF.md           # This file

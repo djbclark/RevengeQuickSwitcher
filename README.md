@@ -133,7 +133,7 @@ dist/
 manifest.json        # Revenge plugin metadata (display name: Quick Server Switcher)
 HANDOFF.md           # AI / maintainer handoff
 HACKING.md           # Developer environment
-OPTIONS.md           # Living backlog of product/engineering options
+OPTIONS.md           # Open work menu (tracks + risk; closed summary)
 TESTING.md           # Local + device test plan
 CHANGELOG.md         # Release notes
 ```
