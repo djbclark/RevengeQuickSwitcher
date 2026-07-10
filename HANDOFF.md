@@ -68,7 +68,7 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 - Settings → **Copy debug logs** pastes a single `|`-separated line (Discord mobile clipboard drops newlines)
 - Cloud agents **cannot** reach the phone over ADB; device QA is operator-side (**A1**)
 
-**Next work:** [OPTIONS.md](OPTIONS.md) — open items only. Primary gate: **A1** retest of v4.5.9 (top-dock above keyboard; taps after jump; logs show `v4.5.9` + `openUrl`). Feature backlog highlights: **C4** pins, **C2** channel jump (high risk), **C3** folder-aware sort, **D1** Metro smoke harness.
+**Next work:** [OPTIONS.md](OPTIONS.md) — **open work only** (stayturgid-style). When asked for options, present open IDs with risk, then replace the list after shipping. Primary gate: **A1** retest of v4.5.9. Feature highlights: **C4** pins, **C2**/**C3** (high Metro — explicit ask), **D1** smoke harness, latent **C1b**.
 
 **Verify / ship:**
 

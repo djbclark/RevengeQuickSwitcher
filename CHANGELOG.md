@@ -13,6 +13,7 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 ## [Unreleased]
 
 - Docs: add stayturgid-style `HANDOFF.md` / `HACKING.md`; README documentation index; cross-links from OPTIONS/TESTING
+- Docs: reshape `OPTIONS.md` to stayturgid open-work format (tracks, open IDs only, closed summary)
 
 ## 4.5.9
 

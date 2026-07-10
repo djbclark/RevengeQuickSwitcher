@@ -1,171 +1,151 @@
-# Options — RevengeQuickSwitcher
+# OPTIONS — open work
 
-Living backlog of product and engineering options. Keep this file current whenever priorities change, and push updates to GitHub with the related work.
+> **For agents:** When the operator asks for **options** or **next steps**, read this
+> file, present the open items **with descriptions and risk**, do any requested work,
+> then **replace** this list (drop completed items; keep IDs stable). **Commit and
+> push** in the same turn.
+>
+> Session context: [HANDOFF.md](HANDOFF.md). Dev setup: [HACKING.md](HACKING.md).
+> Device checklist: [TESTING.md](TESTING.md). Release notes: [CHANGELOG.md](CHANGELOG.md).
+> Strategic directions: [HANDOFF.md appendix](HANDOFF.md#appendix--strategic-directions).
 
-Agent cold-start: [HANDOFF.md](HANDOFF.md) · Dev setup: [HACKING.md](HACKING.md) · Device checklist: [TESTING.md](TESTING.md).
+**Plugin snapshot (2026-07-10):** Released on `main` as **v4.5.9** — top-docked
+switcher, dismiss-then-`openUrl` jump, Copy debug logs. Unit gate: `make verify`
+(96 tests). Cloud agents cannot reach the phone; **A1** is the human/device gate.
 
-**How to reference:** each section has a letter; each option has a number. Say **A1**, **C3**, etc.
+**Risk scale:** **Low** = mostly our code / storage / docs · **Medium** = Metro/UI
+discovery with graceful fallbacks · **High** = deep Discord internals; easy to
+break on client updates · **Latent** = only act if a symptom returns.
 
-Status legend: **Ready** · **Needs input** · **Done** · **Idea**
+**Suggested agent order:** close or drive **A1** (device QA) before new features;
+prefer **C4** (pins) over **C2**/**C3** (high Metro surface). Do not reintroduce
+Flux/`selectChannel` jump paths or full-screen scrims (see HANDOFF).
 
-**Risk scale:** **Low** (mostly our code / storage) · **Medium** (some Metro/UI discovery; graceful fallbacks possible) · **High** (deep Discord internals; easy to break on client updates)
-
-Every option below must include an explicit **Risk** value.
-
----
-
-## A — Needs human input
-
-| ID | Option | Risk | Why blocked | Notes |
-|----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.5.9**. Retest: top-docked switcher stays above keyboard; after jump, taps still work. Logs: `v4.5.9` + `openUrl`. |
-
----
-
-## B — Recently shipped
-
-| ID | Option | Status | Risk | Summary |
-|----|--------|--------|------|---------|
-| **B1** | Manifest author Discord ID | **Done** | **Low** | `authors[].id` set to `689173209785958424`. |
-| **B2** | Search pick-list on ties | **Done** (v4.1.0) | **Low** | List tied matches instead of auto-jumping. |
-| **B3** | Theme-aware settings | **Done** (v4.1.0) | **Medium** | Semantic tokens with dark fallbacks. |
-| **B4** | Debug logging toggle | **Done** (v4.1.0) | **Low** | Metro/patch/command diagnostics. |
-| **B5** | Versioned release | **Done** (v4.1.0) | **Low** | GitHub tag + release notes. |
-| **B6** | Changelog + semver policy | **Done** | **Low** | Documented in `CHANGELOG.md`. |
-| **B7** | Export / import aliases | **Done** (v4.2.0) | **Medium** | Clipboard APIs vary; toast if unavailable. |
-| **B8** | Recent-servers jump (low-risk) | **Done** (v4.3.0) | **Low** | History only when this plugin navigates; no guild-select hooks. |
-| **B9** | Mute / exclude servers | **Done** (v4.4.0) | **Low** | Name/id/`~partial` rules; optional hide from list. |
-| **B10** | Fix Revenge install URL / polymanifest | **Done** (v4.4.1) | **Low** | Raw GitHub URL + Vendetta-compatible bundle/`hash`. |
-| **B11** | Fix plugin enable / settings wrench | **Done** (v4.4.2) | **Low** | Command description + resilient onLoad/settings. |
-| **B12** | Vendetta IIFE rebuild + smoke plugin | **Done** (v4.4.3) | **Low** | Match known-working bundle shape; isolate load failures. |
-| **B13** | Main enable after smoke OK | **Done** (v4.4.4) | **Low** | ES2015 Hermes-safe bundle + no eval-time storage/`this`. |
-| **B14** | `/servers` missing from slash menu | **Done** (v4.4.5) | **Low** | Revenge inverted `shouldHide` filter; omit it + fill command metadata. |
-| **B15** | `/servers` silent + duplicate | **Done** (v4.4.7) | **Low** | `sendBotMessage` replies; unregister-before-register. |
-| **B16** | `/servers query` silent no-op | **Done** (v4.4.7) | **Medium** | Jump/error bot replies + harder nav + arg unwrap. |
-| **B17** | Switcher sheet + tappable picks (C5/C8) | **Done** (v4.5.9) | **Medium** | Top-docked searchable panel + simple sheet; bot-message fallback. |
-| **B18** | Freeze / dead UI after jump | **Done** (v4.5.9) | **High** | dismiss-then-openUrl (Stealmoji); top-dock for keyboard; no full-screen scrim. |
+**How to reference:** say **A1**, **C4**, **D1**, etc. Keep IDs stable forever;
+when an item ships, move it to **Closed** (do not renumber).
 
 ---
 
-## C — Feature ideas
+## Pick a track
 
-### C1 — Recent-servers jump
+| Track | Focus | Open IDs | Typical risk |
+|-------|-------|----------|--------------|
+| **A — Device QA** | Revenge client checklist | A1 | Low (process); blocks confidence in sheet/nav |
+| **B — Switcher polish** | Pins and list UX on stable sheet | C4 | Low–Medium |
+| **C — High-risk Metro** | Channels / folder-aware sidebar | C2, C3 | Medium–High |
+| **D — Engineering** | Harness / smoke | D1 | Low |
+| **E — Latent follow-ups** | Only if a symptom returns | C1b | Latent / Medium–High |
 
-**Status:** **Done** (v4.3.0, low-risk path) — see B8.
+---
 
-**Shipped:** `/servers recent`, `/servers rN`, history size + clear in settings. History updates only when Quick Server Switcher successfully jumps.
+### Track A — Device QA
 
-**Possible follow-up (not scheduled):** auto-track via guild-select Metro hooks.
+#### A1 — Device QA (human + agent assist) · Risk: **Low** (process)
 
-**Risk (follow-up):** **Medium–High** — Discord “current guild” / select modules churn.  
-**Risk (shipped path):** **Low**
+Requires a Revenge Discord client and the checklist in [TESTING.md](TESTING.md).
 
-### C2 — Channel search / jump
+**Retest on v4.5.9:**
 
-**What it is:** Search and jump to channels, not only servers.
+1. Top-docked switcher stays **above** the Android keyboard while filtering.
+2. After a server tap, jump lands and Discord taps still work (no dead UI).
+3. Copy debug logs show `v4.5.9` and `openUrl` (not mixed older versions).
+4. Close dismisses the panel; bot-message fallback still OK if sheet APIs missing.
 
-**Complexity:** High  
-**Risk:** **High** — channel stores, permissions, and navigation APIs are a large Metro surface and break often across Discord versions.  
-**Fit:** Strong power-user feature; may deserve a separate plugin
+Close **A1** when the operator signs off (or a future harness covers the same
+assertions). Agents: prepare checklists / interpret log pastes; do not claim
+pass from CI alone.
 
-### C3 — Folder-aware (non-flat) sort
+---
 
-**What it is:** Keep Discord folders, but sort inside them and/or sort folder nodes—modes beyond today’s all-or-nothing flat list.
+### Track B — Switcher polish
 
-**Complexity:** Medium  
-**Risk:** **Medium** — folder node shapes vary; need defensive parsing and device tests. Wrong assumptions can scramble the sidebar.  
-**Fit:** Natural Flat Sidebar extension
+#### C4 — Favorites / pinned servers (agent) · Risk: **Low** (list-only) / **Medium** (flat sidebar)
 
-### C4 — Favorites / pinned servers
-
-**What it is:** A user-chosen set of servers that always float to the top of `/servers` (and optionally the flat sidebar), independent of alphabetical order or recent activity.
+User-chosen servers that always float to the top of `/servers` (and optionally
+the flat sidebar), independent of A–Z order or recents.
 
 **User-facing shape:**
 
-- Settings: list or multi-select of pinned guilds (by name/id), reorder, clear
-- `/servers` list: pinned block first, then the rest A–Z (or under a “Pinned” heading)
-- Optional: flat sidebar pins the same IDs to the top
-- Optional later: `/servers query:p1` shortcodes like recents
+- Settings: ordered pins by name/id, reorder, clear
+- Switcher / list: pinned block first, then the rest A–Z
+- Optional later: `/servers query:p1`-style shortcodes; export with aliases
 
-**How it would work:** Store ordered guild IDs in plugin storage. When building the sorted guild list for the command (and optionally `transformFlatSidebar`), partition into pinned vs unpinned, preserve pin order, sort the remainder as today. Resolve names via GuildStore; drop or flag stale IDs if a server was left.
+**How:** store ordered guild IDs in plugin storage; partition pinned vs
+unpinned when building the list; resolve names via GuildStore; drop/flag stale
+IDs after leaving a server.
 
-**Why bother:** Aliases speed *search*. Pins change *priority and visibility*. A school server you always want first shouldn’t depend on remembering `wsh` or hoping it was recent.
+**Why:** aliases speed *search*; pins change *priority*. Complements recents
+(**C1** / B8) without Metro guild-select hooks.
 
-**Vs C1:** Pins are explicit and stable; recents are automatic and change as you navigate. Many switchers offer both.
-
-**Complexity:** Low–medium (command list is straightforward; sidebar pinning needs care with folders when flat mode is off)  
-**Risk:** **Low** for `/servers` list-only pins (pure data + existing sort pipeline). **Medium** if also rewriting flat-sidebar order (same patch path as today; must not break folder mode / cache checksums). Stale IDs after leaving a server are a mild UX risk, not a crash risk if handled.  
-**Fit:** High QoL; complements aliases and C1  
-**Depends on / pairs with:** C1, C7 (exclude), B7 (could export pins later)
-
-### C5 — Interactive disambiguation UI
-
-**Status:** **Done** (v4.5.0) — tappable action sheet / switcher sheet on search ties; markdown pick list remains as fallback.
-
-**What it is:** Tappable alert/action sheet when multiple servers tie, instead of a read-only markdown pick list.
-
-**Complexity:** Medium  
-**Risk:** **Medium** — Revenge/Vendetta alert APIs differ by build; must keep markdown fallback (B2).  
-**Fit:** Direct upgrade to B2  
-**Pairs with:** **C8** (full switcher sheet can absorb this)
-
-### C6 — Export / import aliases
-
-**Status:** **Done** (v4.2.0) — see B7.  
-**Risk:** **Medium** (clipboard module availability) — mitigated with toasts when unavailable.
-
-### C7 — Mute / exclude servers from search
-
-**Status:** **Done** (v4.4.0) — see B9.
-
-**Shipped:** Settings text rules (exact name, Discord id, or `~partial`); always skipped by fuzzy search; optional hide from `/servers` list. Recents slots still work for previously recorded ids.
-
-**Risk:** **Low**
-
-### C8 — Dedicated switcher UI (not in-channel)
-
-**Status:** **Done** (v4.5.9) — `/servers` opens a **top-docked** searchable panel (keyboard-safe) with Stealmoji-style dismiss-then-jump; settings has **Open switcher**; bot-message list remains fallback when sheet APIs are missing.
-
-**What it is:** Open a real UI surface for `/servers` instead of posting bot messages into the current channel.
-
-**Recommendation:** **Yes, pursue a sheet/modal — not a faux DM or fake server.**
-
-| Approach | Verdict | Why |
-|----------|---------|-----|
-| **Action sheet / custom modal** with search field + tappable server rows | **Best fit** | Matches Discord mobile patterns; no channel spam; taps can jump immediately; builds on C5 |
-| **Plugin settings-style screen** pushed onto the nav stack | **Good alternate** | Same React patterns we already use for settings; slightly heavier than a sheet |
-| **Faux bot / DM “person” to talk to** | **Weak** | Still chat UX; typing latency; hard to make feel native; confusing vs real DMs |
-| **Faux Discord server / channel** | **Avoid** | High Metro risk (guild/channel injection), permission/UI edge cases, looks like malware to users, breaks on client updates |
-
-**User-facing shape (preferred):**
-
-1. `/servers` (no args) → opens switcher sheet: search box, recent strip, A–Z list, tap to jump
-2. `/servers query:…` → either jump immediately when unambiguous, or open the sheet pre-filtered
-3. Keep a **fallback** to today’s bot-message list if the sheet API is missing on a given Revenge/Discord build
-4. Optional later: entry from plugin settings (“Open switcher”) so you don’t need slash at all
-
-**Why bother:** In-channel replies clutter chat, feel like a workaround, and make search/jump harder to discover. A sheet is the natural mobile switcher UX.
-
-**Complexity:** Medium (sheet + list + search reuse existing command/search logic)  
-**Risk:** **Medium** — depends on Revenge/Discord alert / action-sheet / navigation APIs that churn; must keep slash + bot-message fallback. Fake server/DM approaches are **High** risk and not worth it.  
-**Fit:** High — this is the long-term home for list, pick-list (C5), recents, and pins (C4)  
-**Depends on / pairs with:** C5, C4, A1 (device QA of sheet APIs)
+**Depends on:** sheet path stable (**A1** preferred first). Pairs with excludes
+and alias export.
 
 ---
 
-## D — Engineering / maintenance
+### Track C — High-risk Metro (explicit ask only)
 
-| ID | Option | Status | Risk | Notes |
-|----|--------|--------|------|-------|
-| **D1** | Integration smoke test harness | **Idea** | **Low** | Document expected Metro props; optional runtime self-check when debug logging is on. Worst case: noisy logs, not broken navigation. |
-| **D2** | Changelog discipline | **Done** | **Low** | Keep `CHANGELOG.md` in sync with tags/releases. |
-| **D3** | Semantic versioning policy | **Done** | **Low** | Patch / minor / major rules live at the top of `CHANGELOG.md`. |
+#### C2 — Channel search / jump (agent) · Risk: **High**
+
+Search and jump to channels, not only servers. Large Metro surface
+(permissions, channel stores, navigation); breaks often across Discord
+versions. May deserve a **separate plugin**. Do not start unless the operator
+explicitly picks this.
+
+#### C3 — Folder-aware (non-flat) sort (agent) · Risk: **Medium**
+
+Keep Discord folders, but sort inside them and/or sort folder nodes — modes
+beyond today’s all-or-nothing flat list. Folder node shapes vary; wrong
+assumptions scramble the sidebar. Needs defensive parsing + device tests
+(**A1**-style). Natural Flat Sidebar extension; still explicit-ask preferred.
 
 ---
 
-## How to maintain this file
+### Track D — Engineering
 
-1. Assign every option a stable **letter+number** ID; do not renumber shipped IDs—mark them **Done** instead.
-2. Always include **Risk** (Low / Medium / High, with a short reason).
-3. When finishing work, update status tables and push with the related commit.
-4. Prefer short tables plus a fleshed-out subsection for non-trivial ideas.
+#### D1 — Integration smoke / Metro self-check (agent) · Risk: **Low**
+
+Document expected Metro props (`openUrl`, alert/sheet hosts, GuildStore, …).
+Optional runtime self-check when debug logging is on. Worst case: noisy logs,
+not broken navigation. Optional later: thin Handsets-driven QA (stayturgid
+research) — Vitest remains the default `make test`; do not Appium-first.
+
+---
+
+### Track E — Latent follow-ups (symptom-driven)
+
+#### C1b — Auto-track recents via guild-select hooks (agent) · Risk: **Latent / Medium–High**
+
+Shipped recents (**C1** / B8) only record when *this* plugin navigates. A
+follow-up could hook Discord “current guild” / select modules for automatic
+history. **Do not start** without a clear product ask — high churn, easy to
+freeze (see v4.5.x saga in HANDOFF). Trigger: operator wants sidebar-driven
+recents and accepts Metro risk.
+
+---
+
+**Non-goals / do-not-touch:**
+
+- Faux DM or fake Discord server as the switcher UI (rejected in C8)
+- Jump via loose `selectChannel`, Flux `CHANNEL_SELECT` / `GUILD_SELECT`, or
+  `selectGuild` as primary path (use dismiss-then-`openUrl`)
+- Full-screen touch scrims / nested RN `Modal` hosts that outlive the sheet
+- Bottom `ActionSheet` as the **primary** searchable switcher on Android
+  (keyboard covers it; top-dock is intentional)
+- Renumbering shipped IDs; editing git history to “clean” Done items
+
+---
+
+**Closed (2026-07-10):** Docs HANDOFF / HACKING / README index (PR docs branch).
+
+**Closed (v4.5.9 / B17–B18, C5, C8):** Top-docked switcher + dismiss-then-`openUrl`;
+freeze/dead-tap saga; tappable disambiguation; dedicated sheet UI (not faux DM).
+
+**Closed (v4.5.2–4.5.8):** Overlay dismiss iterations; Copy debug logs;
+version-stamped ring; JumpTo `openUrl`; ActionSheet host experiment.
+
+**Closed (v4.4.x / B9–B16, C7):** Excludes; install URL / IIFE / Hermes enable;
+slash menu `shouldHide`; `sendBotMessage`; query jump replies.
+
+**Closed (v4.1–4.3 / B1–B8, C1, C6, D2–D3):** Author id; pick-list; theme
+settings; debug toggle; releases/changelog/semver; alias export-import;
+low-risk recents.
