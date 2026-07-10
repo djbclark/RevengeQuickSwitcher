@@ -2,7 +2,7 @@
 
 This guide covers verification before a release: automated checks on your machine, then manual validation on a Revenge Discord client.
 
-Related: [HANDOFF.md](HANDOFF.md) (current state / nav invariants) · [HACKING.md](HACKING.md) (dev setup) · [OPTIONS.md](OPTIONS.md) (**A1** device QA).
+Related: [HANDOFF.md](HANDOFF.md) (current state / nav invariants) · [HACKING.md](HACKING.md) (dev setup) · [OPTIONS.md](OPTIONS.md) (**A1** device QA) · [VLM.md](VLM.md) (UI-TARS vision gates).
 
 ## Prerequisites
 

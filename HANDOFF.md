@@ -68,7 +68,7 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 - Settings → **Copy debug logs** pastes a single `|`-separated line (Discord mobile clipboard drops newlines)
 - Cloud agents **cannot** reach the phone over ADB; device QA is operator-side (**A1**)
 
-**Next work:** [OPTIONS.md](OPTIONS.md) — **open work only** (stayturgid-style). When asked for options, present open IDs with risk, then replace the list after shipping. Primary gate: **A1** retest of v4.5.9. Feature highlights: **C4** pins, **C2**/**C3** (high Metro — explicit ask), **D1** smoke harness, latent **C1b**.
+**Next work:** [OPTIONS.md](OPTIONS.md) — **open work only** (stayturgid-style). When asked for options, present open IDs with risk, then replace the list after shipping. Primary gate: **A1** retest of v4.5.9. Harness: **D1** (`device_qa_qss.py` + stayturgid/Handsets; Desktop Mac required to run). Feature highlights: **C4** pins, **C2**/**C3** (high Metro — explicit ask), latent **C1b**.
 
 **Verify / ship:**
 
@@ -97,7 +97,9 @@ Announce before live UI work when someone may be on the device:
 
 When done: `✅📱✅ FREE — s24 ✅📱✅`
 
-Mac→Android UI automation research lives in the **stayturgid** repo (`docs/research/mac-android-ui-automation.md`). This plugin repo does **not** ship Handsets/Appium harnesses yet (**D1**). Prefer Vitest here; any future device harness should stay thin (e.g. Vitest + Handsets CLI), not Appium-first.
+Mac→Android UI automation lives in **stayturgid** (`docs/research/mac-android-ui-automation.md`, `control/lib/ui_driver.py`, `control/bin/gui_audit.py`). This plugin does **not** ship the harness yet (**D1** — see OPTIONS Phase 0–3). Prefer Vitest here; device QA is `scripts/device_qa_qss.py` (planned) mirroring `gui_audit.py`, not Appium-first.
+
+**Cloud vs Desktop:** cloud agents cannot reach the phone over ADB. Implement and run **D1** from **Cursor Desktop on the Mac** with both repos open, wireless ADB (`…:5555`), and Handsets installed — or draft scripts in cloud against a cloned stayturgid API, but execution requires a Mac bridge (see OPTIONS **D1** Phase 0).
 
 ### Cloud / Desktop resume
 
@@ -243,7 +245,7 @@ Related lab / automation context (separate repo): [stayturgid](https://github.co
 | **A — Device QA** | Close **A1** on v4.5.9; capture Copy debug logs | Operator has Revenge phone |
 | **B — Switcher polish** | Pins (**C4**), paging UX, settings entry points | A1 green; sheet path stable |
 | **C — High-risk Metro** | Channel jump (**C2**), folder-aware sort (**C3**) | Explicit ask; expect client churn |
-| **D — Harness** | Metro smoke / optional Handsets-driven QA (**D1**) | Repeatable device regression needed |
+| **D — Harness** | Unattended `device_qa_qss.py` + Handsets (**D1** Phases 0–3) | Repeatable device regression; Desktop Mac + ADB |
 | **E — Docs only** | Keep HANDOFF/OPTIONS/TESTING current | After every behavior PR |
 
 **Rejected / avoid:** faux DM or fake server as switcher UI (**C8**); Flux/`selectChannel` jump paths; full-screen touch-blocking scrims; Appium-first automation for this small plugin.

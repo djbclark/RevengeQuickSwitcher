@@ -12,6 +12,8 @@ A high-performance server navigation utility built natively for the **Revenge** 
 | [HACKING.md](HACKING.md) | Developer setup, Hermes/IIFE constraints, debug loop |
 | [OPTIONS.md](OPTIONS.md) | Open work menu (reference IDs like `A1`, `C4`) |
 | [TESTING.md](TESTING.md) | Local `make verify` + Revenge device checklist |
+| [VLM.md](VLM.md) | Local UI-TARS-1.5-7B vision gates for Android screenshots |
+| [PATHS.md](PATHS.md) | Runtime directories, `launchctl` commands, AI ops |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes and semver policy |
 
 ---

@@ -18,8 +18,10 @@ discovery with graceful fallbacks · **High** = deep Discord internals; easy to
 break on client updates · **Latent** = only act if a symptom returns.
 
 **Suggested agent order:** close or drive **A1** (device QA) before new features;
-prefer **C4** (pins) over **C2**/**C3** (high Metro surface). Do not reintroduce
-Flux/`selectChannel` jump paths or full-screen scrims (see HANDOFF).
+prefer **C4** (pins) over **C2**/**C3** (high Metro surface). **D1** (pytest +
+Handsets harness) can run in parallel with **A1** but should assert the same
+checklist. Do not reintroduce Flux/`selectChannel` jump paths or full-screen
+scrims (see HANDOFF).
 
 **How to reference:** say **A1**, **C4**, **D1**, etc. Keep IDs stable forever;
 when an item ships, move it to **Closed** (do not renumber).
@@ -33,7 +35,7 @@ when an item ships, move it to **Closed** (do not renumber).
 | **A — Device QA** | Revenge client checklist | A1 | Low (process); blocks confidence in sheet/nav |
 | **B — Switcher polish** | Pins and list UX on stable sheet | C4 | Low–Medium |
 | **C — High-risk Metro** | Channels / folder-aware sidebar | C2, C3 | Medium–High |
-| **D — Engineering** | Harness / smoke | D1 | Low |
+| **D — Engineering** | Device QA harness (pytest + Handsets) + Metro smoke | D1 | Low–Medium |
 | **E — Latent follow-ups** | Only if a symptom returns | C1b | Latent / Medium–High |
 
 ---
@@ -51,9 +53,9 @@ Requires a Revenge Discord client and the checklist in [TESTING.md](TESTING.md).
 3. Copy debug logs show `v4.5.9` and `openUrl` (not mixed older versions).
 4. Close dismisses the panel; bot-message fallback still OK if sheet APIs missing.
 
-Close **A1** when the operator signs off (or a future harness covers the same
-assertions). Agents: prepare checklists / interpret log pastes; do not claim
-pass from CI alone.
+Close **A1** when the operator signs off (or **D1** pytest+Handsets harness
+covers the same assertions). Agents: prepare checklists / interpret log pastes;
+do not claim pass from CI alone.
 
 ---
 
@@ -102,12 +104,122 @@ assumptions scramble the sidebar. Needs defensive parsing + device tests
 
 ### Track D — Engineering
 
-#### D1 — Integration smoke / Metro self-check (agent) · Risk: **Low**
+#### D1 — Unattended device QA harness (stayturgid + Handsets) · Risk: **Low–Medium**
 
-Document expected Metro props (`openUrl`, alert/sheet hosts, GuildStore, …).
-Optional runtime self-check when debug logging is on. Worst case: noisy logs,
-not broken navigation. Optional later: thin Handsets-driven QA (stayturgid
-research) — Vitest remains the default `make test`; do not Appium-first.
+Replace “human taps → pastes Copy debug logs → agent guesses” with a Mac-side
+script that arms a stayturgid UI session, drives Discord through the failing
+flow, captures screenshots + hierarchy + plugin debug ring, and emits a
+machine-readable report (`report.json` + PNGs) the agent can act on.
+
+Vitest (`make test`, 96 tests) stays the default local gate. **D1** adds an
+optional Mac→Android tier. Borrow patterns from
+[stayturgid](https://github.com/djbclark/stayturgid) — **not** the full
+fleet/Ansible stack. Do **not** Appium-first; never run u2 + Handsets together.
+
+**Core rule (from stayturgid research):** hold **one** `ScreenControlSession`
+for the whole flow; screenshot every step; prefer text/id selectors over
+coordinates; assert durable state (not just toasts).
+
+**Stayturgid pieces to reuse:**
+
+| Piece | Role for QSS |
+|-------|----------------|
+| `control/lib/ui_driver.py` | Handsets primary — `tap_text` / `tap_id` |
+| Raw dump + tap | Fallback when Handsets missing |
+| `ScreenControlSession` | Inversion = “agent owns glass”; gate input |
+| `STAYTURGID_PRESENCE_QUIET=1` | No torch/vibrate/dialogs for unattended runs |
+| `mac/gui_audit.py` | Template: open app → navigate → screenshot → assert → soft-fail `issues[]` |
+| Wireless ADB + stayturgid reconnect | Keep `ip:5555` alive for Mac agents |
+
+Reference docs in stayturgid: `docs/research/mac-android-ui-automation.md`,
+`docs/research/ui-automation.md`.
+
+---
+
+**Phase 0 — Access (one-time; pick per environment)**
+
+| Option | How | Best for |
+|--------|-----|----------|
+| **A. Cursor Desktop on Mac** (recommended) | Both `stayturgid` + QSS workspaces; wireless ADB; Handsets at `~/.handsets/` | Live UI loops |
+| **B. Clone stayturgid beside QSS** | Submodule or sparse checkout of `control/lib` + `docs/research` | Doc-aware cloud planning |
+| **C. Paste doc into QSS** | Copy `mac-android-ui-automation.md` under `docs/` | Lightweight cloud context |
+| **D. Expose ADB to cloud** | Tunnel egress to phone | Rare; usually avoid |
+
+Cloud Cursor **cannot** see Mac disk or phone without a bridge. Agents need
+**ADB reachability + UI stack** — not Discord credentials (device already
+logged in). Preferred device: **s24** (see HANDOFF fleet order).
+
+---
+
+**Phase 1 — Harness (ship first)**
+
+Add `scripts/device_qa_qss.py` (or `stayturgid/control/bin/gui_audit.py`) mirroring
+`gui_audit.py`:
+
+```text
+STAYTURGID_PRESENCE_QUIET=1
+resolve_adb(s24) → connect → ScreenControlSession
+try_handsets(serial)
+  am start Discord
+  wait for chat / slash
+  invoke /servers (slash picker or settings → Open switcher)
+  screenshot 01_sheet.png + dump hierarchy
+  assert: switcher visible; panel near TOP (y bounds)
+  tap known server name
+  wait 1–2s
+  screenshot 02_after_jump.png
+  assert: taps still work (composer / channel list / sidebar)
+  plugin settings → Copy debug logs → read clipboard via adb
+  write report.json: { version, openUrl, afterGuild, issues[] }
+HOME / restore foreground
+```
+
+Optional pytest wrapper: `tests/device/` + `conftest.py` (skip when no device /
+no `hs`). Entry: `make qa` or `pytest tests/device`.
+
+**Automated checks that would have caught v4.5.x bugs:**
+
+| Bug | Check |
+|-----|-------|
+| Freeze / dead taps | After jump, `hs.tap_text` on known control fails → `issues=dead_taps` |
+| Keyboard covers sheet | Switcher bounds bottom > keyboard top → `issues=keyboard_cover` |
+| Wrong nav API | Clipboard/logcat: no `selectChannel` / `CHANNEL_SELECT`; must see `openUrl` |
+| Stuck overlay | After Close/jump, switcher title still in hierarchy → `issues=overlay_stuck` |
+| Version confusion | Debug dump contains `vX.Y.Z` matching `manifest.json` |
+
+Also cover **A1** checklist: top-dock, Filter above keyboard, Close dismisses.
+
+---
+
+**Phase 2 — Agent workflow (minimal human)**
+
+1. Agent bumps plugin → `make verify` → push (as now)
+2. Install/update on device via raw GitHub URL refetch **or** opt-in `adb` sideload
+3. Run `device_qa_qss.py`; on failure, read `report.json` + PNGs
+4. Agent patches and re-runs until green or hits human gate (login, captcha, OEM perm)
+
+---
+
+**Phase 3 — Hardening**
+
+- Content-desc / text (“Close”, “Filter servers”, server names) over coords
+- Discord package/activity discovery in one helper (`pm path` / `dumpsys`)
+- Artifacts under `~/.local/share/RevengeQuickSwitcher/artifacts/qss-qa/<date>/` ([PATHS.md](PATHS.md))
+- Optional launchd after plugin tag; default agent-triggered only
+- Layer 1 (independent): Metro prop docs + optional runtime self-check when debug on
+
+**D1 non-goals:** full Discord E2E; emulator-only QA; cloud driving phone
+without Mac ADB; Ansible/Termux deploy; CI green without reachable device.
+
+**Safety (p7a):** Only automate when a **safe channel** is active:
+``#dc-general``, ``#dc-games`` (preferred), ``#ogden``, ``#college``.
+Sidebar icons DCs / LL/DC are hints; channel list is ground truth. No slash
+in-channel. Default device: **p7a**. ``make qa QSS_GUILD=dcs``
+
+**Vision gates:** Optional local **UI-TARS-1.5-7B** verifies Android screenshots
+before typing (Discord vs launcher, safe channel, switcher open). See
+[VLM.md](VLM.md). ``make vlm-install`` once, ``make vlm-server`` in a dedicated
+terminal, then ``make qa`` (``QSS_VLM=1`` by default).
 
 ---
 
