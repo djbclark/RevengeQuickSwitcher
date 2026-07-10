@@ -16,7 +16,7 @@ Every option below must include an explicit **Risk** value.
 
 | ID | Option | Risk | Why blocked | Notes |
 |----|--------|------|-------------|-------|
-| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.5.7**. Retest: after jump, buttons (sidebar, channel list, chat input) must work — not only scroll. Logs: `v4.5.7` + `openUrl`. |
+| **A1** | Device QA | **Low** (process) | Requires a Revenge Discord client and manual checklist | **v4.5.8**. Retest: native ActionSheet UI; after jump, taps must work. Logs: `v4.5.8` + `openUrl`. |
 
 ---
 
@@ -40,8 +40,8 @@ Every option below must include an explicit **Risk** value.
 | **B14** | `/servers` missing from slash menu | **Done** (v4.4.5) | **Low** | Revenge inverted `shouldHide` filter; omit it + fill command metadata. |
 | **B15** | `/servers` silent + duplicate | **Done** (v4.4.7) | **Low** | `sendBotMessage` replies; unregister-before-register. |
 | **B16** | `/servers query` silent no-op | **Done** (v4.4.7) | **Medium** | Jump/error bot replies + harder nav + arg unwrap. |
-| **B17** | Switcher sheet + tappable picks (C5/C8) | **Done** (v4.5.4) | **Medium** | `openLazy` sheet + simple action sheet; bot-message fallback. |
-| **B18** | Freeze / dead UI after jump | **Done** (v4.5.7) | **High** | JumpTo `openUrl` deep link + hard sheet dismiss; no leftover touch-blocking overlay. |
+| **B17** | Switcher sheet + tappable picks (C5/C8) | **Done** (v4.5.8) | **Medium** | Native Discord ActionSheet + simple sheet; bot-message fallback. |
+| **B18** | Freeze / dead UI after jump | **Done** (v4.5.8) | **High** | Native Discord ActionSheet + hideActionSheet before openUrl (Stealmoji/JumpTo); no custom overlay hosts. |
 
 ---
 
@@ -122,7 +122,7 @@ Every option below must include an explicit **Risk** value.
 
 ### C8 — Dedicated switcher UI (not in-channel)
 
-**Status:** **Done** (v4.5.4) — `/servers` opens a searchable action sheet; settings has **Open switcher**; bot-message list remains fallback when sheet APIs are missing.
+**Status:** **Done** (v4.5.8) — `/servers` opens Discord’s native ActionSheet (Stealmoji/Bunny pattern); settings has **Open switcher**; bot-message list remains fallback when sheet APIs are missing.
 
 **What it is:** Open a real UI surface for `/servers` instead of posting bot messages into the current channel.
 

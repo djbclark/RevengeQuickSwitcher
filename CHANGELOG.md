@@ -14,6 +14,11 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 
 _Nothing yet._
 
+## 4.5.8
+
+- Rewrite switcher UI to match known-good Revenge plugins (**Stealmoji** / **Bunny ActionSheet** / **JumpTo**): open Discord’s native `ActionSheet` via `openLazy`, call `hideActionSheet()` before `openUrl`
+- Remove custom full-screen / `openAlert` hosts that left taps dead after a successful jump (v4.5.6–4.5.7 device QA)
+
 ## 4.5.7
 
 - Fix dead taps after a successful jump: dismiss the switcher host fully before `openUrl`, prefer Discord’s action-sheet host (JumpTo’s `hideActionSheet` path), remove the full-screen touch scrim, and re-dismiss after navigation starts
