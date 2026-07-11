@@ -32,7 +32,7 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-10 (evening).** Released on `main`: **v4.5.9**. **Active QA device:** **s24** (Galaxy S24, USB `RFCX219CHKA`). **QSS plugin:** operator installed on s24 from raw URL (2026-07-10). p7a artifacts archived under `artifacts/qss-qa/p7a-final-archive/` — do not use p7a unless operator asks.
+**As of 2026-07-11 (evening).** Released on `main`: **v4.5.9**. **Active QA device:** **s24** (Galaxy S24, USB `RFCX219CHKA`). **QSS plugin:** operator installed on s24 from raw URL (2026-07-10). p7a artifacts archived under `artifacts/qss-qa/p7a-final-archive/` — do not use p7a unless operator asks.
 
 | Field | Value |
 |-------|-------|
@@ -41,8 +41,8 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 | Bundle | Vendetta IIFE, ES2015 target, `__QSS_VERSION__` injected |
 | Unit tests | **96** Vitest tests (`make verify`) |
 | Open human gate | **A1** — device QA on Revenge Android (s24) |
-| D1 harness | `scripts/device_qa_qss.py` + `make qa` — **implemented, uncommitted** on `main` |
-| Latest s24 QA | Partial — nav to `#dc-general` OK; switcher/jump **not yet green** (see below) |
+| D1 harness | `scripts/device_qa_qss.py` + `make qa` — **uncommitted changes** on `main` |
+| Latest s24 QA | Partial — `audit_host` starts, reaches `leave_voice_channel`, then hangs (voice overlay) |
 
 **Working navigation (device-proven):**
 
@@ -74,7 +74,7 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 
 ---
 
-## Device QA handoff (s24, 2026-07-10)
+## Device QA handoff (s24, 2026-07-11)
 
 ### What passed
 
@@ -82,21 +82,25 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 |------|--------|
 | `make verify` / CI | Green (96 tests) |
 | Revenge package `app.revenge` on s24 | OK |
-| Local UI-TARS (`http://127.0.0.1:8081`) | OK |
+| Cloud VLM (Anthropic Haiku 4.5 / Gemini 3.5 Flash) | OK — `QSS_VLM_CLOUD=anthropic,google` |
+| Tesseract OCR gate (`scripts/ocr_gate.py`) | OK — fast pre-check before VLM |
+| ADB wireless connect (TLS) | OK — serial `adb-RFCX219CHKA-W06wB0._adb-tls-connect._tcp` |
+| ScreenControlSession lease (force-steal) | OK — `STAYTURGID_SCREEN_LEASE_FORCE=1` |
 | Nav to test guild **dcs** → `#dc-general` | Usually OK (VLM `safe_test_channel` passes) |
 | **QSS plugin installed** | Operator confirmed + installed from raw URL |
+| `wait_discord_ready` with voice channel | Fixed — now accepts `Show Chat`/`Disconnect`/`Voice Connected` markers |
+| `shot()` screenshot validation | Fixed — validates PNG header + retries up to 3x |
 
 ### What failed / flaky (last runs)
 
 | Issue | Cause | Harness note |
 |-------|-------|--------------|
-| `switcher_open_failed` | Could not reach profile → Settings → Plugins before plugin install | Should improve now that QSS is installed |
-| `quest_bar_blocks_profile` | Discord Quest Bar + Wordle pill over profile chip | Dismiss on device or improve `dismiss_quest_overlay()` |
+| **`leave_voice_channel` hang** | Device in Stream Room voice overlay; `hs.tap_text("Show Chat")` / `hs.tap_desc("Disconnect")` time out because Handsets can't find targets in the full-screen voice UI | Need to debug Handsets dump during voice overlay, or add a raw `adb input tap` fallback path for known voice-UI coordinates |
 | `safe_guild_nav_failed` (intermittent) | Sidebar guild tap: **coord tap** on icon column does not select guild; **`tap_text("Danny Clark's server")` works** | `tap_sidebar_guild()` already prefers `tap_text` — verify on next run |
 | Emoji keyboard obstruction | Prior coord taps hit emoji toggle | `dismiss_emoji_keyboard()` added before profile |
 | Accidental chat/DM text | `handsets type/fill` with `QSS_VLM=0` on DM threads; slash `fill "/"` + `tap_text "/ servers"` → `//servers` | **Fixed** — see Safety |
 
-Artifacts: `~/.local/share/RevengeQuickSwitcher/artifacts/qss-qa/2026-07-10/s24/`
+Artifacts: `~/.local/share/RevengeQuickSwitcher/artifacts/qss-qa/2026-07-11/s24/`
 
 ### Safety policy (mandatory for agents)
 
@@ -118,6 +122,22 @@ Full runbook: [VLM.md](VLM.md) (Safety-first automation section).
 1. **Stray `,` DM to kuriboh** — device on DM thread; coord/wordle probes typed into composer with VLM off.
 2. **`//servers` in channel** — slash path typed `/` then `tap_text("/ servers")` doubled the slash; old path could tap Send.
 
+### D1 harness changes (2026-07-11 session)
+
+All changes are **uncommitted** in working tree:
+
+| Change | Files |
+|--------|-------|
+| OCR gate integration (Tesseract pre-check) | `scripts/device_qa_qss.py`, `scripts/ocr_gate.py` (new) |
+| Cloud VLM primary (Anthropic/Gemini), local fallback | `scripts/device_qa_qss.py`, `scripts/vlm_cloud.py` (model=gemini-3.5-flash) |
+| Screenshot validation (PNG header + retry) | `scripts/device_qa_qss.py` `shot()` |
+| Voice channel markers in `wait_discord_ready` | `scripts/device_qa_qss.py` |
+| Voice channel markers in `ui_looks_like_discord` | `scripts/device_qa_qss.py` |
+| Screen lease force-steal on entry | `scripts/device_qa_qss.py` `audit_host()` |
+| Scroll direction fix (`hs.swipe("up")` to scroll down) | `scripts/device_qa_qss.py` `scroll_settings_toward_top()` |
+| Element bounds validation (`_on_screen()`) | `scripts/device_qa_qss.py` |
+| Plugin settings navigation rework | `scripts/device_qa_qss.py` `tap_plugins_settings()`, `navigate_to_qss_plugin()` |
+
 ### Device cleanup (end of session)
 
 After QA, restore s24 without UI automation:
@@ -138,20 +158,27 @@ adb -s $serial shell settings put global animator_duration_scale 1
 
 Use `restore_screen=False` during QA so session exit does not land on Termux/other prior app.
 
-### Commands for next agent (full A1 pass)
+### Commands for next agent
 
 ```bash
-curl -sf http://127.0.0.1:8081/health   # UI-TARS up
-DEVICE_SCREEN_CONTROL_PROJECT=RevengeQuickSwitcher \
-  python3 ~/stayturgid/control/bin/screen_lease.py release s24
+# Verify plugin builds
+make verify
 
-QSS_VLM=1 QSS_SAFE_MODE=1 QSS_VLM_CLOUD=google,anthropic \
+# Full QA run (will hit leave_voice_channel hang)
+QSS_VLM=1 QSS_SAFE_MODE=1 \
   make qa QSS_DEVICE=s24 QSS_GUILD=dcs
+
+# Debug leave_voice_channel — step-by-step
+cd ~/src/RevengeQuickSwitcher
+PYTHONUNBUFFERED=1 python3 -c "
+import sys; sys.path.insert(0, 'scripts')
+import device_qa_qss as dq
+# ... replicate audit_host up to ScreenControlSession,
+# then manually inspect hs.ui() to see what Handsets sees
+"
 ```
 
-If quest bar still blocks profile: operator dismisses Quest Bar / Wordle pill once on device, then re-run.
-
-**Uncommitted harness work** (2026-07-10): `scripts/device_qa_qss.py`, `VLM.md`, `Makefile`, `HANDOFF.md`, `scripts/ui_tars_local.py`, `scripts/vlm_cloud.py`, `.cursor/rules/vlm-docs.mdc` — not committed; operator has not requested commit.
+**Uncommitted harness work (2026-07-11):** `scripts/device_qa_qss.py`, `scripts/ocr_gate.py` (new), `scripts/vlm_cloud.py`, `OPTIONS.md` — not committed; operator has not requested commit.
 
 ---
 
@@ -252,9 +279,11 @@ src/
 scripts/
   build.mjs          # esbuild → Vendetta IIFE, ES2015, version define
   check-manifest.mjs # manifest + dist hash gate
-  device_qa_qss.py   # D1 device QA harness (Handsets + VLM gates)
+  device_qa_qss.py   # D1 device QA harness (Handsets + VLM + OCR gates)
+  ocr_gate.py        # Tesseract OCR pre-check gate — fast/free screen-text verification
   ui_tars_local.py   # Local UI-TARS vision gates
-  vlm_cloud.py       # Optional cloud VLM fallback
+  vlm_cloud.py       # Cloud VLM (Anthropic Haiku 4.5 / Gemini 3.5 Flash)
+  load_qss_secrets.py # Loads API keys from ~/.config/RevengeQuickSwitcher/secrets.env
 smoke/               # Tiny plugin to isolate Revenge load failures
 dist/index.js        # Committed bundle Revenge evals
 manifest.json        # name, version, hash, authors
@@ -297,11 +326,21 @@ Revenge inverted `shouldHide` historically hid `/servers` — omit that flag and
 
 Revenge evals roughly: `vendetta => { return <plugin.js> }` then `ret?.default ?? ret`. Build wraps CJS in `(function(exports){ ...; return exports })({})`. Hermes rejects some modern syntax → **ES2015** target.
 
+### Vision gates (D1 harness)
+
+The harness has a 3-tier vision system:
+
+1. **OCR gate** (Tesseract) — free, fast, runs on every screenshot before VLM. Matches keyword patterns. Returns True/False/Inconclusive.
+2. **Cloud VLM** (Anthropic Haiku 4.5 first, Gemini 3.5 Flash fallback) — paid, slower, runs when OCR is inconclusive. API keys in `~/.config/RevengeQuickSwitcher/secrets.env`.
+3. **Local UI-TARS** — last resort fallback if cloud is unconfigured.
+
+Set `QSS_VLM_CLOUD=anthropic,google` for primary cloud path. Set `QSS_VLM=0` to disable all vision gates and trust Handsets a11y tree only.
+
 ---
 
 ## Known issues / gotchas
 
-- **Paste GitHub HTML URL** → “Failed to fetch manifest”. Must use `raw.githubusercontent.com/.../main/`.
+- **Paste GitHub HTML URL** → "Failed to fetch manifest". Must use `raw.githubusercontent.com/.../main/`.
 - **Safe Mode** → plugins do not start.
 - **X on toggle** → start failed; try smoke plugin; check Copy debug logs / logcat.
 - **Dead taps after jump** → almost always leftover overlay host, not failed `openUrl`. Dismiss harder; avoid full-screen custom scrims.
@@ -309,6 +348,10 @@ Revenge evals roughly: `vendetta => { return <plugin.js> }` then `ret?.default ?
 - **Flat sidebar silent skip** → SortedGuildStore missing on some builds; log and continue.
 - **Clipboard newlines** → Copy debug logs is one line on purpose.
 - **Cloud VM has no phone** — never claim device QA passed from CI alone.
+- **`leave_voice_channel` hang** — Handsets `tap_text`/`tap_desc` time out in full-screen voice overlay. Device left in "Stream Room" voice channel. Need raw ADB tap fallback or better voice-UI detection.
+- **TLS-ADB serial changes** — serial `adb-RFCX219CHKA-W06wB0._adb-tls-connect._tcp` sometimes gets a ` (2)` suffix after reconnect; harness resolves via `resolve_device_serial()` which handles this.
+- **SSH hostname case** — SSH lowercases `adb-RFCX219CHKA...` hostnames; ScreenControlSession uses the short host `"s24"` (which resolves to IP) not the TLS-ADB serial directly.
+- **ADB exec-out screencap can return corrupt data** — `shot()` now validates PNG header bytes and retries up to 3x.
 
 ---
 
@@ -329,12 +372,13 @@ Related lab / automation context (separate repo): [stayturgid](https://github.co
 
 ## Changelog (condensed — see CHANGELOG.md)
 
+- **2026-07-11** — OCR gate (Tesseract) integration; cloud VLM promoted to primary; screenshot validation; voice channel markers; scroll/nav/lease fixes; `leave_voice_channel` still hangs in voice overlay.
 - **2026-07-10** — D1 harness on s24; QSS plugin installed; safety gates (`QSS_SAFE_MODE`, `after_type`); quest bar still blocks profile on some runs; uncommitted harness docs/code.
 - **2026-07-10** — Docs: HANDOFF / HACKING / README index; VLM.md runbook.
 - **4.5.9** — Top-docked switcher above keyboard; keep dismiss-then-`openUrl`.
 - **4.5.8** — Native ActionSheet host (Stealmoji); fixed dead taps.
 - **4.5.6–4.5.7** — `openUrl` jump; dismiss-before-navigate.
-- **4.5.2–4.5.5** — Overlay/freeze iterations; Copy debug logs; version-stamped ring.
+- **4.5.2–4.5.5** — Overlay dismiss iterations; Copy debug logs; version-stamped ring.
 - **4.4.x** — Install URL / IIFE / Hermes enable / slash menu / bot replies.
 - **4.1–4.3** — Theme settings, aliases export, recents, excludes, debug toggle.
 

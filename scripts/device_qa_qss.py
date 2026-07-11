@@ -91,10 +91,15 @@ try:
     import vlm_cloud  # noqa: E402
 except ImportError:
     vlm_cloud = None  # type: ignore
+try:
+    import ocr_gate  # noqa: E402
+except ImportError:
+    ocr_gate = None  # type: ignore
 
 _vlm_gate: Any = None
 _vlm_dir: Path | None = None
 _vlm_records: list[dict[str, Any]] = []
+_ocr_gate: Any = None
 
 ROOT = Path(
     os.environ.get(
@@ -288,12 +293,16 @@ def adb_shell(serial: str, *args: str, timeout: int = 30) -> str:
 
 def shot(serial: str, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    r = subprocess.run(
-        ["adb", "-s", serial, "exec-out", "screencap", "-p"],
-        capture_output=True,
-        timeout=45,
-    )
-    path.write_bytes(r.stdout or b"")
+    for attempt in range(3):
+        r = subprocess.run(
+            ["adb", "-s", serial, "exec-out", "screencap", "-p"],
+            capture_output=True,
+            timeout=45,
+        )
+        path.write_bytes(r.stdout or b"")
+        if path.stat().st_size > 200 and path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n":
+            return
+        time.sleep(0.5 if attempt < 2 else 0)
 
 
 def screen_size(serial: str) -> tuple[int, int]:
@@ -412,7 +421,7 @@ def wait_discord_ready(
     timeout: float = UI_WAIT_MED,
     session: sc.ScreenControlSession | None = None,
 ) -> bool:
-    """Discord foreground + bottom bar or channel chrome visible."""
+    """Discord foreground + bottom bar, channel chrome, or voice view visible."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         dismiss_blocking_screens(hs, session)
@@ -421,6 +430,8 @@ def wait_discord_ready(
             any(", Online" in ln and "Button" in ln for ln in ui.splitlines())
             or "message #" in ui.lower()
             or "chat_input_edit_text" in ui
+            or ("disconnect" in ui.lower() and "unmute" in ui.lower())
+            or "voice connected" in ui.lower()
         ):
             return True
         time.sleep(UI_POLL)
@@ -740,20 +751,24 @@ def tap_ui_line_containing(
 
 
 def init_vlm(artifact_dir: Path) -> bool:
-    """Start local UI-TARS gates; optional cloud fallback when configured."""
-    global _vlm_gate, _vlm_dir, _vlm_records
+    """Start cloud or local vision gates for QA verification."""
+    global _vlm_gate, _vlm_dir, _vlm_records, _ocr_gate
     _vlm_dir = artifact_dir / "vlm"
     _vlm_dir.mkdir(parents=True, exist_ok=True)
     _vlm_records = []
+
+    # Free OCR gate — always init when tesseract is available.
+    _ocr_gate = None
+    if ocr_gate is not None and ocr_gate.ocr_available():
+        _ocr_gate = ocr_gate.OcrGate()
+        log("OCR gate ready (Tesseract)")
+
     if vlm is None or not vlm.vlm_enabled():
         log("VLM disabled or ui_tars_local missing")
         _vlm_gate = None
         return False
-    gate = vlm.VlmGate(autostart=True)
-    if gate.ready:
-        _vlm_gate = gate
-        log("VLM UI-TARS-1.5-7B ready (local llama-server)")
-        return True
+
+    # Cloud VLM takes priority when configured with valid API keys.
     if vlm_cloud is not None and vlm_cloud.cloud_configured():
         _vlm_gate = vlm_cloud.CloudVlmGate()
         if _vlm_gate.ready:
@@ -762,6 +777,14 @@ def init_vlm(artifact_dir: Path) -> bool:
                 % (_vlm_gate.provider, _vlm_gate.model)
             )
             return True
+
+    # Local UI-TARS fallback.
+    gate = vlm.VlmGate(autostart=True)
+    if gate.ready:
+        _vlm_gate = gate
+        log("VLM UI-TARS-1.5-7B ready (local llama-server)")
+        return True
+
     _vlm_gate = None
     hint = (
         vlm_cloud.suggest_cloud_vlm("local_unavailable")
@@ -786,6 +809,37 @@ def vlm_capture(serial: str, name: str) -> Path | None:
     return path
 
 
+def ocr_require(
+    image_path: Path | None,
+    check: str,
+    label: str = "",
+    *,
+    issues: list[str] | None = None,
+) -> bool | None:
+    """Try fast OCR gate before VLM. Returns True/False if conclusive, None to skip."""
+    if _ocr_gate is None or image_path is None or not image_path.is_file():
+        return None
+    ok, detail = _ocr_gate.verify(image_path, check)
+    detail["label"] = label or check
+    _vlm_records.append(detail)
+    if _vlm_dir is not None:
+        safe = re.sub(r"[^a-zA-Z0-9._-]+", "_", "ocr_" + (label or check))
+        (_vlm_dir / ("%s.json" % safe)).write_text(
+            json.dumps(detail, indent=2), encoding="utf-8"
+        )
+    if ok:
+        log("OCR passed %s (%.2fs)" % (label or check, detail.get("elapsed_s", 0)))
+        return True
+    if detail.get("confidence", 0) >= 0.3:
+        log("OCR blocked %s: matched=%s neg=%s (%.2fs)" % (
+            label or check, detail.get("matched"), detail.get("negatives"), detail.get("elapsed_s", 0)))
+        msg = "ocr_%s_failed" % check
+        if issues is not None and msg not in issues:
+            issues.append(msg)
+        return False
+    return None
+
+
 def vlm_require(
     image_path: Path | None,
     check: str,
@@ -793,7 +847,13 @@ def vlm_require(
     *,
     issues: list[str] | None = None,
 ) -> bool:
-    if _vlm_gate is None or image_path is None or not image_path.is_file():
+    """Verify screenshot via OCR first (fast/free), then VLM if OCR inconclusive."""
+    if image_path is None or not image_path.is_file():
+        return True
+    ocr_result = ocr_require(image_path, check, label, issues=issues)
+    if ocr_result is not None:
+        return ocr_result
+    if _vlm_gate is None:
         return True
     ok, detail = _vlm_gate.verify(image_path, check)
     detail["label"] = label or check
@@ -989,6 +1049,13 @@ def tap_profile_chip(
     ):
         reveal_bottom_nav_bar(hs, session)
         ui = hs.ui()
+    if hs.tap_desc("Show Settings Drawer", timeout_ms=2500) or hs.tap_text(
+        "Show Settings Drawer", timeout_ms=2000
+    ):
+        if _after_profile_tap(hs, session):
+            return True
+    w, h = screen_size(session.serial) if session is not None else (1080, 2340)
+    chip_max_y = int(h * 0.90)
     for line in ui.splitlines():
         if "Button" not in line:
             continue
@@ -998,15 +1065,10 @@ def tap_profile_chip(
         ):
             continue
         pt = _ui_xy(line)
-        if pt and pt[1] > 2100 and session is not None:
+        if pt and pt[1] > chip_max_y and session is not None:
             session.shell("input", "tap", str(pt[0]), str(pt[1]))
             if _after_profile_tap(hs, session):
                 return True
-    if hs.tap_desc("Show Settings Drawer", timeout_ms=2500) or hs.tap_text(
-        "Show Settings Drawer", timeout_ms=2000
-    ):
-        if _after_profile_tap(hs, session):
-            return True
     if session is not None and _tap_danny_profile_text(hs, session):
         if _after_profile_tap(hs, session):
             return True
@@ -1020,7 +1082,7 @@ def tap_profile_chip(
         if "TextView" not in line or "Danny" not in line or "Online" in line:
             continue
         pt = _ui_xy(line)
-        if pt and pt[1] > 2100 and pt[0] < 400:
+        if pt and pt[1] > chip_max_y and pt[0] < 400:
             if hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
                 if _after_profile_tap(hs, session):
                     return True
@@ -1029,7 +1091,7 @@ def tap_profile_chip(
         if "Button" not in line or "Danny, Online" not in line:
             continue
         pt = _ui_xy(line)
-        if not pt or pt[1] < 2100:
+        if not pt or pt[1] < chip_max_y:
             continue
         if hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
             if _after_profile_tap(hs, session):
@@ -1393,11 +1455,13 @@ def _tap_danny_profile_text(
     hs: uid.HandsetsSession, session: sc.ScreenControlSession
 ) -> bool:
     """Tap footer name TextView above quest bar (S24: Danny ~247,2206)."""
+    _w, h = screen_size(session.serial)
+    danny_min_y = int(h * 0.92)
     for line in hs.ui().splitlines():
         if "TextView" not in line or _ui_label(line) != "Danny":
             continue
         pt = _ui_xy(line)
-        if pt and pt[1] > 2150 and pt[0] < 400:
+        if pt and pt[1] > danny_min_y and pt[0] < 400:
             session.shell("input", "tap", str(pt[0]), str(pt[1]))
             time.sleep(0.5)
             return True
@@ -2027,6 +2091,9 @@ def ui_looks_like_discord(ui: str) -> bool:
         "Log Out",
         "Install a plugin",
         "Nothing to see here",
+        "Show Chat",
+        "Disconnect",
+        "Voice Connected",
     )
     return any(m in ui for m in markers)
 
@@ -2811,27 +2878,23 @@ def tap_revenge_settings(hs: uid.HandsetsSession) -> bool:
     return False
 
 
+def _on_screen(pt: tuple[int, int] | None, serial: str | None, slack: int = 0) -> bool:
+    """True when a coordinate pair falls within the visible screen area."""
+    if pt is None:
+        return False
+    w, h = screen_size(serial) if serial else (1080, 2340)
+    return slack <= pt[0] < w - slack and slack <= pt[1] < h + max(slack, 0)
+
+
 def scroll_settings_toward_top(
     hs: uid.HandsetsSession,
     session: sc.ScreenControlSession | None = None,
     *,
-    passes: int = 16,
+    passes: int = 3,
 ) -> None:
     """Recover when settings was scrolled to the bottom (Log Out / Developer visible)."""
     for _ in range(passes):
-        if session is not None:
-            w, h = screen_size(session.serial)
-            session.shell(
-                "input",
-                "swipe",
-                str(int(w * 0.5)),
-                str(int(h * 0.25)),
-                str(int(w * 0.5)),
-                str(int(h * 0.9)),
-                "550",
-            )
-        else:
-            hs.swipe("down")
+        hs.swipe("up")
         time.sleep(0.35)
 
 
@@ -2888,7 +2951,9 @@ def find_plugins_row(
         if not pt or pt[1] <= 0:
             continue
         x, y = pt
-        if y < 280 or y > max_y:
+        if y < 280:
+            continue
+        if max_y and y > max_y + 150:
             continue
         if revenge_y is not None and (y <= revenge_y or y - revenge_y > 350):
             continue
@@ -2913,47 +2978,31 @@ def tap_plugins_settings(
             return True
         return ui_on_plugins_list(hs.ui())
 
+    def tap_plugins_row() -> bool:
+        """Tap the Plugins row, verifying it is on-screen first."""
+        if hs.tap_text("Plugins", timeout_ms=3000) or hs.tap_desc("Plugins", timeout_ms=2500):
+            return open_plugins_list()
+        pt = find_plugins_row(hs.ui(), max_y=max_y)
+        if pt and _on_screen(pt, serial, slack=-80) and hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
+            return open_plugins_list()
+        return False
+
     ui = hs.ui()
     if ui_on_plugins_list(ui):
         return True
-    if settings_scrolled_past_revenge(ui) or (
-        "Plugins" in ui and find_plugins_row(ui, max_y=max_y) is None
-    ):
+    if settings_scrolled_past_revenge(ui):
         scroll_settings_toward_top(hs, session)
         ui = hs.ui()
 
-    if hs.tap_text("Plugins", timeout_ms=3000) or hs.tap_desc("Plugins", timeout_ms=2500):
-        if open_plugins_list():
-            return True
+    if tap_plugins_row():
+        return True
 
-    pt = find_plugins_row(hs.ui(), max_y=max_y)
-    if pt and hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
-        if open_plugins_list():
+    # Scroll down (hs swipe up = reveal lower content) in short steps.
+    for _ in range(4):
+        hs.swipe("up")
+        time.sleep(0.5)
+        if tap_plugins_row():
             return True
-
-    # Revenge/Plugins sit a little below Account — small scrolls, not to the list end.
-    for _ in range(6):
-        if session is not None:
-            w, h = screen_size(session.serial)
-            session.shell(
-                "input",
-                "swipe",
-                str(int(w * 0.5)),
-                str(int(h * 0.78)),
-                str(int(w * 0.5)),
-                str(int(h * 0.42)),
-                "350",
-            )
-        else:
-            hs.swipe("up")
-        time.sleep(0.45)
-        if hs.tap_text("Plugins", timeout_ms=2000):
-            if open_plugins_list():
-                return True
-        pt = find_plugins_row(hs.ui(), max_y=max_y)
-        if pt and hs.hs("tap", str(pt[0]), str(pt[1]), timeout=10).returncode == 0:
-            if open_plugins_list():
-                return True
     return False
 
 
@@ -2990,7 +3039,8 @@ def tap_qss_plugin(hs: uid.HandsetsSession) -> bool:
 
     tap_order = [x for x in (settings_x, "335", "540", "706") if x]
     for x in tap_order:
-        if hs.hs("tap", x, str(row_y), timeout=10).returncode == 0:
+        xn, yn = int(x), row_y
+        if hs.hs("tap", x, str(yn), timeout=10).returncode == 0:
             time.sleep(0.8)
             if "Open switcher" in hs.ui():
                 return True
@@ -3320,97 +3370,106 @@ def navigate_to_qss_plugin(
                 if "Quick Server Switcher" not in hs.ui():
                     tap_qss_plugin(hs)
                 return "Quick Server Switcher" in hs.ui()
-    if not detect_safe_channel(hs.ui(), guild_key):
-        leave_voice_channel(hs, session, serial, pkg, guild_key)
-    dismiss_system_dialogs(hs, session)
-    dismiss_emoji_keyboard(hs, session)
-    if not open_server_list(hs, session, serial, pkg):
-        log("navigate_to_qss_plugin: server drawer not open")
-        return False
-    prepare_profile_access(hs, session)
-    if ui_in_channel_chat(hs.ui()):
-        dismiss_channel_promos(hs, session)
-        unfocus_composer(hs, session)
-    dismiss_discord_chrome(hs, session)
-    if not ensure_discord_foreground(serial, pkg, hs):
-        log("navigate_to_qss_plugin: Discord not foreground before profile")
-        return False
-    if not (
-        ui_shows_server_sidebar(hs.ui())
-        and ("Danny, Online" in hs.ui() or "Danny, Idle" in hs.ui())
-    ):
-        open_server_list(hs, session, serial, pkg)
-        prepare_profile_access(hs, session)
+
     for attempt in range(2):
-        debug_dir = Path(os.environ.get("QSS_DEBUG_DIR", "")).expanduser()
-        if str(debug_dir) and str(debug_dir) != ".":
-            try:
-                debug_dir.mkdir(parents=True, exist_ok=True)
-                (debug_dir / ("profile_attempt_%d_before.txt" % (attempt + 1))).write_text(
-                    hs.ui(), encoding="utf-8"
-                )
-                shot(serial, debug_dir / ("profile_attempt_%d_before.png" % (attempt + 1)))
-            except OSError:
-                pass
-        if open_user_settings(hs, session):
-            break
-        debug_dir = Path(os.environ.get("QSS_DEBUG_DIR", "")).expanduser()
-        if str(debug_dir) and str(debug_dir) != ".":
-            try:
-                (debug_dir / ("profile_attempt_%d_after.txt" % (attempt + 1))).write_text(
-                    hs.ui(), encoding="utf-8"
-                )
-                shot(serial, debug_dir / ("profile_attempt_%d_after.png" % (attempt + 1)))
-            except OSError:
-                pass
-        log("navigate_to_qss_plugin: open_user_settings attempt %d failed" % (attempt + 1))
-        ensure_discord_foreground(serial, pkg, hs)
-        open_server_list(hs, session, serial, pkg)
+        if attempt > 0:
+            log("navigate_to_qss_plugin: retry %d — cold restart" % (attempt + 1))
+            launch_discord(serial, pkg)
+            wait_discord_ready(hs, timeout=UI_WAIT_MED)
+            open_safe_channel(hs, guild_key)
+
+        if not detect_safe_channel(hs.ui(), guild_key):
+            leave_voice_channel(hs, session, serial, pkg, guild_key)
+        dismiss_system_dialogs(hs, session)
+        dismiss_emoji_keyboard(hs, session)
+        if not open_server_list(hs, session, serial, pkg):
+            log("navigate_to_qss_plugin: server drawer not open")
+            continue
         prepare_profile_access(hs, session)
-    else:
-        if ui_quest_overlay(hs.ui()):
-            log("navigate_to_qss_plugin: quest/promo overlay may block profile chip")
-        log("navigate_to_qss_plugin: profile chip not found")
-        return False
-    if not wait_until(
-        lambda: "Log Out" in hs.ui()
-        or "Account" in hs.ui()
-        or find_plugins_row(hs.ui()) is not None,
-        timeout=UI_WAIT_MED,
-        label="user_settings",
-    ):
-        return False
-    if not tap_plugins_settings(hs, session):
-        return False
-    if ui_plugins_empty(hs.ui()):
-        log(
-            "navigate_to_qss_plugin: Quick Server Switcher not installed — "
-            "install from raw.githubusercontent.com/.../main/ on this device"
-        )
-        return False
-    if not wait_until(
-        lambda: "Quick Server Switcher" in hs.ui() and "Copy debug logs" in hs.ui(),
-        timeout=UI_WAIT_SHORT,
-        label="qss_plugin",
-    ):
-        if not tap_qss_plugin(hs):
-            for _ in range(3):
-                w, h = screen_size(session.serial)
-                session.shell(
-                    "input",
-                    "swipe",
-                    str(int(w * 0.5)),
-                    str(int(h * 0.78)),
-                    str(int(w * 0.5)),
-                    str(int(h * 0.42)),
-                    "350",
-                )
-                time.sleep(0.4)
-                if tap_qss_plugin(hs):
-                    break
-            else:
-                return False
-    return "Quick Server Switcher" in hs.ui()
+        if ui_in_channel_chat(hs.ui()):
+            dismiss_channel_promos(hs, session)
+            unfocus_composer(hs, session)
+        dismiss_discord_chrome(hs, session)
+        if not ensure_discord_foreground(serial, pkg, hs):
+            log("navigate_to_qss_plugin: Discord not foreground before profile")
+            continue
+        if not (
+            ui_shows_server_sidebar(hs.ui())
+            and ("Danny, Online" in hs.ui() or "Danny, Idle" in hs.ui())
+        ):
+            open_server_list(hs, session, serial, pkg)
+            prepare_profile_access(hs, session)
+
+        for sub in range(2):
+            debug_dir = Path(os.environ.get("QSS_DEBUG_DIR", "")).expanduser()
+            if str(debug_dir) and str(debug_dir) != ".":
+                try:
+                    debug_dir.mkdir(parents=True, exist_ok=True)
+                    (debug_dir / ("profile_attempt_%d_before.txt" % (sub + 1))).write_text(
+                        hs.ui(), encoding="utf-8"
+                    )
+                    shot(serial, debug_dir / ("profile_attempt_%d_before.png" % (sub + 1)))
+                except OSError:
+                    pass
+            if open_user_settings(hs, session):
+                break
+            debug_dir = Path(os.environ.get("QSS_DEBUG_DIR", "")).expanduser()
+            if str(debug_dir) and str(debug_dir) != ".":
+                try:
+                    (debug_dir / ("profile_attempt_%d_after.txt" % (sub + 1))).write_text(
+                        hs.ui(), encoding="utf-8"
+                    )
+                    shot(serial, debug_dir / ("profile_attempt_%d_after.png" % (sub + 1)))
+                except OSError:
+                    pass
+            log("navigate_to_qss_plugin: open_user_settings attempt %d failed" % (sub + 1))
+            ensure_discord_foreground(serial, pkg, hs)
+            open_server_list(hs, session, serial, pkg)
+            prepare_profile_access(hs, session)
+        else:
+            if ui_quest_overlay(hs.ui()):
+                log("navigate_to_qss_plugin: quest/promo overlay may block profile chip")
+            log("navigate_to_qss_plugin: profile chip not found")
+            continue
+
+        if not wait_until(
+            lambda: "Log Out" in hs.ui()
+            or "Account" in hs.ui()
+            or find_plugins_row(hs.ui()) is not None,
+            timeout=UI_WAIT_MED,
+            label="user_settings",
+        ):
+            continue
+
+        if not tap_plugins_settings(hs, session):
+            continue
+
+        if ui_plugins_empty(hs.ui()):
+            log(
+                "navigate_to_qss_plugin: Quick Server Switcher not installed — "
+                "install from raw.githubusercontent.com/.../main/ on this device"
+            )
+            return False
+
+        if not wait_until(
+            lambda: "Quick Server Switcher" in hs.ui() and "Copy debug logs" in hs.ui(),
+            timeout=UI_WAIT_SHORT,
+            label="qss_plugin",
+        ):
+            if not tap_qss_plugin(hs):
+                for _ in range(4):
+                    hs.swipe("down")
+                    time.sleep(0.5)
+                    if tap_qss_plugin(hs):
+                        break
+                else:
+                    continue
+
+        if "Quick Server Switcher" in hs.ui():
+            return True
+
+    log("navigate_to_qss_plugin: all attempts failed")
+    return False
 
 
 def open_plugin_settings(hs: uid.HandsetsSession, session: sc.ScreenControlSession) -> bool:
@@ -3537,6 +3596,7 @@ def audit_host(
     vlm_on = init_vlm(out)
 
     try:
+        os.environ["STAYTURGID_SCREEN_LEASE_FORCE"] = "1"
         with sc.ScreenControlSession(host, label="QSS QA", restore_screen=False) as session:
             # Screen-control clearance may temporarily surface Android settings/feedback.
             # Relaunch after acquiring the lease so Handsets starts from Discord.

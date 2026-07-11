@@ -60,7 +60,7 @@ IMAGE_MAX_WIDTH = int(os.environ.get("QSS_VLM_CLOUD_MAX_WIDTH", "720"))
 # Anthropic: Haiku 4.5 (fast vision, JSON gates). Google: flash-latest alias
 # auto-tracks the current Flash tier (gemini-3.5-flash as of 2026-07).
 ANTHROPIC_HAIKU = "claude-haiku-4-5-20251001"
-GOOGLE_FLASH = "gemini-flash-latest"
+GOOGLE_FLASH = "gemini-3.5-flash"
 ANTHROPIC_SONNET = "claude-sonnet-4-6"
 
 PROVIDERS: dict[str, dict[str, Any]] = {
