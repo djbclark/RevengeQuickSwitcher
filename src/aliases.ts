@@ -24,25 +24,9 @@ export type MergeAliasesResult = {
 export const mergeAliasText = (existing: string, incoming: string): MergeAliasesResult => {
   const before = parseAliases(existing);
   const incomingMap = parseAliases(incoming);
-  let imported = 0;
-  let skipped = 0;
-
-  for (const line of incoming.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const separator = trimmed.indexOf("=");
-    if (separator <= 0) {
-      skipped += 1;
-      continue;
-    }
-    const alias = trimmed.slice(0, separator).trim();
-    const target = trimmed.slice(separator + 1).trim();
-    if (!alias || !target) {
-      skipped += 1;
-      continue;
-    }
-    imported += 1;
-  }
+  const totalLines = incoming.split("\n").filter((l) => l.trim()).length;
+  const imported = incomingMap.size;
+  const skipped = totalLines - imported;
 
   const merged = new Map([...before, ...incomingMap]);
   const text = Array.from(merged.entries())

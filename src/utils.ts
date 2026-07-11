@@ -215,18 +215,18 @@ const buildPages = (sanitizedNames: string[]): string[][] => {
 
   for (const name of sanitizedNames) {
     const line = `• ${escapeMarkdown(name)}`;
-    const extra = current.length > 0 ? 1 + line.length : line.length;
-    const wouldExceedChars = current.length > 0 && currentLen + extra > budget;
-    const wouldExceedCount = current.length >= PAGE_SIZE;
+    const lineLen = line.length;
+    const needsSeparator = current.length > 0;
+    const contribution = lineLen + (needsSeparator ? 1 : 0);
 
-    if (wouldExceedChars || wouldExceedCount) {
+    if ((needsSeparator && currentLen + contribution > budget) || current.length >= PAGE_SIZE) {
       pages.push(current);
       current = [];
       currentLen = 0;
     }
 
     current.push(name);
-    currentLen += current.length === 1 ? line.length : 1 + line.length;
+    currentLen += current.length === 1 ? lineLen : 1 + lineLen;
   }
 
   if (current.length > 0 || pages.length === 0) {

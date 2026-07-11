@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { getSheetColors } from "./theme";
 
 export type SwitcherItem = {
   id: string;
@@ -174,15 +175,6 @@ export const dismissThenRun = (action: () => void, delayMs = 200) => {
 /** @deprecated use dismissThenRun */
 export const runAfterSwitcherDismissed = dismissThenRun;
 
-const COLORS = {
-  text: "#DBDEE1",
-  muted: "#A3A6AA",
-  faint: "#80848E",
-  panel: "#2B2D31",
-  border: "#1E1F22",
-  accent: "#5865F2",
-};
-
 /**
  * Top-docked searchable panel (v4.5.1 keyboard fix).
  *
@@ -202,7 +194,7 @@ export const SwitcherTopPanel: React.ComponentType<
   const [query, setQuery] = React.useState(sheetProps.initialQuery || "");
   const [page, setPage] = React.useState(1);
   const closedRef = React.useRef(false);
-  const colors = COLORS;
+  const colors = getSheetColors();
 
   const recent = sheetProps.recentItems || [];
   const filtered = filterSwitcherItems(sheetProps.items, query);
@@ -419,6 +411,8 @@ const openViaAlert = (props: SwitcherSheetProps): boolean => {
     const host = getAlertHost();
     if (typeof host?.openAlert !== "function") return false;
 
+    try { _activeClose?.(); } catch { /* ignore */ }
+
     const close = () => {
       try {
         host.dismissAlert?.(ALERT_KEY);
@@ -456,6 +450,8 @@ const openViaLazy = (props: SwitcherSheetProps): boolean => {
   try {
     const host = getLazyActionSheet();
     if (typeof host?.openLazy !== "function") return false;
+
+    try { _activeClose?.(); } catch { /* ignore */ }
 
     const close = () => {
       try {

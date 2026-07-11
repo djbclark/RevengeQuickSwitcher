@@ -70,6 +70,25 @@ export type SettingsThemeColors = {
   backgroundSecondary: string;
 };
 
+export type SheetColors = {
+  text: string;
+  muted: string;
+  faint: string;
+  panel: string;
+  border: string;
+  accent: string;
+};
+
+/** Resolve colors for the top-docked switcher sheet. */
+export const getSheetColors = (): SheetColors => ({
+  text: resolveSemantic(["TEXT_NORMAL", "HEADER_PRIMARY"], "#DBDEE1"),
+  muted: resolveSemantic(["HEADER_SECONDARY", "TEXT_MUTED", "INTERACTIVE_MUTED"], "#A3A6AA"),
+  faint: resolveSemantic(["TEXT_MUTED", "INTERACTIVE_MUTED"], "#80848E"),
+  panel: resolveSemantic(["BACKGROUND_SECONDARY", "BG_BASE_SECONDARY", "BACKGROUND_SECONDARY_ALT"], "#2B2D31"),
+  border: resolveSemantic(["BACKGROUND_TERTIARY", "BACKGROUND_ACCENT", "BACKGROUND_SECONDARY"], "#1E1F22"),
+  accent: resolveSemantic(["BRAND_NEW_500", "BRAND_500", "BUTTON_PRIMARY_BACKGROUND"], "#5865F2"),
+});
+
 /** Resolve settings colors from Discord semantic tokens, with dark-mode fallbacks. */
 export const getSettingsThemeColors = (): SettingsThemeColors => ({
   textMuted: resolveSemantic(["HEADER_SECONDARY", "TEXT_MUTED", "INTERACTIVE_MUTED"], FALLBACKS.textMuted),
