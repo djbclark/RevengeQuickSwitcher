@@ -65,6 +65,7 @@ write_plist() {
 
   local llama_bin model_dir work_dir
   llama_bin="$(ui_tars_llama_server_bin)" || die "llama-server missing — brew install llama.cpp"
+  # shellcheck disable=SC2034  # assignment validates the helper succeeds
   model_dir="$(ui_tars_model_dir)"
   work_dir="$(ui_tars_working_dir)"
 
@@ -255,8 +256,11 @@ main() {
     stop) cmd_stop ;;
     restart) cmd_restart ;;
     status) cmd_status ;;
-    -h|--help|help) usage ;;
-    *) usage; exit 1 ;;
+    -h | --help | help) usage ;;
+    *)
+      usage
+      exit 1
+      ;;
   esac
 }
 

@@ -60,8 +60,8 @@ ui_tars_ngl() {
 }
 
 ui_tars_llama_server_bin() {
-  if [[ -n "${UI_TARS_LLAMA_SERVER:-${QSS_VLM_LLAMA_SERVER:-}}" ]] \
-    && [[ -x "${UI_TARS_LLAMA_SERVER:-${QSS_VLM_LLAMA_SERVER:-}}" ]]; then
+  if [[ -n "${UI_TARS_LLAMA_SERVER:-${QSS_VLM_LLAMA_SERVER:-}}" ]] &&
+    [[ -x "${UI_TARS_LLAMA_SERVER:-${QSS_VLM_LLAMA_SERVER:-}}" ]]; then
     printf '%s\n' "${UI_TARS_LLAMA_SERVER:-$QSS_VLM_LLAMA_SERVER}"
     return
   fi

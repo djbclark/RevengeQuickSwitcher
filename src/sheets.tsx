@@ -1,13 +1,6 @@
-import React from "react";
 import { findByProps } from "@revenge-mod/metro";
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  Text,
-  View,
-} from "react-native";
+import React from "react";
+import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { getSheetColors } from "./theme";
 import { normalizeText } from "./utils";
 
@@ -58,7 +51,7 @@ export const sheetPageCount = (itemCount: number, pageSize = SHEET_PAGE_SIZE) =>
 export const getSheetPageItems = <T,>(
   items: T[],
   page: number,
-  pageSize = SHEET_PAGE_SIZE
+  pageSize = SHEET_PAGE_SIZE,
 ): { pageItems: T[]; page: number; totalPages: number } => {
   const totalPages = sheetPageCount(items.length, pageSize);
   const safePage = Math.min(Math.max(1, page), totalPages);
@@ -188,9 +181,9 @@ export const runAfterSwitcherDismissed = dismissThenRun;
  * - Pick path: hide/dismiss first, then onPick → openUrl (Stealmoji)
  * - TextInput never autoFocus (keyboard only when user taps Filter)
  */
-export const SwitcherTopPanel: React.ComponentType<
-  SwitcherSheetProps & { onRequestClose: () => void }
-> = (sheetProps) => {
+export const SwitcherTopPanel: React.ComponentType<SwitcherSheetProps & { onRequestClose: () => void }> = (
+  sheetProps,
+) => {
   const [visible, setVisible] = React.useState(true);
   const [query, setQuery] = React.useState(sheetProps.initialQuery || "");
   const [page, setPage] = React.useState(1);
@@ -229,7 +222,7 @@ export const SwitcherTopPanel: React.ComponentType<
         dismissThenRun(after, 200);
       }
     },
-    [sheetProps.onRequestClose, sheetProps.onClose]
+    [sheetProps.onRequestClose, sheetProps.onClose],
   );
 
   const pick = (item: SwitcherItem) => {
@@ -323,9 +316,7 @@ export const SwitcherTopPanel: React.ComponentType<
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-          <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", flex: 1 }}>
-            {sheetProps.title}
-          </Text>
+          <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", flex: 1 }}>{sheetProps.title}</Text>
           <Pressable
             onPress={() => finishClose()}
             accessibilityRole="button"
@@ -360,11 +351,7 @@ export const SwitcherTopPanel: React.ComponentType<
             marginBottom: 10,
           }}
         />
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          style={{ flexGrow: 0 }}
-          nestedScrollEnabled={true}
-        >
+        <ScrollView keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }} nestedScrollEnabled={true}>
           {!query.trim() && recent.length > 0 && safePage === 1 ? (
             <View style={{ marginBottom: 10 }}>
               <Text
@@ -412,7 +399,11 @@ const openViaAlert = (props: SwitcherSheetProps): boolean => {
     const host = getAlertHost();
     if (typeof host?.openAlert !== "function") return false;
 
-    try { _activeClose?.(); } catch { /* ignore */ }
+    try {
+      _activeClose?.();
+    } catch {
+      /* ignore */
+    }
 
     const close = () => {
       try {
@@ -438,7 +429,7 @@ const openViaAlert = (props: SwitcherSheetProps): boolean => {
       React.createElement(SwitcherTopPanel, {
         ...props,
         onRequestClose: close,
-      })
+      }),
     );
     return true;
   } catch {
@@ -452,7 +443,11 @@ const openViaLazy = (props: SwitcherSheetProps): boolean => {
     const host = getLazyActionSheet();
     if (typeof host?.openLazy !== "function") return false;
 
-    try { _activeClose?.(); } catch { /* ignore */ }
+    try {
+      _activeClose?.();
+    } catch {
+      /* ignore */
+    }
 
     const close = () => {
       try {
@@ -487,7 +482,7 @@ const openViaLazy = (props: SwitcherSheetProps): boolean => {
 export const openSimplePickSheet = (
   title: string,
   items: SwitcherItem[],
-  onPick: (item: SwitcherItem) => void
+  onPick: (item: SwitcherItem) => void,
 ): boolean => {
   try {
     const api = getSimpleActionSheet();
@@ -521,11 +516,8 @@ export const openSwitcherSheet = (props: SwitcherSheetProps): boolean => {
   return false;
 };
 
-export const openSwitcherUi = (
-  props: SwitcherSheetProps & { preferSimple?: boolean }
-): "sheet" | "simple" | null => {
-  const preferSimple =
-    !!props.preferSimple && props.items.length > 0 && props.items.length <= MAX_SIMPLE_OPTIONS;
+export const openSwitcherUi = (props: SwitcherSheetProps & { preferSimple?: boolean }): "sheet" | "simple" | null => {
+  const preferSimple = !!props.preferSimple && props.items.length > 0 && props.items.length <= MAX_SIMPLE_OPTIONS;
 
   if (preferSimple) {
     if (openSimplePickSheet(props.title, props.items, props.onPick)) return "simple";

@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  createSidebarCache,
-  flattenSidebarNodes,
-  sortSidebarNodesByGuildName,
-  transformFlatSidebar,
-} from "./sidebar";
+import { createSidebarCache, flattenSidebarNodes, sortSidebarNodesByGuildName, transformFlatSidebar } from "./sidebar";
 
 const guildNames: Record<string, string> = {
   "1": "Zeta Server",
@@ -16,10 +11,7 @@ const getGuildName = (id: string) => guildNames[id] ?? null;
 
 describe("flattenSidebarNodes", () => {
   it("expands folders and keeps standalone guild nodes", () => {
-    const nodes = [
-      { id: "1" },
-      { type: "folder", guilds: [{ id: "2" }, { id: "3" }] },
-    ];
+    const nodes = [{ id: "1" }, { type: "folder", guilds: [{ id: "2" }, { id: "3" }] }];
 
     expect(flattenSidebarNodes(nodes)).toEqual([{ id: "1" }, { id: "2" }, { id: "3" }]);
   });
@@ -32,11 +24,7 @@ describe("flattenSidebarNodes", () => {
 describe("sortSidebarNodesByGuildName", () => {
   it("sorts guilds alphabetically by resolved names", () => {
     const nodes = [{ id: "1" }, { id: "3" }, { id: "2" }];
-    expect(sortSidebarNodesByGuildName(nodes, getGuildName)).toEqual([
-      { id: "2" },
-      { id: "3" },
-      { id: "1" },
-    ]);
+    expect(sortSidebarNodesByGuildName(nodes, getGuildName)).toEqual([{ id: "2" }, { id: "3" }, { id: "1" }]);
   });
 
   it("places unknown guild names first in sort order", () => {
@@ -91,7 +79,7 @@ describe("createSidebarCache", () => {
         computeCount += 1;
         return sortSidebarNodesByGuildName(source, getGuildName);
       },
-      getGuildName
+      getGuildName,
     );
 
     source[0].guilds = [{ id: "1" }, { id: "3" }];
@@ -102,7 +90,7 @@ describe("createSidebarCache", () => {
         computeCount += 1;
         return sortSidebarNodesByGuildName(source, getGuildName);
       },
-      getGuildName
+      getGuildName,
     );
 
     expect(computeCount).toBe(2);
@@ -141,15 +129,8 @@ describe("transformFlatSidebar", () => {
 
   it("flattens folders and sorts when enabled", () => {
     const cache = createSidebarCache();
-    const input = [
-      { type: "folder", guilds: [{ id: "1" }, { id: "3" }] },
-      { id: "2" },
-    ];
+    const input = [{ type: "folder", guilds: [{ id: "1" }, { id: "3" }] }, { id: "2" }];
 
-    expect(transformFlatSidebar(input, true, getGuildName, cache)).toEqual([
-      { id: "2" },
-      { id: "3" },
-      { id: "1" },
-    ]);
+    expect(transformFlatSidebar(input, true, getGuildName, cache)).toEqual([{ id: "2" }, { id: "3" }, { id: "1" }]);
   });
 });

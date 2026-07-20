@@ -3,11 +3,7 @@ declare module "@revenge-mod/metro" {
 }
 
 declare module "@revenge-mod/patcher" {
-  export function after(
-    name: string,
-    target: object,
-    callback: (...args: unknown[]) => unknown
-  ): () => void;
+  export function after(name: string, target: object, callback: (...args: unknown[]) => unknown): () => void;
 }
 
 declare module "@revenge-mod/ui/toast" {

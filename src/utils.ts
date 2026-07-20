@@ -45,7 +45,7 @@ const hashString = (checksum: number, value: string): number => {
 const visitSidebarFingerprint = (
   nodes: GuildLike[],
   getGuildName: ((id: string) => string | null) | undefined,
-  visit: (token: string) => void
+  visit: (token: string) => void,
 ) => {
   for (const node of nodes) {
     if (node?.type === "folder") {
@@ -66,10 +66,7 @@ const visitSidebarFingerprint = (
 };
 
 /** FNV-1a over flattened guild ids/names so folder membership and renames invalidate caches. */
-export const getArrayChecksum = (
-  arr: GuildLike[],
-  getGuildName?: (id: string) => string | null
-) => {
+export const getArrayChecksum = (arr: GuildLike[], getGuildName?: (id: string) => string | null) => {
   let checksum = 0x811c9dc5;
   visitSidebarFingerprint(arr, getGuildName, (token) => {
     checksum = hashString(checksum, token);
@@ -116,10 +113,7 @@ export const scoreGuildMatch = (normalizedQuery: string, normalizedName: string)
   if (normalizedName === normalizedQuery) return 100;
   if (normalizedName.startsWith(normalizedQuery)) return 50;
   if (normalizedName.includes(normalizedQuery)) return 10;
-  if (
-    normalizedQuery.length >= MIN_SUBSEQUENCE_LENGTH &&
-    isSubsequence(normalizedQuery, normalizedName)
-  ) {
+  if (normalizedQuery.length >= MIN_SUBSEQUENCE_LENGTH && isSubsequence(normalizedQuery, normalizedName)) {
     return 5;
   }
   return 0;
@@ -134,7 +128,7 @@ export type MatchResult<T> = {
 /** All candidates that share the highest positive score (list should be sorted). */
 export const findBestMatches = <T extends { normalized: string }>(
   normalizedQuery: string,
-  candidates: T[]
+  candidates: T[],
 ): MatchResult<T> => {
   let bestScore = 0;
   const indexes: number[] = [];
@@ -161,7 +155,7 @@ export const findBestMatches = <T extends { normalized: string }>(
 /** Highest tier wins; within a tier the first candidate wins (list should be sorted). */
 export const findBestMatchIndex = <T extends { normalized: string }>(
   normalizedQuery: string,
-  candidates: T[]
+  candidates: T[],
 ): number => {
   const { indexes } = findBestMatches(normalizedQuery, candidates);
   return indexes[0] ?? -1;
@@ -174,13 +168,9 @@ export const PAGE_SIZE = 40;
 export const MAX_CONTENT_LENGTH = 1900;
 
 /** Cap user-supplied query text before interpolating into replies (Discord options allow huge strings). */
-export const truncateForDisplay = (text: string, max = 80) =>
-  text.length > max ? `${text.slice(0, max)}…` : text;
+export const truncateForDisplay = (text: string, max = 80) => (text.length > max ? `${text.slice(0, max)}…` : text);
 
-export const formatMatchPickList = (
-  query: string,
-  sanitizedNames: string[]
-) => {
+export const formatMatchPickList = (query: string, sanitizedNames: string[]) => {
   const header = `### Multiple matches for \`${escapeMarkdown(truncateForDisplay(query))}\`\n`;
   const lines = sanitizedNames.map((name) => `• ${escapeMarkdown(name)}`);
   const hint = "\n\n*Refine your query or use a custom alias.*";
@@ -198,11 +188,7 @@ export const formatMatchPickList = (
       used += extra;
     }
     const omitted = lines.length - kept.length;
-    content =
-      header +
-      kept.join("\n") +
-      (omitted > 0 ? `\n• …and ${omitted} more` : "") +
-      hint;
+    content = header + kept.join("\n") + (omitted > 0 ? `\n• …and ${omitted} more` : "") + hint;
   }
 
   return { kind: "pick-list" as const, content, count: sanitizedNames.length };
@@ -240,10 +226,7 @@ const buildPages = (sanitizedNames: string[]): string[][] => {
   return pages;
 };
 
-export const formatServerListPage = (
-  sanitizedNames: string[],
-  pageArg?: number | null
-) => {
+export const formatServerListPage = (sanitizedNames: string[], pageArg?: number | null) => {
   const pages = buildPages(sanitizedNames);
   const totalPages = pages.length;
   const requested = pageArg != null && Number.isFinite(pageArg) ? pageArg : 1;

@@ -31,6 +31,8 @@ if ui_tars_service_installed; then
   exit $?
 fi
 
+# shellcheck disable=SC2034  # assignment validates the helper succeeds
+
 LLAMA="$(ui_tars_llama_server_bin)" || {
   echo "llama-server not found — run: make vlm-install" >&2
   exit 1

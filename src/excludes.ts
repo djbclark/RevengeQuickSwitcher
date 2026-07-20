@@ -1,8 +1,6 @@
 import { normalizeText } from "./utils";
 
-export type ExcludeRule =
-  | { type: "id"; value: string }
-  | { type: "name"; value: string; mode: "exact" | "contains" };
+export type ExcludeRule = { type: "id"; value: string } | { type: "name"; value: string; mode: "exact" | "contains" };
 
 const looksLikeSnowflake = (value: string) => /^\d{5,}$/.test(value);
 
@@ -34,11 +32,7 @@ export const parseExcludeRules = (raw: string): ExcludeRule[] => {
   return rules;
 };
 
-export const isGuildExcluded = (
-  id: string,
-  normalizedName: string,
-  rules: ExcludeRule[]
-): boolean => {
+export const isGuildExcluded = (id: string, normalizedName: string, rules: ExcludeRule[]): boolean => {
   if (!rules.length) return false;
 
   for (const rule of rules) {

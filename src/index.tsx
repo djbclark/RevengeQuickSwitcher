@@ -1,16 +1,17 @@
-import React from "react";
-import { findByProps } from "@revenge-mod/metro";
-import { after } from "@revenge-mod/patcher";
-import { showToast } from "@revenge-mod/ui/toast";
 import { logger } from "@revenge-mod";
 import { registerCommand } from "@revenge-mod/commands";
+import { findByProps } from "@revenge-mod/metro";
+import { after } from "@revenge-mod/patcher";
 import { storage } from "@revenge-mod/plugin";
 import { useProxy } from "@revenge-mod/storage";
 import { Forms } from "@revenge-mod/ui/components";
-import { Pressable, ScrollView, TextInput, Text, View } from "react-native";
+import { showToast } from "@revenge-mod/ui/toast";
+import React from "react";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { countAliasEntries, mergeAliasText, normalizeAliasText } from "./aliases";
 import { executeServersCommand } from "./command";
 import { countExcludeRules, formatExcludeHelp } from "./excludes";
+import { formatQaBridgeLine } from "./qabridge";
 import {
   clampRecentHistorySize,
   DEFAULT_RECENT_HISTORY_SIZE,
@@ -18,11 +19,10 @@ import {
   pushRecentId,
   serializeRecentIds,
 } from "./recents";
-import { createSidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
-import { truncateForDisplay } from "./utils";
-import { formatQaBridgeLine } from "./qabridge";
 import { openSwitcherUi, type SwitcherItem } from "./sheets";
+import { createSidebarCache, type SidebarNode, transformFlatSidebar } from "./sidebar";
 import { getSettingsThemeColors } from "./theme";
+import { truncateForDisplay } from "./utils";
 
 type GuildStore = {
   getGuild: (id: string) => { name?: string } | undefined;
@@ -39,10 +39,9 @@ type ChannelIdStore = {
 };
 
 type GuildChannelStore = {
-  getChannels?: (guildId: string) =>
-    | { SELECTABLE?: Array<{ channel?: { id?: string }; id?: string }> }
-    | Array<{ id?: string }>
-    | undefined;
+  getChannels?: (
+    guildId: string,
+  ) => { SELECTABLE?: Array<{ channel?: { id?: string }; id?: string }> } | Array<{ id?: string }> | undefined;
   getDefaultChannel?: (guildId: string) => { id?: string } | string | undefined | null;
 };
 
@@ -63,11 +62,7 @@ type ClipboardModule = {
 
 type MessageUtilModule = {
   sendBotMessage?: (channelId: string, content: string) => void;
-  sendMessage?: (
-    channelId: string,
-    message: { content: string },
-    ...rest: unknown[]
-  ) => void;
+  sendMessage?: (channelId: string, message: { content: string }, ...rest: unknown[]) => void;
 };
 
 type CommandContext = {
@@ -93,10 +88,8 @@ let _OpenUrl: OpenUrlModule | undefined;
 const getGuildStore = () => (_GuildStore ??= findByProps("getGuild", "getGuilds") as GuildStore | undefined);
 const getSortedGuildStore = () =>
   (_SortedGuildStore ??= findByProps("getSortedGuilds") as SortedGuildStore | undefined);
-const getClipboard = () =>
-  (_Clipboard ??= findByProps("setString", "getString") as ClipboardModule | undefined);
-const getMessageUtil = () =>
-  (_MessageUtil ??= findByProps("sendBotMessage") as MessageUtilModule | undefined);
+const getClipboard = () => (_Clipboard ??= findByProps("setString", "getString") as ClipboardModule | undefined);
+const getMessageUtil = () => (_MessageUtil ??= findByProps("sendBotMessage") as MessageUtilModule | undefined);
 const getChannelIdStore = () =>
   (_ChannelIdStore ??=
     (findByProps("getLastSelectedChannelId") as ChannelIdStore | undefined) ||
@@ -136,8 +129,7 @@ const postCommandReply = (channelId: string | undefined, content: string) => {
 };
 
 /** Injected at build time from package.json; keep fallback in sync when bumping. */
-const PLUGIN_VERSION =
-  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.6.0";
+const PLUGIN_VERSION = typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.6.0";
 
 const ensureStorageDefaults = () => {
   try {
@@ -242,11 +234,7 @@ const pushDebugRing = (message: string, ...args: unknown[]) => {
 
 const formatDebugRing = () => {
   hydrateDebugRing();
-  return [
-    `Quick Server Switcher debug log v${PLUGIN_VERSION}`,
-    `lines=${debugRing.length}`,
-    ...debugRing,
-  ].join("\n");
+  return [`Quick Server Switcher debug log v${PLUGIN_VERSION}`, `lines=${debugRing.length}`, ...debugRing].join("\n");
 };
 
 /** Some Discord clipboard paths collapse or drop newlines — also provide a one-line form. */
@@ -332,8 +320,7 @@ const resolveChannelIdForGuild = (guildId: string): string | null => {
       const first = channels.find((c) => c?.id);
       if (first?.id) return String(first.id);
     } else if (channels && typeof channels === "object") {
-      const selectable = (channels as { SELECTABLE?: Array<{ channel?: { id?: string }; id?: string }> })
-        .SELECTABLE;
+      const selectable = (channels as { SELECTABLE?: Array<{ channel?: { id?: string }; id?: string }> }).SELECTABLE;
       if (Array.isArray(selectable)) {
         for (const entry of selectable) {
           const cid = entry?.channel?.id || entry?.id;
@@ -459,10 +446,7 @@ const importAliasesFromClipboard = async () => {
     }
     const result = mergeAliasText(storage.aliases || "", incoming);
     if (result.imported === 0) {
-      showToast(
-        result.skipped > 0 ? "No valid alias lines on clipboard" : "Clipboard is empty",
-        "danger"
-      );
+      showToast(result.skipped > 0 ? "No valid alias lines on clipboard" : "Clipboard is empty", "danger");
       return;
     }
     storage.aliases = result.text;
@@ -488,9 +472,9 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
                     value: (arg as { value?: unknown }).value,
                     keys: Object.keys(arg as object),
                   }
-                : arg
+                : arg,
             )
-          : rawArgs
+          : rawArgs,
       );
     } catch {
       /* ignore */
@@ -554,9 +538,7 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
     // C5: ambiguous search → tappable pick sheet (fallback: markdown pick list).
     if (result.kind === "pick-list" && Array.isArray(result.items) && result.items.length > 0) {
       const queryLabel =
-        "query" in result && typeof result.query === "string"
-          ? truncateForDisplay(result.query, 40)
-          : "your query";
+        "query" in result && typeof result.query === "string" ? truncateForDisplay(result.query, 40) : "your query";
       const opened = openSwitcherUi({
         title: `Matches for “${queryLabel}”`,
         subtitle: "Tap a server to jump",
@@ -628,7 +610,7 @@ const openSwitcherFromSettings = () => {
         recordRecent: recordRecentJump,
         excludes: storage.excludes || "",
         hideExcludedFromList: !!storage.hideExcludedFromList,
-      }
+      },
     );
 
     if (result && result.kind === "switcher" && Array.isArray(result.items)) {
@@ -658,8 +640,7 @@ const openSwitcherFromSettings = () => {
 
 const resolveSwitchRow = (): React.ComponentType<SwitchRowProps> => {
   try {
-    const Candidate = (Forms as { FormSwitchRow?: React.ComponentType<SwitchRowProps> } | undefined)
-      ?.FormSwitchRow;
+    const Candidate = (Forms as { FormSwitchRow?: React.ComponentType<SwitchRowProps> } | undefined)?.FormSwitchRow;
     if (Candidate) return Candidate;
   } catch (error) {
     logger.error?.("FormSwitchRow unavailable", error);
@@ -904,8 +885,7 @@ const plugin: PluginInstance = {
           </Pressable>
         </View>
         <Text style={{ marginHorizontal: 16, marginBottom: 24, color: colors.textFaint, fontSize: 12 }}>
-          Copy exports normalized aliases. Import merges from the clipboard (imported names win on
-          duplicates).
+          Copy exports normalized aliases. Import merges from the clipboard (imported names win on duplicates).
         </Text>
       </ScrollView>
     );
@@ -989,7 +969,7 @@ const plugin: PluginInstance = {
               const guild = guildStore?.getGuild(id);
               return guild?.name ?? null;
             },
-            sidebarCache
+            sidebarCache,
           );
         });
       } else if (storage.flatSidebar && !warnedMissingSortedGuildStore) {

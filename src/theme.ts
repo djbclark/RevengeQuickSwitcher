@@ -25,11 +25,9 @@ const FALLBACKS = {
 let _colorModule: ColorModule | undefined;
 let _themeStore: ThemeStore | undefined;
 
-const getColorModule = () =>
-  (_colorModule ??= findByProps("colors", "unsafe_rawColors") as ColorModule | undefined);
+const getColorModule = () => (_colorModule ??= findByProps("colors", "unsafe_rawColors") as ColorModule | undefined);
 
-const getThemeStore = () =>
-  (_themeStore ??= findByProps("theme", "darkTheme") as ThemeStore | undefined);
+const getThemeStore = () => (_themeStore ??= findByProps("theme", "darkTheme") as ThemeStore | undefined);
 
 const currentThemeName = () => {
   const store = getThemeStore();
@@ -102,6 +100,6 @@ export const getSettingsThemeColors = (): SettingsThemeColors => ({
   textFaint: resolveSemantic(["TEXT_MUTED", "INTERACTIVE_MUTED"], FALLBACKS.textFaint),
   backgroundSecondary: resolveSemantic(
     ["BACKGROUND_SECONDARY", "BG_BASE_SECONDARY", "BACKGROUND_SECONDARY_ALT"],
-    FALLBACKS.backgroundSecondary
+    FALLBACKS.backgroundSecondary,
   ),
 });

@@ -56,7 +56,7 @@ describe("resolveRecentEntries / formatRecentList", () => {
       new Map([
         ["1", { name: "Alpha" }],
         ["3", { name: "Wayland" }],
-      ])
+      ]),
     );
     expect(entries).toEqual([
       { id: "3", name: "Wayland" },

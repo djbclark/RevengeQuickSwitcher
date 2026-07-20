@@ -5,7 +5,9 @@
       vendetta.ui.toasts.showToast("Smoke plugin loaded");
     } catch (e) {
       // Last-resort: avoid throwing out of onLoad
-      try { console.log("QuickSwitcherSmoke onLoad error", e); } catch (_) {}
+      try {
+        console.log("QuickSwitcherSmoke onLoad error", e);
+      } catch (_) {}
     }
   },
   onUnload() {
@@ -22,8 +24,8 @@
       React.createElement(
         Text,
         { style: { color: "#DBDEE1" } },
-        "Smoke plugin is running. If you can see this, Vendetta plugin loading works."
-      )
+        "Smoke plugin is running. If you can see this, Vendetta plugin loading works.",
+      ),
     );
   },
-})
+});

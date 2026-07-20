@@ -53,10 +53,7 @@ export type RecentEntry = {
   name: string;
 };
 
-export const resolveRecentEntries = (
-  recentIds: string[],
-  guildsById: Map<string, { name: string }>
-): RecentEntry[] => {
+export const resolveRecentEntries = (recentIds: string[], guildsById: Map<string, { name: string }>): RecentEntry[] => {
   const entries: RecentEntry[] = [];
   for (const id of recentIds) {
     const guild = guildsById.get(id);
@@ -77,7 +74,7 @@ export const formatRecentList = (entries: RecentEntry[]) => {
   }
 
   const lines = entries.map(
-    (entry, index) => `${index + 1}. ${escapeMarkdown(entry.name)} — \`/servers r${index + 1}\``
+    (entry, index) => `${index + 1}. ${escapeMarkdown(entry.name)} — \`/servers r${index + 1}\``,
   );
   const content =
     `### Recent servers (${entries.length})\n` +

@@ -52,8 +52,28 @@ prettier:
 typos:
     typos
 
-# ruff + typos + markdownlint + prettier (stayturgid convenience recipe).
-check: ruff typos markdownlint prettier
+# Biome lint + format check (TS/TSX/MJS).
+biome:
+    biome check .
+
+# Offline link check across markdown docs.
+lychee:
+    lychee --offline --include-fragments "*.md"
+
+# YAML lint (workflows, pre-commit config).
+yamllint:
+    yamllint -c .yamllint .github/ .pre-commit-config.yaml
+
+# Shell lint.
+shellcheck:
+    shellcheck -S warning scripts/*.sh
+
+# Shell format check.
+shfmt:
+    shfmt -d -i 2 -ci scripts/*.sh
+
+# All linters (stayturgid convenience recipe).
+check: ruff typos markdownlint prettier biome yamllint shellcheck shfmt lychee
 
 # Broader lint suite: check + plugin verify + harness tests.
 lint: check verify qa-unit

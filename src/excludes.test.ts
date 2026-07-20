@@ -3,9 +3,7 @@ import { countExcludeRules, isGuildExcluded, parseExcludeRules } from "./exclude
 
 describe("parseExcludeRules", () => {
   it("parses ids, exact names, contains patterns, and ignores comments", () => {
-    const rules = parseExcludeRules(
-      "123456789012345678\nWayland Parents\n~parents\n# note\n\n"
-    );
+    const rules = parseExcludeRules("123456789012345678\nWayland Parents\n~parents\n# note\n\n");
     expect(rules).toEqual([
       { type: "id", value: "123456789012345678" },
       { type: "name", value: "wayland parents", mode: "exact" },

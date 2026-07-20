@@ -1,6 +1,6 @@
-import * as esbuild from "esbuild";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
+import * as esbuild from "esbuild";
 
 /**
  * Build a Vendetta/Revenge plugin expression matching the official template shape:
@@ -52,8 +52,7 @@ const requireMap = {
   "@revenge-mod": "vendetta",
   "@revenge-mod/metro": "vendetta.metro",
   "@revenge-mod/patcher": "vendetta.patcher",
-  "@revenge-mod/ui/toast":
-    "{showToast:function(message,_type){return vendetta.ui.toasts.showToast(String(message));}}",
+  "@revenge-mod/ui/toast": "{showToast:function(message,_type){return vendetta.ui.toasts.showToast(String(message));}}",
   "@revenge-mod/commands": "vendetta.commands",
   "@revenge-mod/plugin": "vendetta.plugin",
   "@revenge-mod/storage": "vendetta.storage",

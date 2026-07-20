@@ -4,7 +4,7 @@ import { countAliasEntries, mergeAliasText, normalizeAliasText } from "./aliases
 describe("normalizeAliasText", () => {
   it("drops blanks and sorts normalized alias=target lines", () => {
     expect(normalizeAliasText("wow=World of Warcraft\n\nchess=Maynard Chess\n")).toBe(
-      "chess=maynard chess\nwow=world of warcraft"
+      "chess=maynard chess\nwow=world of warcraft",
     );
   });
 

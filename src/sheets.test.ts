@@ -29,8 +29,8 @@ import {
   getSheetPageItems,
   openSimplePickSheet,
   openSwitcherUi,
-  sheetPageCount,
   SHEET_PAGE_SIZE,
+  sheetPageCount,
 } from "./sheets";
 
 describe("sheets fallbacks", () => {
@@ -44,7 +44,7 @@ describe("sheets fallbacks", () => {
         title: "Servers",
         items: [{ id: "1", name: "Alpha" }],
         onPick: () => undefined,
-      })
+      }),
     ).toBeNull();
   });
 });
@@ -59,16 +59,7 @@ describe("sheet paging helpers", () => {
 
   it("slices items for the requested page and clamps out-of-range pages", () => {
     const items = Array.from({ length: 20 }, (_, i) => ({ id: String(i + 1), name: `S${i + 1}` }));
-    expect(getSheetPageItems(items, 1, 8).pageItems.map((x) => x.id)).toEqual([
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "7",
-      "8",
-    ]);
+    expect(getSheetPageItems(items, 1, 8).pageItems.map((x) => x.id)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
     expect(getSheetPageItems(items, 3, 8).pageItems.map((x) => x.id)).toEqual(["17", "18", "19", "20"]);
     expect(getSheetPageItems(items, 99, 8).page).toBe(3);
     expect(getSheetPageItems(items, 0, 8).page).toBe(1);

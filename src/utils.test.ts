@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   escapeMarkdown,
-  findBestMatchIndex,
   findBestMatches,
+  findBestMatchIndex,
   formatMatchPickList,
-  truncateForDisplay,
   formatServerListPage,
   getArrayChecksum,
   isSubsequence,
@@ -16,6 +15,7 @@ import {
   resolveSearchQuery,
   sanitizeName,
   scoreGuildMatch,
+  truncateForDisplay,
 } from "./utils";
 
 describe("escapeMarkdown", () => {

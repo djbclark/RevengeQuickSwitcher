@@ -24,10 +24,12 @@ describe("parseCommandArgs", () => {
   });
 
   it("reads query and page from array-style args", () => {
-    expect(parseCommandArgs([
-      { name: "query", value: "beta" },
-      { name: "page", value: 3 },
-    ])).toEqual({
+    expect(
+      parseCommandArgs([
+        { name: "query", value: "beta" },
+        { name: "page", value: 3 },
+      ]),
+    ).toEqual({
       query: "beta",
       page: 3,
     });
@@ -35,7 +37,10 @@ describe("parseCommandArgs", () => {
 
   it("reads nested option values", () => {
     expect(
-      parseCommandArgs([{ name: "query", value: { value: "alpha" } }, { name: "page", value: { value: 2 } }])
+      parseCommandArgs([
+        { name: "query", value: { value: "alpha" } },
+        { name: "page", value: { value: 2 } },
+      ]),
     ).toEqual({
       query: "alpha",
       page: 2,
@@ -266,10 +271,13 @@ describe("executeServersCommand", () => {
     const listed = executeServersCommand({}, deps);
     expect(listed?.content).toContain("• Beta Guild");
 
-    const hidden = executeServersCommand({}, createDeps({
-      excludes: "Beta Guild",
-      hideExcludedFromList: true,
-    }));
+    const hidden = executeServersCommand(
+      {},
+      createDeps({
+        excludes: "Beta Guild",
+        hideExcludedFromList: true,
+      }),
+    );
     expect(hidden?.content).not.toContain("• Beta Guild");
     expect(hidden?.content).toContain("### Servers (2)");
   });

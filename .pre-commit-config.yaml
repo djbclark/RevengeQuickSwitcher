@@ -32,6 +32,51 @@ repos:
 
   - repo: local
     hooks:
+      - id: biome-check
+        name: biome check
+        entry: biome
+        args: [check, --no-errors-on-unmatched]
+        language: system
+        files: '^(src/.*\.(ts|tsx)|scripts/.*\.mjs|smoke/index\.js)$'
+
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck
+        args: ["-S", "warning"]
+        language: system
+        types: [shell]
+
+  - repo: local
+    hooks:
+      - id: shfmt
+        name: shfmt
+        entry: shfmt
+        args: ["-d", "-i", "2", "-ci"]
+        language: system
+        types: [shell]
+
+  - repo: local
+    hooks:
+      - id: yamllint
+        name: yamllint
+        entry: yamllint
+        args: ["-c", ".yamllint"]
+        language: system
+        types: [yaml]
+
+  - repo: local
+    hooks:
+      - id: lychee
+        name: lychee (offline links)
+        entry: lychee
+        args: ["--offline", "--include-fragments"]
+        language: system
+        files: '\.md$'
+
+  - repo: local
+    hooks:
       - id: just-fmt
         name: justfile format
         entry: bash

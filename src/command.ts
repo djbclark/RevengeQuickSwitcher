@@ -91,11 +91,7 @@ export const parseCommandArgs = (rawArgs: unknown) => {
   };
 };
 
-const jumpToGuild = (
-  deps: ServersCommandDeps,
-  guild: GuildRecord,
-  successMessage?: string
-) => {
+const jumpToGuild = (deps: ServersCommandDeps, guild: GuildRecord, successMessage?: string) => {
   const id = Utils.resolveGuildId(guild);
   if (!id) {
     deps.showToast("Could not resolve server id", "danger");
@@ -149,9 +145,7 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
   const searchableGuilds = mappedGuilds.filter((item) => !item.excluded);
   const listGuilds = deps.hideExcludedFromList ? searchableGuilds : mappedGuilds;
 
-  const guildsById = new Map(
-    mappedGuilds.filter((item) => item.id).map((item) => [item.id, item.original])
-  );
+  const guildsById = new Map(mappedGuilds.filter((item) => item.id).map((item) => [item.id, item.original]));
 
   if (query?.trim()) {
     const trimmed = query.trim();
@@ -209,7 +203,7 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
         .map((match) => ({ id: match.id, name: match.sanitized }));
       const formatted = Utils.formatMatchPickList(
         trimmed,
-        matches.map((match) => match.sanitized)
+        matches.map((match) => match.sanitized),
       );
       return { ...formatted, items, query: trimmed };
     }
@@ -234,7 +228,7 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
 
   const pageResult = Utils.formatServerListPage(
     listGuilds.map((item) => item.sanitized),
-    page
+    page,
   );
 
   // Explicit page: keep paginated markdown. Bare /servers: prefer switcher sheet (C8).

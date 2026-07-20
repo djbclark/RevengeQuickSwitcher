@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
-import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 
 const manifestPath = "manifest.json";
 const distPath = "dist/index.js";
@@ -33,7 +33,7 @@ if (!existsSync(distPath)) {
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 if (manifest.version !== pkg.version) {
   console.error(
-    `manifest.json version (${manifest.version}) does not match package.json (${pkg.version}) — run npm run build`
+    `manifest.json version (${manifest.version}) does not match package.json (${pkg.version}) — run npm run build`,
   );
   process.exit(1);
 }
@@ -42,7 +42,7 @@ const dist = readFileSync(distPath);
 const expectedHash = createHash("sha256").update(dist).digest("hex");
 if (manifest.hash !== expectedHash) {
   console.error(
-    `manifest.json hash is stale (manifest ${manifest.hash.slice(0, 12)}…, dist ${expectedHash.slice(0, 12)}…) — run npm run build`
+    `manifest.json hash is stale (manifest ${manifest.hash.slice(0, 12)}…, dist ${expectedHash.slice(0, 12)}…) — run npm run build`,
   );
   process.exit(1);
 }
