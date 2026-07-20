@@ -9,6 +9,7 @@ capture side is one subprocess call:
 
     tesseract screenshot.png - --psm 11 tsv   ->  locate_phrase(tsv, "Filter servers")
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -106,9 +107,9 @@ def locate_phrase(tsv_text: str, phrase: str, min_conf: float = DEFAULT_MIN_CONF
         line_words.sort(key=lambda w: w.left)
         texts = [_norm(w.text) for w in line_words]
         for start in range(len(texts) - len(target) + 1):
-            if texts[start:start + len(target)] != target:
+            if texts[start : start + len(target)] != target:
                 continue
-            span = line_words[start:start + len(target)]
+            span = line_words[start : start + len(target)]
             left = min(w.left for w in span)
             top = min(w.top for w in span)
             right = max(w.right for w in span)

@@ -6,6 +6,7 @@ anywhere in a logcat line, JSON-parse the remainder, require ``msg``.
 Typical use:
     adb logcat -s ReactNativeJS  ->  lines  ->  scan_lines(lines)
 """
+
 from __future__ import annotations
 
 import json
@@ -28,7 +29,7 @@ def parse_line(line: str) -> Optional[QaEvent]:
     idx = line.find(QA_BRIDGE_PREFIX)
     if idx < 0:
         return None
-    payload = line[idx + len(QA_BRIDGE_PREFIX):].strip()
+    payload = line[idx + len(QA_BRIDGE_PREFIX) :].strip()
     try:
         parsed = json.loads(payload)
     except (json.JSONDecodeError, ValueError):

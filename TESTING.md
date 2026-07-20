@@ -15,7 +15,7 @@ Related: [HANDOFF.md](HANDOFF.md) (current state / nav invariants) · [HACKING.m
 ```bash
 git clone https://github.com/djbclark/RevengeQuickSwitcher.git
 cd RevengeQuickSwitcher
-make install
+just install
 ```
 
 ### Device (Revenge client)
@@ -33,7 +33,7 @@ make install
 Run the full pipeline before every release or device test session:
 
 ```bash
-make verify
+just verify
 ```
 
 This runs, in order:
@@ -55,12 +55,12 @@ manifest ok (v4.5.9)
 
 ### Individual commands
 
-| Command | Purpose |
-|---------|---------|
-| `make test` | Run tests only |
-| `make typecheck` | Type-check all `src/` modules |
-| `make build` | Rebuild `dist/index.js` after source edits |
-| `make verify` | Full pre-release pipeline (same as CI) |
+| Command          | Purpose                                    |
+| ---------------- | ------------------------------------------ |
+| `just test`      | Run tests only                             |
+| `just typecheck` | Type-check all `src/` modules              |
+| `just build`     | Rebuild `dist/index.js` after source edits |
+| `just verify`    | Full pre-release pipeline (same as CI)     |
 
 If local verification fails, fix the issue before testing on device.
 
@@ -84,8 +84,7 @@ If local verification fails, fix the issue before testing on device.
 
 ## Part 3 — `/servers` command
 
-**How to invoke options on mobile:** type `/`, tap **servers**, then fill the **query** and/or **page** fields in the slash UI and send. Typing plain text like `/servers something` is *not* a slash command — Discord will just post that string.
-
+**How to invoke options on mobile:** type `/`, tap **servers**, then fill the **query** and/or **page** fields in the slash UI and send. Typing plain text like `/servers something` is _not_ a slash command — Discord will just post that string.
 
 ### 3.1 List servers (default)
 
@@ -364,17 +363,17 @@ If local verification fails, fix the issue before testing on device.
 
 ## Part 7 — Edge cases and regression checks
 
-| Scenario | Steps | Expected |
-|----------|-------|----------|
-| No servers | Use a test account with zero guilds (if available) | Toast: `No servers found` |
-| Unresolvable guild id | Rare — match found but guild object has no id | Toast: `Could not resolve server id` |
-| Markdown in names | Server name with `_` or `*` | Listed names escaped in `/servers` output (no broken markdown) |
-| Long server names | Name > 100 chars | Truncated safely in lists and toasts |
-| Plugin reload | Disable plugin, re-enable, reload Discord | `/servers` and settings still work |
-| Version | Check plugin metadata if Revenge shows it | **4.5.9** |
-| Ambiguous search | Two servers sharing a prefix, query that prefix | Pick list + refine toast; no jump |
-| Excluded search | Exclude one of two similar names, query shared fragment | Only non-excluded server matches |
-| Debug logging | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported |
+| Scenario              | Steps                                                    | Expected                                                       |
+| --------------------- | -------------------------------------------------------- | -------------------------------------------------------------- |
+| No servers            | Use a test account with zero guilds (if available)       | Toast: `No servers found`                                      |
+| Unresolvable guild id | Rare — match found but guild object has no id            | Toast: `Could not resolve server id`                           |
+| Markdown in names     | Server name with `_` or `*`                              | Listed names escaped in `/servers` output (no broken markdown) |
+| Long server names     | Name > 100 chars                                         | Truncated safely in lists and toasts                           |
+| Plugin reload         | Disable plugin, re-enable, reload Discord                | `/servers` and settings still work                             |
+| Version               | Check plugin metadata if Revenge shows it                | **4.5.9**                                                      |
+| Ambiguous search      | Two servers sharing a prefix, query that prefix          | Pick list + refine toast; no jump                              |
+| Excluded search       | Exclude one of two similar names, query shared fragment  | Only non-excluded server matches                               |
+| Debug logging         | Enable in settings, run `/servers` / toggle flat sidebar | No crash; diagnostics appear in Revenge logs when supported    |
 
 ---
 
@@ -387,7 +386,7 @@ If something fails, open a [GitHub Issue](https://github.com/djbclark/RevengeQui
 3. **Exact command or setting** used
 4. **Expected vs actual** behavior
 5. **Screenshots or toasts** if possible
-6. Whether `make verify` passed locally
+6. Whether `just verify` passed locally
 
 For device-only bugs, note that local tests passed — that helps separate Revenge integration issues from logic bugs.
 
@@ -402,7 +401,7 @@ Copy this for the release candidate. Prefer a fresh plugin install/update from t
 **Still needs human testing:** `/servers` opens a **top-docked** panel; Filter does not auto-open the keyboard; if you tap Filter, the list stays usable above the keyboard; after jump, taps still work.
 
 ```
-[ ] make verify — all green locally (or CI green on main)
+[ ] just verify — all green locally (or CI green on main)
 [ ] Plugin installs / updates on Revenge without crash (shows 4.5.9 if version visible)
   Install URL: https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/
 [ ] Smoke plugin installs and ENABLES (toggle on, no X)
@@ -437,7 +436,7 @@ When finished, note pass/fail in a GitHub issue or reply in chat so **A1** can b
 ## Legacy quick checklist (superseded by v4.4.0 block above)
 
 ```
-[ ] make verify — all green locally
+[ ] just verify — all green locally
 [ ] Plugin installs / updates on Revenge without crash
 [ ] /servers — alphabetical list as local bot reply, correct count; command appears once
 [ ] /servers 2 — pagination (if 41+ servers)

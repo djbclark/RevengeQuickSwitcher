@@ -10,7 +10,7 @@
 > Strategic directions: [HANDOFF.md appendix](HANDOFF.md#appendix--strategic-directions).
 
 **Plugin snapshot (2026-07-11):** Released on `main` as **v4.5.9** — top-docked
-switcher, dismiss-then-`openUrl` jump, Copy debug logs. Unit gate: `make verify`
+switcher, dismiss-then-`openUrl` jump, Copy debug logs. Unit gate: `just verify`
 (96 tests). Cloud agents cannot reach the phone; **A1** is the human/device gate.
 
 **Risk scale:** **Low** = mostly our code / storage / docs · **Medium** = Metro/UI
@@ -30,13 +30,13 @@ when an item ships, move it to **Closed** (do not renumber).
 
 ## Pick a track
 
-| Track | Focus | Open IDs | Typical risk |
-|-------|-------|----------|--------------|
-| **A — Device QA** | Revenge client checklist | A1 | Low (process); blocks confidence in sheet/nav |
-| **B — Switcher polish** | Pins and list UX on stable sheet | C4 | Low–Medium |
-| **C — High-risk Metro** | Channels / folder-aware sidebar | C2, C3 | Medium–High |
-| **D — Engineering** | Device QA harness (pytest + Handsets) + Metro smoke | D1 (blocked on leave_voice_channel) | Low–Medium |
-| **E — Latent follow-ups** | Only if a symptom returns | C1b | Latent / Medium–High |
+| Track                     | Focus                                               | Open IDs                            | Typical risk                                  |
+| ------------------------- | --------------------------------------------------- | ----------------------------------- | --------------------------------------------- |
+| **A — Device QA**         | Revenge client checklist                            | A1                                  | Low (process); blocks confidence in sheet/nav |
+| **B — Switcher polish**   | Pins and list UX on stable sheet                    | C4                                  | Low–Medium                                    |
+| **C — High-risk Metro**   | Channels / folder-aware sidebar                     | C2, C3                              | Medium–High                                   |
+| **D — Engineering**       | Device QA harness (pytest + Handsets) + Metro smoke | D1 (blocked on leave_voice_channel) | Low–Medium                                    |
+| **E — Latent follow-ups** | Only if a symptom returns                           | C1b                                 | Latent / Medium–High                          |
 
 ---
 
@@ -76,7 +76,7 @@ the flat sidebar), independent of A–Z order or recents.
 unpinned when building the list; resolve names via GuildStore; drop/flag stale
 IDs after leaving a server.
 
-**Why:** aliases speed *search*; pins change *priority*. Complements recents
+**Why:** aliases speed _search_; pins change _priority_. Complements recents
 (**C1** / B8) without Metro guild-select hooks.
 
 **Depends on:** sheet path stable (**A1** preferred first). Pairs with excludes
@@ -115,7 +115,7 @@ script that arms a stayturgid UI session, drives Discord through the failing
 flow, captures screenshots + hierarchy + plugin debug ring, and emits a
 machine-readable report (`report.json` + PNGs) the agent can act on.
 
-Vitest (`make test`, 96 tests) stays the default local gate. **D1** adds an
+Vitest (`just test`, 96 tests) stays the default local gate. **D1** adds an
 optional Mac→Android tier. Borrow patterns from
 [stayturgid](https://github.com/djbclark/stayturgid) — **not** the full
 fleet/Ansible stack. Do **not** Appium-first; never run u2 + Handsets together.
@@ -126,14 +126,14 @@ coordinates; assert durable state (not just toasts).
 
 **Stayturgid pieces to reuse:**
 
-| Piece | Role for QSS |
-|-------|----------------|
-| `control/lib/ui_driver.py` | Handsets primary — `tap_text` / `tap_id` |
-| Raw dump + tap | Fallback when Handsets missing |
-| `ScreenControlSession` | Inversion = "agent owns glass"; gate input |
-| `STAYTURGID_PRESENCE_QUIET=1` | No torch/vibrate/dialogs for unattended runs |
-| `mac/gui_audit.py` | Template: open app → navigate → screenshot → assert → soft-fail `issues[]` |
-| Wireless ADB + stayturgid reconnect | Keep `ip:5555` alive for Mac agents |
+| Piece                               | Role for QSS                                                               |
+| ----------------------------------- | -------------------------------------------------------------------------- |
+| `control/lib/ui_driver.py`          | Handsets primary — `tap_text` / `tap_id`                                   |
+| Raw dump + tap                      | Fallback when Handsets missing                                             |
+| `ScreenControlSession`              | Inversion = "agent owns glass"; gate input                                 |
+| `STAYTURGID_PRESENCE_QUIET=1`       | No torch/vibrate/dialogs for unattended runs                               |
+| `mac/gui_audit.py`                  | Template: open app → navigate → screenshot → assert → soft-fail `issues[]` |
+| Wireless ADB + stayturgid reconnect | Keep `ip:5555` alive for Mac agents                                        |
 
 Reference docs in stayturgid: `docs/research/mac-android-ui-automation.md`,
 `docs/research/ui-automation.md`.
@@ -142,12 +142,12 @@ Reference docs in stayturgid: `docs/research/mac-android-ui-automation.md`,
 
 **Phase 0 — Access (one-time; pick per environment)**
 
-| Option | How | Best for |
-|--------|-----|----------|
-| **A. Cursor Desktop on Mac** (recommended) | Both `stayturgid` + QSS workspaces; wireless ADB; Handsets at `~/.handsets/` | Live UI loops |
-| **B. Clone stayturgid beside QSS** | Submodule or sparse checkout of `control/lib` + `docs/research` | Doc-aware cloud planning |
-| **C. Paste doc into QSS** | Copy `mac-android-ui-automation.md` under `docs/` | Lightweight cloud context |
-| **D. Expose ADB to cloud** | Tunnel egress to phone | Rare; usually avoid |
+| Option                                     | How                                                                          | Best for                  |
+| ------------------------------------------ | ---------------------------------------------------------------------------- | ------------------------- |
+| **A. Cursor Desktop on Mac** (recommended) | Both `stayturgid` + QSS workspaces; wireless ADB; Handsets at `~/.handsets/` | Live UI loops             |
+| **B. Clone stayturgid beside QSS**         | Submodule or sparse checkout of `control/lib` + `docs/research`              | Doc-aware cloud planning  |
+| **C. Paste doc into QSS**                  | Copy `mac-android-ui-automation.md` under `docs/`                            | Lightweight cloud context |
+| **D. Expose ADB to cloud**                 | Tunnel egress to phone                                                       | Rare; usually avoid       |
 
 Cloud Cursor **cannot** see Mac disk or phone without a bridge. Agents need
 **ADB reachability + UI stack** — not Discord credentials (device already
@@ -169,35 +169,35 @@ The function never returns, the harness hangs until the 600s timeout.
 
 **To unblock:**
 
-| Approach | Detail |
-|----------|--------|
-| **A. Debug Handsets voice UI** | Check what `hs.ui()` returns during voice overlay — maybe the dump doesn't include voice panel elements. Use raw dump + `adb exec-out` as fallback. |
-| **B. Raw ADB tap fallback** | Add a branch in `leave_voice_channel` that tries `session.shell("input", "tap", x, y)` with known coordinates for "Disconnect" button when Handsets taps fail. |
+| Approach                          | Detail                                                                                                                                                                      |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Debug Handsets voice UI**    | Check what `hs.ui()` returns during voice overlay — maybe the dump doesn't include voice panel elements. Use raw dump + `adb exec-out` as fallback.                         |
+| **B. Raw ADB tap fallback**       | Add a branch in `leave_voice_channel` that tries `session.shell("input", "tap", x, y)` with known coordinates for "Disconnect" button when Handsets taps fail.              |
 | **C. Kill voice channel via ADB** | Use `am broadcast` or `input keyevent` to navigate back / disconnect from voice without Handsets. e.g. `session.shell("input", "keyevent", "KEYCODE_BACK")` multiple times. |
-| **D. Skip voice channel** | Add a config to rejoin a text channel before starting QA, or `am start` with an intent that opens a specific text channel instead of reconnecting to voice. |
+| **D. Skip voice channel**         | Add a config to rejoin a text channel before starting QA, or `am start` with an intent that opens a specific text channel instead of reconnecting to voice.                 |
 
 **D1 lessons from manual S24 navigation (2026-07-11):**
 
-| Lesson | Detail |
-|--------|--------|
-| **Use `hs swipe` for scrolling** | `adb shell input swipe` often overscrolls or has zero effect. `hs swipe down` does a single reliable page-down. |
-| **Check element bounds before tapping** | Handsets may report elements with y > screen height (2340 on S24). Tapping off-screen coordinates silently misses. Always verify `y < screen_h` before using the coordinate. |
-| **Tap "Revenge" row first** | The main settings page has `Plugins` as a sibling of `Revenge, (3cfc115-main)` at the same level. Tapping `Plugins` directly navigates to the plugin list — but only if it's fully on-screen (y < 2340). If off-screen, `hs.tap_text("Plugins")` returns success but nothing happens. |
-| **Scroll half-screen, not full-screen** | Revenge/Plugins rows sit just below "Chat" (~3361). A full `hs swipe down` overshoots to y=-339. A short bottom-to-middle swipe (540,2000 → 540,1700, 200ms) lands them at y~1797, safely within bounds. |
-| **Settings "Back" is at top-left** | After entering a sub-page, the back button is at (84,176) via content-desc "Back". |
-| **Voice auto-reconnect on relaunch** | `force-stop` + `am start` reconnects to the last voice channel. Must `hs tap "Disconnect"` or tap the red hang-up at (944,2196) first, then swipe back once if Soundboard opened accidentally. Two KEYCODE_BACK presses may exit the app entirely. |
-| **Screenshot corruption** | `adb exec-out screencap -p` can return corrupt/empty data during screen transitions. Fixed with PNG header validation + 3 retries in `shot()`. |
-| **OCR is free, VLM is slow** | Tesseract OCR gate (`scripts/ocr_gate.py`) runs in <0.5s and catches ~60-70% of checks. Cloud VLM takes 2-8s per call. Always prefer OCR path. |
+| Lesson                                  | Detail                                                                                                                                                                                                                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Use `hs swipe` for scrolling**        | `adb shell input swipe` often overscrolls or has zero effect. `hs swipe down` does a single reliable page-down.                                                                                                                                                                       |
+| **Check element bounds before tapping** | Handsets may report elements with y > screen height (2340 on S24). Tapping off-screen coordinates silently misses. Always verify `y < screen_h` before using the coordinate.                                                                                                          |
+| **Tap "Revenge" row first**             | The main settings page has `Plugins` as a sibling of `Revenge, (3cfc115-main)` at the same level. Tapping `Plugins` directly navigates to the plugin list — but only if it's fully on-screen (y < 2340). If off-screen, `hs.tap_text("Plugins")` returns success but nothing happens. |
+| **Scroll half-screen, not full-screen** | Revenge/Plugins rows sit just below "Chat" (~~3361). A full `hs swipe down` overshoots to y=-339. A short bottom-to-middle swipe (540,2000 → 540,1700, 200ms) lands them at y~~1797, safely within bounds.                                                                            |
+| **Settings "Back" is at top-left**      | After entering a sub-page, the back button is at (84,176) via content-desc "Back".                                                                                                                                                                                                    |
+| **Voice auto-reconnect on relaunch**    | `force-stop` + `am start` reconnects to the last voice channel. Must `hs tap "Disconnect"` or tap the red hang-up at (944,2196) first, then swipe back once if Soundboard opened accidentally. Two KEYCODE_BACK presses may exit the app entirely.                                    |
+| **Screenshot corruption**               | `adb exec-out screencap -p` can return corrupt/empty data during screen transitions. Fixed with PNG header validation + 3 retries in `shot()`.                                                                                                                                        |
+| **OCR is free, VLM is slow**            | Tesseract OCR gate (`scripts/ocr_gate.py`) runs in <0.5s and catches ~60-70% of checks. Cloud VLM takes 2-8s per call. Always prefer OCR path.                                                                                                                                        |
 
 **OCR gate check patterns (scripts/ocr_gate.py):**
 
-| Check | Matches |
-|-------|---------|
-| `discord_home` | Danny, Online, Browse Channels, message #, Quick Server Switcher, Filter servers |
-| `discord_not_launcher` | Rejects when phone dialer, camera, calculator, or launcher shows |
-| `safe_test_channel` | #dc-general, #dc-games, #ogden, #college, member list |
-| `switcher_open` | Filter servers, Quick Server Switcher, Close, Guild List |
-| `switcher_closed` | Rejects when switcher still present |
+| Check                  | Matches                                                                          |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| `discord_home`         | Danny, Online, Browse Channels, message #, Quick Server Switcher, Filter servers |
+| `discord_not_launcher` | Rejects when phone dialer, camera, calculator, or launcher shows                 |
+| `safe_test_channel`    | #dc-general, #dc-games, #ogden, #college, member list                            |
+| `switcher_open`        | Filter servers, Quick Server Switcher, Close, Guild List                         |
+| `switcher_closed`      | Rejects when switcher still present                                              |
 
 Add `scripts/device_qa_qss.py` (or `stayturgid/control/bin/gui_audit.py`) mirroring
 `gui_audit.py`:
@@ -221,17 +221,17 @@ HOME / restore foreground
 ```
 
 Optional pytest wrapper: `tests/device/` + `conftest.py` (skip when no device /
-no `hs`). Entry: `make qa` or `pytest tests/device`.
+no `hs`). Entry: `just qa` or `pytest tests/device`.
 
 **Automated checks that would have caught v4.5.x bugs:**
 
-| Bug | Check |
-|-----|-------|
-| Freeze / dead taps | After jump, `hs.tap_text` on known control fails → `issues=dead_taps` |
-| Keyboard covers sheet | Switcher bounds bottom > keyboard top → `issues=keyboard_cover` |
-| Wrong nav API | Clipboard/logcat: no `selectChannel` / `CHANNEL_SELECT`; must see `openUrl` |
-| Stuck overlay | After Close/jump, switcher title still in hierarchy → `issues=overlay_stuck` |
-| Version confusion | Debug dump contains `vX.Y.Z` matching `manifest.json` |
+| Bug                   | Check                                                                        |
+| --------------------- | ---------------------------------------------------------------------------- |
+| Freeze / dead taps    | After jump, `hs.tap_text` on known control fails → `issues=dead_taps`        |
+| Keyboard covers sheet | Switcher bounds bottom > keyboard top → `issues=keyboard_cover`              |
+| Wrong nav API         | Clipboard/logcat: no `selectChannel` / `CHANNEL_SELECT`; must see `openUrl`  |
+| Stuck overlay         | After Close/jump, switcher title still in hierarchy → `issues=overlay_stuck` |
+| Version confusion     | Debug dump contains `vX.Y.Z` matching `manifest.json`                        |
 
 Also cover **A1** checklist: top-dock, Filter above keyboard, Close dismisses.
 
@@ -239,7 +239,7 @@ Also cover **A1** checklist: top-dock, Filter above keyboard, Close dismisses.
 
 **Phase 2 — Agent workflow (minimal human)**
 
-1. Agent bumps plugin → `make verify` → push (as now)
+1. Agent bumps plugin → `just verify` → push (as now)
 2. Install/update on device via raw GitHub URL refetch **or** opt-in `adb` sideload
 3. Run `device_qa_qss.py`; on failure, read `report.json` + PNGs
 4. Agent patches and re-runs until green or hits human gate (login, captcha, OEM perm)
@@ -260,22 +260,20 @@ without Mac ADB; Ansible/Termux deploy; CI green without reachable device.
 **Safety (s24):** Only automate when a **safe channel** is active:
 `#dc-general`, `#dc-games` (preferred), `#ogden`, `#college`.
 Sidebar icons DCs / LL/DC are hints; channel list is ground truth. No slash
-in-channel. Default device: **s24**. `make qa QSS_GUILD=dcs`
-
-**Vision gates (3-tier):**
+in-channel. Default device: **s24**. `QSS_GUILD=dcs` just qa**Vision gates (3-tier):**
 
 1. **OCR gate** (Tesseract) — free, <0.5s, runs before every VLM call. `pytesseract` + PIL.
 2. **Cloud VLM** (Anthropic Haiku 4.5 → Gemini 3.5 Flash) — paid, 2-8s. API keys in `~/.config/RevengeQuickSwitcher/secrets.env`. Set `QSS_VLM_CLOUD=anthropic,google`.
-3. **Local UI-TARS** — fallback when cloud unconfigured. `make vlm-install` once, `make vlm-server`.
+3. **Local UI-TARS** — fallback when cloud unconfigured. `just vlm-install` once, `just vlm-server`.
 
 **Uncommitted changes (2026-07-11):**
 
-| File | Change |
-|------|--------|
+| File                       | Change                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
 | `scripts/device_qa_qss.py` | OCR gate, cloud VLM primary, screenshot validation, voice markers, scroll/nav/lease fixes |
-| `scripts/ocr_gate.py` | New — Tesseract OCR with 12 keyword check patterns |
-| `scripts/vlm_cloud.py` | Model updated to `gemini-3.5-flash` |
-| `OPTIONS.md` | This update |
+| `scripts/ocr_gate.py`      | New — Tesseract OCR with 12 keyword check patterns                                        |
+| `scripts/vlm_cloud.py`     | Model updated to `gemini-3.5-flash`                                                       |
+| `OPTIONS.md`               | This update                                                                               |
 
 ---
 
@@ -283,7 +281,7 @@ in-channel. Default device: **s24**. `make qa QSS_GUILD=dcs`
 
 #### C1b — Auto-track recents via guild-select hooks (agent) · Risk: **Latent / Medium–High**
 
-Shipped recents (**C1** / B8) only record when *this* plugin navigates. A
+Shipped recents (**C1** / B8) only record when _this_ plugin navigates. A
 follow-up could hook Discord "current guild" / select modules for automatic
 history. **Do not start** without a clear product ask — high churn, easy to
 freeze (see v4.5.x saga in HANDOFF). Trigger: operator wants sidebar-driven

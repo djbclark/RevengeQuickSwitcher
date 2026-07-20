@@ -26,6 +26,7 @@ Escalation for a stuck nav step (agent re-run):
 
 See VLM.md for when to use which provider (research-backed).
 """
+
 from __future__ import annotations
 
 import os
@@ -41,12 +42,10 @@ if _load_secrets_env is not None:
 
 import base64
 import json
-import os
 import re
 import time
 import urllib.error
 import urllib.request
-from pathlib import Path
 from typing import Any
 
 try:
@@ -227,8 +226,7 @@ def suggest_cloud_vlm(reason: str = "local_unavailable", *, step: str = "") -> s
     key_env = str(rec.get("key_env", "QSS_VLM_CLOUD_API_KEY"))
     lines = [
         "CLOUD_VLM_SUGGESTED (%s): %s" % (reason, rec.get("why", "")),
-        "Recommended: QSS_VLM_CLOUD=%s %s=... QSS_VLM_CLOUD_MODEL=%s"
-        % (provider, key_env, model),
+        "Recommended: QSS_VLM_CLOUD=%s %s=... QSS_VLM_CLOUD_MODEL=%s" % (provider, key_env, model),
         "Signup: %s" % rec.get("signup", ""),
         "Multi-provider fallback: QSS_VLM_CLOUD=openai,anthropic,google",
     ]
@@ -263,8 +261,7 @@ def write_cloud_vlm_request(
         },
         "rerunExample": (
             "QSS_VLM=1 QSS_VLM_CLOUD=%s QSS_VLM_CLOUD_STEP=%s %s=... "
-            "python3 scripts/device_qa_qss.py p7a --guild dcs"
-            % (rec["provider"], step, rec["key_env"])
+            "python3 scripts/device_qa_qss.py p7a --guild dcs" % (rec["provider"], step, rec["key_env"])
         ),
         "hint": suggest_cloud_vlm(reason, step=step),
     }
@@ -274,9 +271,7 @@ def write_cloud_vlm_request(
         payload["context"] = extra
     out = artifact_dir / "cloud_vlm_request.json"
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    (artifact_dir / "cloud_vlm_suggested.txt").write_text(
-        payload["hint"] + "\n", encoding="utf-8"
-    )
+    (artifact_dir / "cloud_vlm_suggested.txt").write_text(payload["hint"] + "\n", encoding="utf-8")
     return out
 
 
@@ -418,12 +413,7 @@ def ask_image_google(
     path: Path, prompt: str, *, model: str, api_key: str, timeout: int = 120
 ) -> tuple[str, dict[str, Any] | None]:
     b64 = _image_b64(path)
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        + model
-        + ":generateContent?key="
-        + api_key
-    )
+    url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + api_key
     body = {
         "contents": [
             {
@@ -477,9 +467,7 @@ def ask_image(
     raise ValueError("unknown provider %s" % provider)
 
 
-def _apply_check_rules(
-    check: str, ok: bool, parsed: dict[str, Any], detail: dict[str, Any]
-) -> bool:
+def _apply_check_rules(check: str, ok: bool, parsed: dict[str, Any], detail: dict[str, Any]) -> bool:
     conf = float(parsed.get("confidence", 0.8 if ok else 0.2))
     detail["confidence"] = conf
     safe_channels = getattr(_local, "SAFE_CHANNELS", ())

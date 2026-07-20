@@ -8,27 +8,27 @@ Agent cold-start / current product state: [HANDOFF.md](HANDOFF.md). User install
 
 ## What you're setting up
 
-| Layer | Role |
-|-------|------|
-| Node.js + npm | Build, typecheck, Vitest |
-| `dist/index.js` | Bundled plugin Revenge evals (committed) |
-| `manifest.json` | Plugin metadata + content `hash` |
-| Discord + Revenge | Runtime on Android/iOS device or emulator |
+| Layer                | Role                                           |
+| -------------------- | ---------------------------------------------- |
+| Node.js + npm        | Build, typecheck, Vitest                       |
+| `dist/index.js`      | Bundled plugin Revenge evals (committed)       |
+| `manifest.json`      | Plugin metadata + content `hash`               |
+| Discord + Revenge    | Runtime on Android/iOS device or emulator      |
 | Optional: adb logcat | Native logs when Copy debug logs is not enough |
 
 ---
 
 ## Tested versions
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Node.js | 18+ (20+ recommended) | CI uses current Node LTS |
-| npm | bundled with Node | Lockfile committed |
-| TypeScript | ^5 | `tsc --noEmit` via `tsconfig.typecheck.json` |
-| esbuild | ^0.28 | `scripts/build.mjs` |
-| Vitest | ^3 | 96 unit tests |
-| `@revenge-mod/types` | vendetta-types 2.4.21 | Dev types only |
-| Plugin | **4.5.9** | See `package.json` / `manifest.json` |
+| Tool                 | Version               | Notes                                        |
+| -------------------- | --------------------- | -------------------------------------------- |
+| Node.js              | 18+ (20+ recommended) | CI uses current Node LTS                     |
+| npm                  | bundled with Node     | Lockfile committed                           |
+| TypeScript           | ^5                    | `tsc --noEmit` via `tsconfig.typecheck.json` |
+| esbuild              | ^0.28                 | `scripts/build.mjs`                          |
+| Vitest               | ^3                    | 96 unit tests                                |
+| `@revenge-mod/types` | vendetta-types 2.4.21 | Dev types only                               |
+| Plugin               | **4.5.9**             | See `package.json` / `manifest.json`         |
 
 Revenge and Discord client versions churn; always record `/debug` output when filing device bugs.
 
@@ -41,13 +41,13 @@ Revenge and Discord client versions churn; always record `/debug` output when fi
 ```bash
 git clone https://github.com/djbclark/RevengeQuickSwitcher.git
 cd RevengeQuickSwitcher
-make install   # or: npm install
+just install   # or: npm install
 ```
 
 ### 1.2 Verify
 
 ```bash
-make verify
+just verify
 ```
 
 Runs, in order:
@@ -61,20 +61,20 @@ Expected: all steps exit 0; tests **96 passed**; `manifest ok (v…)`.
 
 Individual targets:
 
-| Command | Purpose |
-|---------|---------|
-| `make build` | Rebuild bundle only |
-| `make test` | Vitest only |
-| `make typecheck` | `tsc` only |
-| `make clean` | Remove `node_modules/` |
-| `make clean-all` | Remove `dist/` + `node_modules/` |
+| Command          | Purpose                          |
+| ---------------- | -------------------------------- |
+| `just build`     | Rebuild bundle only              |
+| `just test`      | Vitest only                      |
+| `just typecheck` | `tsc` only                       |
+| `just clean`     | Remove `node_modules/`           |
+| `just clean-all` | Remove `dist/` + `node_modules/` |
 
 npm equivalents: `npm run build`, `npm test`, `npm run typecheck`, `npm run verify`.
 
 ### 1.3 After editing source
 
 1. Change files under `src/`.
-2. `make verify`.
+2. `just verify`.
 3. Commit **`src/`**, **`dist/index.js`**, and **`manifest.json`** together when shipping (Revenge loads the committed bundle from GitHub raw).
 4. If releasing: bump `version` in `package.json` **and** `manifest.json`, update `CHANGELOG.md` and OPTIONS statuses.
 
@@ -139,10 +139,10 @@ If main will not enable:
 https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 ```
 
-| Smoke | Main | Meaning |
-|-------|------|---------|
-| Enables | Fails | Main start/bundle bug |
-| Also X | — | Broader Revenge/safe-mode/network issue |
+| Smoke   | Main  | Meaning                                 |
+| ------- | ----- | --------------------------------------- |
+| Enables | Fails | Main start/bundle bug                   |
+| Also X  | —     | Broader Revenge/safe-mode/network issue |
 
 ### 3.4 Update loop
 
@@ -157,7 +157,7 @@ After pushing to `main`: plugin info → **Refetch**, or delete + reinstall. Con
 1. Enable **Debug Logging** in plugin settings (optional but useful).
 2. Reproduce the issue (open switcher, tap server, etc.).
 3. Settings → **Copy debug logs**.
-4. Paste into chat/GitHub (single line, ` | `-separated).
+4. Paste into chat/GitHub (single line, `|`-separated).
 
 Every line includes the plugin version. On upgrade, the ring resets so pastes are not mixed builds.
 
@@ -204,7 +204,7 @@ UI host: prefer **top-docked** alert panel so the Android keyboard does not cove
 
 1. Branch from `main` (cloud agents: `cursor/<name>-db57`).
 2. Implement in `src/`; add/adjust Vitest coverage for pure helpers.
-3. `make verify`.
+3. `just verify`.
 4. Replace completed IDs in OPTIONS.md (keep IDs stable) and update CHANGELOG when behavior ships.
 5. PR → merge → device **A1** checklist in TESTING.md.
 
@@ -220,7 +220,7 @@ Type `/`, pick **servers**, fill **query** / **page** fields. Sending plain text
 
 ### 5.4 Optional: stayturgid / Handsets
 
-For Mac-driven Android UI automation, see the stayturgid repo (`docs/research/mac-android-ui-automation.md`). This plugin does not vendor Handsets. If adding automation later, prefer a thin driver over Appium/Maestro as the primary stack, and keep Vitest as the default `make test`.
+For Mac-driven Android UI automation, see the stayturgid repo (`docs/research/mac-android-ui-automation.md`). This plugin does not vendor Handsets. If adding automation later, prefer a thin driver over Appium/Maestro as the primary stack, and keep Vitest as the default `just test`.
 
 ---
 
@@ -229,7 +229,7 @@ For Mac-driven Android UI automation, see the stayturgid repo (`docs/research/ma
 ### Local
 
 ```bash
-make verify
+just verify
 # Tests  96 passed (96)
 # manifest ok (v4.5.9)   # or current version
 ```
@@ -257,7 +257,7 @@ RevengeQuickSwitcher/
   OPTIONS.md         — open work menu (stable IDs)
   TESTING.md         — verify + device QA
   CHANGELOG.md       — semver + release notes
-  Makefile           — install / build / test / verify
+  justfile           — install / build / test / verify
   package.json       — version + scripts
   manifest.json      — Revenge metadata + hash
   src/               — TypeScript / TSX sources + tests
@@ -271,14 +271,14 @@ RevengeQuickSwitcher/
 
 ## Gotchas (quick list)
 
-| Symptom | Likely cause |
-|---------|----------------|
-| Failed to fetch manifest | Non-raw GitHub URL |
-| Toggle X; smoke OK | Bundle syntax / onLoad throw |
-| Toggle X; smoke X | Safe mode, Revenge, or network |
-| Jump OK, taps dead | Overlay not dismissed |
-| Keyboard covers list | Bottom sheet host |
-| Freeze on tap | Non-`openUrl` navigation path |
-| Mixed version in logs | Old ring; upgrade should clear — confirm refetch |
-| `/servers` missing | Old build with `shouldHide`; update plugin |
-| Flat sidebar no-op | SortedGuildStore missing — expected skip |
+| Symptom                  | Likely cause                                     |
+| ------------------------ | ------------------------------------------------ |
+| Failed to fetch manifest | Non-raw GitHub URL                               |
+| Toggle X; smoke OK       | Bundle syntax / onLoad throw                     |
+| Toggle X; smoke X        | Safe mode, Revenge, or network                   |
+| Jump OK, taps dead       | Overlay not dismissed                            |
+| Keyboard covers list     | Bottom sheet host                                |
+| Freeze on tap            | Non-`openUrl` navigation path                    |
+| Mixed version in logs    | Old ring; upgrade should clear — confirm refetch |
+| `/servers` missing       | Old build with `shouldHide`; update plugin       |
+| Flat sidebar no-op       | SortedGuildStore missing — expected skip         |

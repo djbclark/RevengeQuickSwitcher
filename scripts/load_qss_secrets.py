@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Load QSS API keys from a gitignored secrets file (never commit secrets.env)."""
+
 from __future__ import annotations
 
 import os

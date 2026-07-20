@@ -1,0 +1,50 @@
+---
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.48.0
+    hooks:
+      - id: typos
+
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: prettier
+        args: ["--check"]
+        language: system
+        files: '\.md$'
+
+  - repo: local
+    hooks:
+      - id: markdownlint
+        name: markdownlint
+        entry: markdownlint
+        args: ["--config", ".markdownlint.json"]
+        language: system
+        files: '\.md$'
+
+  - repo: local
+    hooks:
+      - id: just-fmt
+        name: justfile format
+        entry: bash
+        args: ["-c", "just --fmt --check --unstable"]
+        language: system
+        files: '^justfile$'
+
+  - repo: local
+    hooks:
+      - id: qss-verify
+        name: npm run verify (typecheck + tests + build + manifest)
+        entry: bash
+        args: ["-c", "npm run verify"]
+        language: system
+        pass_filenames: false
+        files: '^(src/|scripts/(build|check-manifest)\.mjs|package\.json|manifest\.json|tsconfig)'

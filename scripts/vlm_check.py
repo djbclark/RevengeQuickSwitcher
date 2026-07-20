@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Smoke-test local UI-TARS vision gate."""
+
 from __future__ import annotations
 
 import sys

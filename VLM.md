@@ -1,6 +1,6 @@
 # UI-TARS-1.5-7B — local vision gates for Android screenshots
 
-This project uses **UI-TARS-1.5-7B** (ByteDance’s GUI-focused vision-language model) as a **local screenshot verifier** during device QA. It does not drive the phone autonomously. Instead it answers yes/no questions about PNGs captured from ADB (`adb exec-out screencap`) *before* the harness types or taps — for example: “Are we in Discord, not Niagara Launcher?” and “Are we on `#dc-general`?”
+This project uses **UI-TARS-1.5-7B** (ByteDance’s GUI-focused vision-language model) as a **local screenshot verifier** during device QA. It does not drive the phone autonomously. Instead it answers yes/no questions about PNGs captured from ADB (`adb exec-out screencap`) _before_ the harness types or taps — for example: “Are we in Discord, not Niagara Launcher?” and “Are we on `#dc-general`?”
 
 **Optional cloud vision** (OpenAI / Anthropic / Google) supplements local UI-TARS when the server is down, a gate is ambiguous, or you need a second opinion on a stuck navigation step. See [Hybrid local + cloud](#hybrid-local--cloud-best-practices-july-2026).
 
@@ -12,11 +12,11 @@ Related: [PATHS.md](PATHS.md) (directories, launchctl commands, AI ops) · [TEST
 
 ## When to use it
 
-| Good fit | Poor fit |
-|----------|----------|
-| Gate checks before typing in a filter/composer | Full autonomous “agent” that plans every tap |
-| Confirm safe test channel / switcher open / not launcher | Pixel-perfect coordinate grounding every frame |
-| One screenshot → one JSON verdict (~10–90s on Apple Silicon) | Sub-second real-time video |
+| Good fit                                                     | Poor fit                                       |
+| ------------------------------------------------------------ | ---------------------------------------------- |
+| Gate checks before typing in a filter/composer               | Full autonomous “agent” that plans every tap   |
+| Confirm safe test channel / switcher open / not launcher     | Pixel-perfect coordinate grounding every frame |
+| One screenshot → one JSON verdict (~10–90s on Apple Silicon) | Sub-second real-time video                     |
 
 **Design principle:** use UI-TARS for **high-stakes verification**, not for every navigation step. Handsets + a11y text selectors remain primary; VLM is the safety net.
 
@@ -24,14 +24,14 @@ Related: [PATHS.md](PATHS.md) (directories, launchctl commands, AI ops) · [TEST
 
 **Priority #1:** never send chat/DM text to real users or non-test channels. Speed is irrelevant.
 
-| Layer | Rule |
-|-------|------|
-| **Allowlisted surfaces** | Typing only on: switcher **Filter servers** (switcher open), plugin **Install URL** dialog, or safe `#channel` slash (if `QSS_ALLOW_SLASH=1`). |
+| Layer                           | Rule                                                                                                                                                                        |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Allowlisted surfaces**        | Typing only on: switcher **Filter servers** (switcher open), plugin **Install URL** dialog, or safe `#channel` slash (if `QSS_ALLOW_SLASH=1`).                              |
 | **`QSS_SAFE_MODE=1` (default)** | All `handsets type/fill` blocked unless VLM `before_type` passes **and** a11y proves the target surface. Blocks ad-hoc `QSS_VLM=0` debug runs that typed into DM composers. |
-| **DM detection** | `ui_dm_thread()` — composer shows `Message @user` not `Message #channel`. Harness aborts typing immediately. |
-| **No blind bottom taps** | Coord taps in the bottom 5% (Wordle pill, quest bar) only after confirming not on a DM thread. |
-| **Settings-only switcher** | Default path: profile → User Settings → Plugins → **Open switcher**. Slash posts to chat on misfire. |
-| **Probe scripts** | Never run one-off `python -c` probes that `type`, `fill`, or tap the composer region on a live account. |
+| **DM detection**                | `ui_dm_thread()` — composer shows `Message @user` not `Message #channel`. Harness aborts typing immediately.                                                                |
+| **No blind bottom taps**        | Coord taps in the bottom 5% (Wordle pill, quest bar) only after confirming not on a DM thread.                                                                              |
+| **Settings-only switcher**      | Default path: profile → User Settings → Plugins → **Open switcher**. Slash posts to chat on misfire.                                                                        |
+| **Probe scripts**               | Never run one-off `python -c` probes that `type`, `fill`, or tap the composer region on a live account.                                                                     |
 
 **Incident (s24):** device on **kuriboh DM**; coord probes + `handsets type` with `QSS_VLM=0` typed into the DM composer → stray `,` sent. Fix: `typing_safety_gate()` + navigate to `#dc-general` before typing.
 
@@ -43,13 +43,13 @@ Related: [PATHS.md](PATHS.md) (directories, launchctl commands, AI ops) · [TEST
 
 ## Requirements
 
-| Resource | Notes |
-|----------|-------|
-| **macOS** (recommended) | Apple Silicon uses Metal via `llama-server -ngl 99` |
-| **RAM** | ~6 GB for Q4_K_M weights + mmproj; **16 GB** machine minimum; close heavy apps |
-| **Disk** | ~6 GB under `~/.local/share/ui-tars/models/1.5-7b/` ([PATHS.md](PATHS.md)) |
-| **Homebrew** | `llama.cpp` (required), `ollama` (installed for convenience; server uses llama.cpp) |
-| **ADB** | Phone reachable; screenshots via `adb exec-out screencap -p` |
+| Resource                | Notes                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| **macOS** (recommended) | Apple Silicon uses Metal via `llama-server -ngl 99`                                 |
+| **RAM**                 | ~6 GB for Q4_K_M weights + mmproj; **16 GB** machine minimum; close heavy apps      |
+| **Disk**                | ~6 GB under `~/.local/share/ui-tars/models/1.5-7b/` ([PATHS.md](PATHS.md))          |
+| **Homebrew**            | `llama.cpp` (required), `ollama` (installed for convenience; server uses llama.cpp) |
+| **ADB**                 | Phone reachable; screenshots via `adb exec-out screencap -p`                        |
 
 Pure CPU (`QSS_VLM_NGL=0`) works but is **very slow** (minutes per image) and may OOM on 16 GB hosts. Prefer Metal on Mac.
 
@@ -76,12 +76,12 @@ curl -sf http://127.0.0.1:8081/health
 launchctl print "gui/$(id -u)/homebrew.mxcl.ui-tars"
 ```
 
-| Item | Path / value |
-|------|----------------|
-| Service label | `homebrew.mxcl.ui-tars` |
-| Plist | `~/Library/LaunchAgents/homebrew.mxcl.ui-tars.plist` |
-| Log | `~/Library/Logs/ui-tars/server.log` |
-| Models | `~/.local/share/ui-tars/models/1.5-7b/` |
+| Item          | Path / value                                         |
+| ------------- | ---------------------------------------------------- |
+| Service label | `homebrew.mxcl.ui-tars`                              |
+| Plist         | `~/Library/LaunchAgents/homebrew.mxcl.ui-tars.plist` |
+| Log           | `~/Library/Logs/ui-tars/server.log`                  |
+| Models        | `~/.local/share/ui-tars/models/1.5-7b/`              |
 
 **Start / stop / restart (do not use `make` in automation):**
 
@@ -100,7 +100,7 @@ Verify: `python3 scripts/vlm_check.py`
 
 ```bash
 curl -sf http://127.0.0.1:8081/health
-make qa    # QSS_VLM=1 by default
+just qa    # QSS_VLM=1 by default
 ```
 
 Artifacts: `~/.local/share/RevengeQuickSwitcher/artifacts/qss-qa/<YYYY-MM-DD>/<host>/vlm/`
@@ -156,24 +156,24 @@ Full-resolution phone PNGs (1080×2400+) are slow and memory-heavy for a 7B VLM 
 
 ## Environment variables
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `QSS_VLM` | `1` in `make qa` | Enable vision gates (`0` to disable) |
-| `QSS_VLM_STRICT` | `1` | Block QA actions when server down or check fails |
-| `QSS_VLM_PORT` | `8081` | `llama-server` listen port |
-| `QSS_VLM_TIMEOUT` | `900` | Seconds per inference (CPU hosts: raise this) |
-| `QSS_VLM_MAX_WIDTH` | `720` | Downscale width before base64 encode |
-| `QSS_VLM_NGL` | `99` on Darwin, `0` elsewhere | Metal GPU layers |
-| `QSS_VLM_CTX` | `2048` | Context size (lower = less RAM) |
-| `QSS_VLM_THREADS` | `4` | CPU threads for llama-server |
-| `QSS_VLM_IMAGE_MIN` | `256` | Min image tokens per screenshot |
-| `QSS_VLM_IMAGE_MAX` | `512` | Max image tokens per screenshot |
-| `UI_TARS_MODEL_DIR` | `~/.local/share/ui-tars/models/1.5-7b` | Weight path |
-| `UI_TARS_PORT` | `8081` | `llama-server` listen port (`QSS_VLM_PORT` alias) |
-| `QSS_DATA_HOME` | `~/.local/share/RevengeQuickSwitcher` | QA artifacts + logs |
-| `QSS_DEBUG_DIR` | (off) | Save before/after profile UI dumps + PNGs when debugging settings path |
-| `STAYTURGID_PRESENCE_QUIET` | `1` in `make qa` | Skip torch/consent; keep inversion + lease |
-| `DEVICE_SCREEN_CONTROL_PROJECT` | `RevengeQuickSwitcher` | DSCL v1 project slug (set by `make qa`) |
+| Variable                        | Default                                | Purpose                                                                |
+| ------------------------------- | -------------------------------------- | ---------------------------------------------------------------------- |
+| `QSS_VLM`                       | `1` in `just qa`                       | Enable vision gates (`0` to disable)                                   |
+| `QSS_VLM_STRICT`                | `1`                                    | Block QA actions when server down or check fails                       |
+| `QSS_VLM_PORT`                  | `8081`                                 | `llama-server` listen port                                             |
+| `QSS_VLM_TIMEOUT`               | `900`                                  | Seconds per inference (CPU hosts: raise this)                          |
+| `QSS_VLM_MAX_WIDTH`             | `720`                                  | Downscale width before base64 encode                                   |
+| `QSS_VLM_NGL`                   | `99` on Darwin, `0` elsewhere          | Metal GPU layers                                                       |
+| `QSS_VLM_CTX`                   | `2048`                                 | Context size (lower = less RAM)                                        |
+| `QSS_VLM_THREADS`               | `4`                                    | CPU threads for llama-server                                           |
+| `QSS_VLM_IMAGE_MIN`             | `256`                                  | Min image tokens per screenshot                                        |
+| `QSS_VLM_IMAGE_MAX`             | `512`                                  | Max image tokens per screenshot                                        |
+| `UI_TARS_MODEL_DIR`             | `~/.local/share/ui-tars/models/1.5-7b` | Weight path                                                            |
+| `UI_TARS_PORT`                  | `8081`                                 | `llama-server` listen port (`QSS_VLM_PORT` alias)                      |
+| `QSS_DATA_HOME`                 | `~/.local/share/RevengeQuickSwitcher`  | QA artifacts + logs                                                    |
+| `QSS_DEBUG_DIR`                 | (off)                                  | Save before/after profile UI dumps + PNGs when debugging settings path |
+| `STAYTURGID_PRESENCE_QUIET`     | `1` in `just qa`                       | Skip torch/consent; keep inversion + lease                             |
+| `DEVICE_SCREEN_CONTROL_PROJECT` | `RevengeQuickSwitcher`                 | DSCL v1 project slug (set by `just qa`)                                |
 
 Server log: `~/Library/Logs/ui-tars/server.log` ([PATHS.md](PATHS.md))
 
@@ -183,15 +183,15 @@ Server log: `~/Library/Logs/ui-tars/server.log` ([PATHS.md](PATHS.md))
 
 Defined in `scripts/ui_tars_local.py` → `CHECK_PROMPTS`. Each check expects **JSON only** in the model reply.
 
-| Check | Use on Android screenshot |
-|-------|---------------------------|
-| `discord_not_launcher` | After launch / foreground guard — not Niagara, not home screen |
-| `safe_test_channel` | Channel header or `Message #…` shows `#dc-general`, `#dc-games`, `#ogden`, or `#college` |
-| `server_sidebar_visible` | Left column of round server icons visible |
-| `switcher_open` | Top-docked switcher: “Filter servers”, “Close”, jump list |
-| `settings_plugins_path` | User Settings with Revenge → plain “Plugins” row (not About, not Log Out) |
-| `profile_chip` | Profile chip / settings drawer reachable; obstruction id (`quest`, `voice`, `emoji`, …) |
-| `before_type` | About to type in filter/composer — Discord focused, not public chat on wrong server |
+| Check                    | Use on Android screenshot                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------- |
+| `discord_not_launcher`   | After launch / foreground guard — not Niagara, not home screen                           |
+| `safe_test_channel`      | Channel header or `Message #…` shows `#dc-general`, `#dc-games`, `#ogden`, or `#college` |
+| `server_sidebar_visible` | Left column of round server icons visible                                                |
+| `switcher_open`          | Top-docked switcher: “Filter servers”, “Close”, jump list                                |
+| `settings_plugins_path`  | User Settings with Revenge → plain “Plugins” row (not About, not Log Out)                |
+| `profile_chip`           | Profile chip / settings drawer reachable; obstruction id (`quest`, `voice`, `emoji`, …)  |
+| `before_type`            | About to type in filter/composer — Discord focused, not public chat on wrong server      |
 
 Harness call sites (`device_qa_qss.py`):
 
@@ -238,21 +238,21 @@ Failed checks add issues like `vlm_safe_test_channel_failed` and, with strict mo
 
 ### Performance
 
-| Platform | Typical latency per gate |
-|----------|-------------------------|
-| Apple Silicon + Metal (`-ngl 99`) | ~10–20 s |
-| CPU only (`-ngl 0`) | Minutes; often impractical on 16 GB |
+| Platform                          | Typical latency per gate            |
+| --------------------------------- | ----------------------------------- |
+| Apple Silicon + Metal (`-ngl 99`) | ~10–20 s                            |
+| CPU only (`-ngl 0`)               | Minutes; often impractical on 16 GB |
 
-A full `make qa` run with VLM may add **~1–3 minutes** of vision time on top of navigation.
+A full `just qa` run with VLM may add **~1–3 minutes** of vision time on top of navigation.
 
 ### Strict vs permissive mode
 
 ```bash
 # Block when VLM unavailable (recommended for unattended QA)
-QSS_VLM_STRICT=1 make qa
+QSS_VLM_STRICT=1 just qa
 
 # Skip gates if server down (Handsets-only fallback)
-QSS_VLM=0 make qa
+QSS_VLM=0 just qa
 ```
 
 ---
@@ -345,13 +345,13 @@ Screenshot gate needed?
 
 ### Tiered workflow
 
-| Tier | When | Latency | Cost |
-|------|------|---------|------|
-| **Local UI-TARS** | Every routine gate (`discord_not_launcher`, `safe_test_channel`, `switcher_open`, `before_type`) | ~10–90 s/image (Metal) | Free |
-| **Cloud vision** | Local server down; one stuck nav step; local/cloud disagree | ~2–8 s/image | ~$0.01–0.05/image |
-| **Handsets + a11y** | All navigation taps | Sub-second | Free |
+| Tier                | When                                                                                             | Latency                | Cost              |
+| ------------------- | ------------------------------------------------------------------------------------------------ | ---------------------- | ----------------- |
+| **Local UI-TARS**   | Every routine gate (`discord_not_launcher`, `safe_test_channel`, `switcher_open`, `before_type`) | ~10–90 s/image (Metal) | Free              |
+| **Cloud vision**    | Local server down; one stuck nav step; local/cloud disagree                                      | ~2–8 s/image           | ~$0.01–0.05/image |
+| **Handsets + a11y** | All navigation taps                                                                              | Sub-second             | Free              |
 
-**Default run:** local only (`make qa`). Add cloud only when you need it:
+**Default run:** local only (`just qa`). Add cloud only when you need it:
 
 ```bash
 # Stuck on profile → settings → plugins (quest bar, voice UI, dense chrome)
@@ -366,14 +366,14 @@ QSS_VLM=1 QSS_VLM_CLOUD=openai python3 scripts/device_qa_qss.py p7a --guild dcs
 
 Older Haiku / Gemini Flash IDs **404 on current API accounts**. Defaults in `scripts/vlm_cloud.py`:
 
-| Provider | Default model | Notes |
-|----------|---------------|-------|
-| OpenAI | `gpt-4o-mini` | Cheap JSON gates |
-| Anthropic | `claude-haiku-4-5-20251001` | Replaces `claude-3-5-haiku-*` |
-| Google | `gemini-flash-latest` | Alias → current Flash (e.g. `gemini-3.5-flash`); **not** `gemini-2.0-flash` |
-| Escalation | `claude-sonnet-4-6` | Second opinion only (`ambiguous` step) |
+| Provider   | Default model               | Notes                                                                       |
+| ---------- | --------------------------- | --------------------------------------------------------------------------- |
+| OpenAI     | `gpt-4o-mini`               | Cheap JSON gates                                                            |
+| Anthropic  | `claude-haiku-4-5-20251001` | Replaces `claude-3-5-haiku-*`                                               |
+| Google     | `gemini-flash-latest`       | Alias → current Flash (e.g. `gemini-3.5-flash`); **not** `gemini-2.0-flash` |
+| Escalation | `claude-sonnet-4-6`         | Second opinion only (`ambiguous` step)                                      |
 
-Pinned Google models (`gemini-2.0-flash`, `gemini-2.5-flash`) may return *"no longer available to new users"* — prefer `-latest` aliases.
+Pinned Google models (`gemini-2.0-flash`, `gemini-2.5-flash`) may return _"no longer available to new users"_ — prefer `-latest` aliases.
 
 ### API keys (not in git)
 
@@ -403,11 +403,11 @@ Handsets UI dumps list nodes **above and below** the viewport. A label can appea
 
 **July 2026 p7a example — `switcher_open_failed`:**
 
-| Signal | What it showed | Correct read |
-|--------|----------------|--------------|
-| UI dump | `"Plugins"` present, `y=-520`; `Log Out` at `y=2333` | Settings opened **scrolled to bottom** — Plugins not tappable |
-| Local VLM `switcher_open` | `ok:false` — no filter field / Close button | **Correct** — switcher never opened |
-| Harness `wait_until` | Passed because `"Plugins" in ui` | **Bug** — string presence ≠ on-screen row |
+| Signal                    | What it showed                                       | Correct read                                                  |
+| ------------------------- | ---------------------------------------------------- | ------------------------------------------------------------- |
+| UI dump                   | `"Plugins"` present, `y=-520`; `Log Out` at `y=2333` | Settings opened **scrolled to bottom** — Plugins not tappable |
+| Local VLM `switcher_open` | `ok:false` — no filter field / Close button          | **Correct** — switcher never opened                           |
+| Harness `wait_until`      | Passed because `"Plugins" in ui`                     | **Bug** — string presence ≠ on-screen row                     |
 
 **Best practice:** for navigation, trust **positive-y coordinates** (`find_plugins_row`, `settings_scrolled_past_revenge`) over substring checks. Use VLM `settings_plugins_path` or cloud Gemini when you need a **human-readable scroll-position** verdict on a screenshot.
 
@@ -419,23 +419,23 @@ Handsets UI dumps list nodes **above and below** the viewport. A label can appea
 - Keepalive: re-assert every ~45 s
 - On exit: restore saved prefs
 
-Landscape screenshots confuse overlay/switcher gates. Always acquire the screen lease before QA (`make qa` sets `DEVICE_SCREEN_CONTROL_PROJECT=RevengeQuickSwitcher`). Release stale leases after killed runs:
+Landscape screenshots confuse overlay/switcher gates. Always acquire the screen lease before QA (`just qa` sets `DEVICE_SCREEN_CONTROL_PROJECT=RevengeQuickSwitcher`). Release stale leases after killed runs:
 
 ```bash
-make lease-status
+just lease-status
 DEVICE_SCREEN_CONTROL_PROJECT=RevengeQuickSwitcher \
   python3 ~/stayturgid/control/bin/screen_lease.py release p7a
 ```
 
 ### When to escalate cloud (by step)
 
-| Stuck step | Provider | Why |
-|------------|----------|-----|
-| `profile_chip` | Google → Anthropic | Quest bar, voice chrome, bottom-bar obstructions |
-| `switcher_open` | Anthropic → Google | Software overlay / filter field |
-| `settings_plugins_path` | Google | Dense settings lists, scroll position |
-| `safe_test_channel` | OpenAI → Anthropic | Voice vs text channel mis-read |
-| `ambiguous` | Anthropic Sonnet | Local + mini disagree |
+| Stuck step              | Provider           | Why                                              |
+| ----------------------- | ------------------ | ------------------------------------------------ |
+| `profile_chip`          | Google → Anthropic | Quest bar, voice chrome, bottom-bar obstructions |
+| `switcher_open`         | Anthropic → Google | Software overlay / filter field                  |
+| `settings_plugins_path` | Google             | Dense settings lists, scroll position            |
+| `safe_test_channel`     | OpenAI → Anthropic | Voice vs text channel mis-read                   |
+| `ambiguous`             | Anthropic Sonnet   | Local + mini disagree                            |
 
 Failed runs write `cloud_vlm_request.json` + `cloud_vlm_suggested.txt` in the artifact dir with a rerun command.
 
@@ -452,20 +452,20 @@ Failed runs write `cloud_vlm_request.json` + `cloud_vlm_suggested.txt` in the ar
 
 July 2026 p7a findings — navigation failed while local VLM correctly said switcher was closed:
 
-| Blocker | Symptom in UI dump / screenshot | Harness fix |
-|---------|--------------------------------|-------------|
-| **Settings scrolled to bottom** | `Log Out` / `Developer` on-screen; `Plugins` at negative `y` | `scroll_settings_toward_top()` + `tap_plugins_settings()` with on-screen coords |
-| **Active voice call** | `Disconnect`, `Unmute`, `Stream Room`, `Voice call active` | `leave_voice_channel()` — must run even when `Message #dc-general` composer is visible |
-| **Quest / promo bar** | `Quest Bar`, `Watch 3m`, `Unlock 1.2x` over profile chip | `dismiss_quest_overlay()` before profile tap |
-| **Emoji panel** | `Toggle emoji keyboard`, sticker chrome | `dismiss_emoji_panels()` |
-| **Google feedback overlay** | `Send feedback to Google`, `Discard your feedback?` | `dismiss_system_dialogs()` — avoid blind bottom-right coord taps |
-| **Screen-control clearance** | Digital Wellbeing / launcher after lease | `restore_screen=False` + relaunch Discord after session start |
-| **Handsets timeout** | `audit_exception` / ping timeout | Retry; check Handsets on :9010 |
-| **Stale DSCL lease** | `screen_lease_foreign_hold` | `screen_lease.py release <host>` |
-| **Quest bar blocks profile (S24)** | `Quest Bar` + `Watch 3m` over `Danny, Online`; profile tap never opens sheet | Close sponsored video (**top-left X** ~75,210) if present; dismiss **How's Wordle go?** pill via **X** to the right of text (~961,2265 on 1080×2340 — often absent from a11y); then quest **More** (~752,2226); issue `quest_bar_blocks_profile` |
-| **Plugin not installed** | Plugins page: `Oops! Nothing to see here… yet!`, `Install a plugin` | Install QSS on device before QA; issue `qss_plugin_not_installed` (skip `profile_chip` / `switcher_open` VLM — expected false negatives) |
-| **S24 taller viewport** | `find_plugins_row` missed Plugins at y>2280; tap did not wait for Plugins sub-page | Dynamic `max_y` from screen height; `ui_on_plugins_list()` + `tap_text("Plugins")` (Jul 2026) |
-| **DM home on cold start** | `Direct Messages` + DM rows; sidebar visible but no `#dc-general` | Tap named guild (`Danny Clark's server`) before blind sidebar slot probes (s24) |
+| Blocker                            | Symptom in UI dump / screenshot                                                    | Harness fix                                                                                                                                                                                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Settings scrolled to bottom**    | `Log Out` / `Developer` on-screen; `Plugins` at negative `y`                       | `scroll_settings_toward_top()` + `tap_plugins_settings()` with on-screen coords                                                                                                                                                                  |
+| **Active voice call**              | `Disconnect`, `Unmute`, `Stream Room`, `Voice call active`                         | `leave_voice_channel()` — must run even when `Message #dc-general` composer is visible                                                                                                                                                           |
+| **Quest / promo bar**              | `Quest Bar`, `Watch 3m`, `Unlock 1.2x` over profile chip                           | `dismiss_quest_overlay()` before profile tap                                                                                                                                                                                                     |
+| **Emoji panel**                    | `Toggle emoji keyboard`, sticker chrome                                            | `dismiss_emoji_panels()`                                                                                                                                                                                                                         |
+| **Google feedback overlay**        | `Send feedback to Google`, `Discard your feedback?`                                | `dismiss_system_dialogs()` — avoid blind bottom-right coord taps                                                                                                                                                                                 |
+| **Screen-control clearance**       | Digital Wellbeing / launcher after lease                                           | `restore_screen=False` + relaunch Discord after session start                                                                                                                                                                                    |
+| **Handsets timeout**               | `audit_exception` / ping timeout                                                   | Retry; check Handsets on :9010                                                                                                                                                                                                                   |
+| **Stale DSCL lease**               | `screen_lease_foreign_hold`                                                        | `screen_lease.py release <host>`                                                                                                                                                                                                                 |
+| **Quest bar blocks profile (S24)** | `Quest Bar` + `Watch 3m` over `Danny, Online`; profile tap never opens sheet       | Close sponsored video (**top-left X** ~75,210) if present; dismiss **How's Wordle go?** pill via **X** to the right of text (~961,2265 on 1080×2340 — often absent from a11y); then quest **More** (~752,2226); issue `quest_bar_blocks_profile` |
+| **Plugin not installed**           | Plugins page: `Oops! Nothing to see here… yet!`, `Install a plugin`                | Install QSS on device before QA; issue `qss_plugin_not_installed` (skip `profile_chip` / `switcher_open` VLM — expected false negatives)                                                                                                         |
+| **S24 taller viewport**            | `find_plugins_row` missed Plugins at y>2280; tap did not wait for Plugins sub-page | Dynamic `max_y` from screen height; `ui_on_plugins_list()` + `tap_text("Plugins")` (Jul 2026)                                                                                                                                                    |
+| **DM home on cold start**          | `Direct Messages` + DM rows; sidebar visible but no `#dc-general`                  | Tap named guild (`Danny Clark's server`) before blind sidebar slot probes (s24)                                                                                                                                                                  |
 
 Clear these **before** spending cloud credits on obstruction analysis.
 
@@ -480,20 +480,20 @@ Writes `profile_attempt_N_before.{txt,png}` and `_after.*` under `QSS_DEBUG_DIR`
 
 ### Timing budget
 
-| Phase | Cap | Notes |
-|-------|-----|-------|
-| UI `wait_until` | 6–18 s | `UI_POLL=0.25s` — navigation only |
-| Local VLM gate | `QSS_VLM_TIMEOUT` (900 s default) | Not subject to UI caps |
-| Cloud VLM gate | ~120 s HTTP timeout | Typically 2–8 s |
+| Phase           | Cap                               | Notes                             |
+| --------------- | --------------------------------- | --------------------------------- |
+| UI `wait_until` | 6–18 s                            | `UI_POLL=0.25s` — navigation only |
+| Local VLM gate  | `QSS_VLM_TIMEOUT` (900 s default) | Not subject to UI caps            |
+| Cloud VLM gate  | ~120 s HTTP timeout               | Typically 2–8 s                   |
 
-A full `make qa` with local VLM: **~3–8 min** vision time. Adding cloud on 1–2 stuck steps: **+10–20 s**.
+A full `just qa` with local VLM: **~3–8 min** vision time. Adding cloud on 1–2 stuck steps: **+10–20 s**.
 
 ### Screen-control lease (DSCL v1)
 
 QSS shares phones with stayturgid on the same Mac. Before UI work:
 
 ```bash
-make lease-status
+just lease-status
 # or: python3 ~/stayturgid/control/bin/screen_lease.py check p7a
 ```
 
@@ -517,14 +517,14 @@ Failed runs write `cloud_vlm_request.json` in the artifact folder with a provide
 
 ### Which provider when
 
-| Situation | Ask for | Model | Why |
-|-----------|---------|-------|-----|
-| Routine yes/no gates (Discord home, safe channel) | **OpenAI** | `gpt-4o-mini` | Cheapest cloud JSON gates |
-| Local server down | **OpenAI** | `gpt-4o-mini` | Standard cloud fallback |
-| Switcher overlay / jump list visible? | **Anthropic** | `claude-haiku-4-5-20251001` | Strong on mobile software UI |
-| Settings → Plugins scroll position | **Google** | `gemini-flash-latest` | Dense UIs, many controls |
-| Profile chip blocked (quest bar, voice UI) | **Google** or **Anthropic** | `gemini-flash-latest` / Haiku 4.5 | Obstruction ID + bottom bar |
-| Local + cloud disagree (second opinion) | **Anthropic** | `claude-sonnet-4-6` | Higher reasoning; use sparingly |
+| Situation                                         | Ask for                     | Model                             | Why                             |
+| ------------------------------------------------- | --------------------------- | --------------------------------- | ------------------------------- |
+| Routine yes/no gates (Discord home, safe channel) | **OpenAI**                  | `gpt-4o-mini`                     | Cheapest cloud JSON gates       |
+| Local server down                                 | **OpenAI**                  | `gpt-4o-mini`                     | Standard cloud fallback         |
+| Switcher overlay / jump list visible?             | **Anthropic**               | `claude-haiku-4-5-20251001`       | Strong on mobile software UI    |
+| Settings → Plugins scroll position                | **Google**                  | `gemini-flash-latest`             | Dense UIs, many controls        |
+| Profile chip blocked (quest bar, voice UI)        | **Google** or **Anthropic** | `gemini-flash-latest` / Haiku 4.5 | Obstruction ID + bottom bar     |
+| Local + cloud disagree (second opinion)           | **Anthropic**               | `claude-sonnet-4-6`               | Higher reasoning; use sparingly |
 
 **Strategy:** local UI-TARS for bulk gates; **one cloud call per stuck step** with screenshot attached. Multi-provider chain: `QSS_VLM_CLOUD=openai,anthropic,google`.
 
@@ -548,18 +548,18 @@ QSS_VLM=1 QSS_VLM_CLOUD=google,anthropic QSS_VLM_CLOUD_STEP=profile_chip \
   python3 scripts/device_qa_qss.py p7a --guild dcs
 ```
 
-| Env | Default | Notes |
-|-----|---------|-------|
-| `QSS_VLM_CLOUD` | (off) | `openai`, `anthropic`, `google`, or comma-separated chain |
-| `QSS_VLM_CLOUD_STEP` | — | Stuck step id → auto-pick provider (`switcher_open`, `profile_chip`, …) |
-| `OPENAI_API_KEY` | — | [platform.openai.com](https://platform.openai.com/api-keys) |
-| `ANTHROPIC_API_KEY` | — | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
-| `GOOGLE_API_KEY` | — | [aistudio.google.com](https://aistudio.google.com/apikey) |
-| `QSS_VLM_OPENAI_MODEL` | `gpt-4o-mini` | Override OpenAI model |
-| `QSS_VLM_ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | Override Anthropic model |
-| `QSS_VLM_GOOGLE_MODEL` | `gemini-flash-latest` | Override Gemini model |
-| `QSS_SECRETS` | `~/.config/RevengeQuickSwitcher/secrets.env` | Override secrets file path |
-| `DEVICE_SCREEN_CONTROL_PROJECT` | `RevengeQuickSwitcher` | DSCL v1 project slug (set by `make qa`) |
+| Env                             | Default                                      | Notes                                                                   |
+| ------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
+| `QSS_VLM_CLOUD`                 | (off)                                        | `openai`, `anthropic`, `google`, or comma-separated chain               |
+| `QSS_VLM_CLOUD_STEP`            | —                                            | Stuck step id → auto-pick provider (`switcher_open`, `profile_chip`, …) |
+| `OPENAI_API_KEY`                | —                                            | [platform.openai.com](https://platform.openai.com/api-keys)             |
+| `ANTHROPIC_API_KEY`             | —                                            | [console.anthropic.com](https://console.anthropic.com/settings/keys)    |
+| `GOOGLE_API_KEY`                | —                                            | [aistudio.google.com](https://aistudio.google.com/apikey)               |
+| `QSS_VLM_OPENAI_MODEL`          | `gpt-4o-mini`                                | Override OpenAI model                                                   |
+| `QSS_VLM_ANTHROPIC_MODEL`       | `claude-haiku-4-5-20251001`                  | Override Anthropic model                                                |
+| `QSS_VLM_GOOGLE_MODEL`          | `gemini-flash-latest`                        | Override Gemini model                                                   |
+| `QSS_SECRETS`                   | `~/.config/RevengeQuickSwitcher/secrets.env` | Override secrets file path                                              |
+| `DEVICE_SCREEN_CONTROL_PROJECT` | `RevengeQuickSwitcher`                       | DSCL v1 project slug (set by `just qa`)                                 |
 
 Implementation: `scripts/vlm_cloud.py` (`STEP_RECOMMENDATIONS`, `write_cloud_vlm_request`, `CloudVlmGate`).
 
@@ -567,20 +567,20 @@ Implementation: `scripts/vlm_cloud.py` (`STEP_RECOMMENDATIONS`, `write_cloud_vlm
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| `VLM UI-TARS unavailable` | Server not running | [PATHS.md](PATHS.md): `launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.ui-tars` |
-| Server starts then dies | OOM or sandbox killed child | Use Metal on Mac; lower `UI_TARS_CTX`; close other apps; check log |
-| `curl: connection refused` on :8081 | Stale pid / crash / service stopped | `launchctl kickstart -k …/homebrew.mxcl.ui-tars`; see log |
-| Inference timeout | CPU-only or huge image | `QSS_VLM_NGL=99`, lower `QSS_VLM_MAX_WIDTH`, raise `QSS_VLM_TIMEOUT` |
-| `unparseable_response` | Model replied with prose | Tighten prompt: “Reply JSON only”; check raw in `report.json` → `vlm.checks` |
-| Low confidence false negative | Dark theme / unusual layout | Read `notes` in VLM JSON; adjust prompt or retake after UI settle |
-| `switcher_open_failed` + settings visible | Plugins offscreen (scroll) | Fix harness scroll; optional `settings_plugins_path` cloud gate |
-| `vlm_*_failed` local + cloud agree | Same PNG, both `ok:false` | Device/nav bug, not model — read UI dump + `notes` |
-| Gates pass but wrong channel | Model error | **Never rely on VLM alone** — keep a11y allowlists in harness code |
-| Cloud API 404 on model | Retired model id | Use defaults in `vlm_cloud.py` or `-latest` aliases |
-| Landscape / rotated UI | Switcher mis-docked in screenshot | Portrait lock is automatic in `ScreenControlSession` |
-| `screen_lease_foreign_hold` | Another project on glass | `make lease-status`; wait or use another device |
+| Symptom                                   | Likely cause                        | Fix                                                                               |
+| ----------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| `VLM UI-TARS unavailable`                 | Server not running                  | [PATHS.md](PATHS.md): `launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.ui-tars` |
+| Server starts then dies                   | OOM or sandbox killed child         | Use Metal on Mac; lower `UI_TARS_CTX`; close other apps; check log                |
+| `curl: connection refused` on :8081       | Stale pid / crash / service stopped | `launchctl kickstart -k …/homebrew.mxcl.ui-tars`; see log                         |
+| Inference timeout                         | CPU-only or huge image              | `QSS_VLM_NGL=99`, lower `QSS_VLM_MAX_WIDTH`, raise `QSS_VLM_TIMEOUT`              |
+| `unparseable_response`                    | Model replied with prose            | Tighten prompt: “Reply JSON only”; check raw in `report.json` → `vlm.checks`      |
+| Low confidence false negative             | Dark theme / unusual layout         | Read `notes` in VLM JSON; adjust prompt or retake after UI settle                 |
+| `switcher_open_failed` + settings visible | Plugins offscreen (scroll)          | Fix harness scroll; optional `settings_plugins_path` cloud gate                   |
+| `vlm_*_failed` local + cloud agree        | Same PNG, both `ok:false`           | Device/nav bug, not model — read UI dump + `notes`                                |
+| Gates pass but wrong channel              | Model error                         | **Never rely on VLM alone** — keep a11y allowlists in harness code                |
+| Cloud API 404 on model                    | Retired model id                    | Use defaults in `vlm_cloud.py` or `-latest` aliases                               |
+| Landscape / rotated UI                    | Switcher mis-docked in screenshot   | Portrait lock is automatic in `ScreenControlSession`                              |
+| `screen_lease_foreign_hold`               | Another project on glass            | `just lease-status`; wait or use another device                                   |
 
 Server log:
 
@@ -592,17 +592,17 @@ tail -f ~/Library/Logs/ui-tars/server.log
 
 ## Files reference
 
-| Path | Role |
-|------|------|
-| `scripts/vlm_install.sh` | Brew + Hugging Face download |
-| `scripts/vlm_migrate_paths.sh` | Move data out of `~/.config/stayturgid/` |
-| `scripts/vlm_service.sh` | Write plist + `launchctl bootstrap` (install only) |
-| `PATHS.md` | Directory layout + standard `launchctl` commands |
-| `scripts/ui_tars_local.py` | `VlmGate`, prompts, downscale, HTTP client |
-| `scripts/vlm_cloud.py` | Cloud vision (OpenAI / Anthropic / Google) + step recommendations |
-| `scripts/vlm_check.py` | Health smoke test |
-| `scripts/device_qa_qss.py` | QA harness integration |
-| `Makefile` | `vlm-install`, `vlm-check`, `qa` (see PATHS.md for launchctl) |
+| Path                           | Role                                                              |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `scripts/vlm_install.sh`       | Brew + Hugging Face download                                      |
+| `scripts/vlm_migrate_paths.sh` | Move data out of `~/.config/stayturgid/`                          |
+| `scripts/vlm_service.sh`       | Write plist + `launchctl bootstrap` (install only)                |
+| `PATHS.md`                     | Directory layout + standard `launchctl` commands                  |
+| `scripts/ui_tars_local.py`     | `VlmGate`, prompts, downscale, HTTP client                        |
+| `scripts/vlm_cloud.py`         | Cloud vision (OpenAI / Anthropic / Google) + step recommendations |
+| `scripts/vlm_check.py`         | Health smoke test                                                 |
+| `scripts/device_qa_qss.py`     | QA harness integration                                            |
+| `justfile`                     | `vlm-install`, `vlm-check`, `qa` (see PATHS.md for launchctl)     |
 
 Model weights (not in git):
 

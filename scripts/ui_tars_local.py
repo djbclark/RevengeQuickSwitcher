@@ -10,6 +10,7 @@ Env:
   QSS_VLM_THREADS=4     — passed to ui_tars_server.sh
   QSS_VLM_MAX_WIDTH=720 — downscale screenshots before VLM
 """
+
 from __future__ import annotations
 
 import base64
@@ -299,8 +300,7 @@ class VlmGate:
             note = detail.get("parsed", {}) or {}
             notes = note.get("notes", detail.get("reason", ""))
             print(
-                "VLM BLOCK %s: %s (%.1fs)"
-                % (tag, notes, detail.get("elapsed_s", 0)),
+                "VLM BLOCK %s: %s (%.1fs)" % (tag, notes, detail.get("elapsed_s", 0)),
                 flush=True,
             )
         return ok

@@ -3,32 +3,32 @@
 > **Status:** proposal, 2026-07-19. Supersedes the D1 unblock approaches in
 > [OPTIONS.md](OPTIONS.md) Track D if adopted. The v1 harness
 > (`scripts/device_qa_qss.py` + stayturgid/Handsets) is considered a dead end
-> for *driving* the UI; parts of it are reused (see "What we keep").
+> for _driving_ the UI; parts of it are reused (see "What we keep").
 
 ## Diagnosis — why v1 can't touch the right places
 
 The failures (voice-overlay hang, off-screen bounds, taps that "succeed" but do
 nothing, coord taps that miss) all share one root cause:
 
-**Targeting is open-loop.** The harness decides *where* to tap from Handsets
+**Targeting is open-loop.** The harness decides _where_ to tap from Handsets
 accessibility dumps, and Discord is a React Native app whose custom surfaces
 (voice overlay, sheets, modals) expose missing, stale, or off-screen
-accessibility nodes. Vision (OCR gate, VLM) is only used to *verify after the
-fact* — it never *aims*. So the system can see, but it taps blind, and when the
+accessibility nodes. Vision (OCR gate, VLM) is only used to _verify after the
+fact_ — it never _aims_. So the system can see, but it taps blind, and when the
 dump lies there is no recovery: `tap_text` waits for a node that will never
 appear (the `leave_voice_channel` hang).
 
 Secondary problems:
 
-| Problem | Consequence |
-|---------|-------------|
-| AI (cloud VLM) sits inside the control loop | 2–8s per gate, non-deterministic pass/fail, flaky runs |
-| Asserts read the screen for things the app already knows | Screenshot+OCR to detect "jump happened" when the plugin logs `navigateToGuild openUrl ok` internally |
-| Steps can block forever | `tap_text` timeouts compound into the 600s hang |
-| Everything is a tap | Even navigation that Android can do directly (deep links, keyevents, force-stop) goes through the fragile UI path |
+| Problem                                                  | Consequence                                                                                                       |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| AI (cloud VLM) sits inside the control loop              | 2–8s per gate, non-deterministic pass/fail, flaky runs                                                            |
+| Asserts read the screen for things the app already knows | Screenshot+OCR to detect "jump happened" when the plugin logs `navigateToGuild openUrl ok` internally             |
+| Steps can block forever                                  | `tap_text` timeouts compound into the 600s hang                                                                   |
+| Everything is a tap                                      | Even navigation that Android can do directly (deep links, keyevents, force-stop) goes through the fragile UI path |
 
 On the "AI vs OCR designed for QA" hypothesis: partially right, with a twist.
-Tesseract is *already* good enough — the miss is that we only use its
+Tesseract is _already_ good enough — the miss is that we only use its
 **boolean output** (is this text present?) and never its **geometry** (word
 bounding boxes → tap coordinates). Deterministic OCR-as-locator + template
 matching is exactly what QA-grade vision automation (SikuliX/Airtest lineage)
@@ -40,7 +40,7 @@ does, and none of it needs a model in the loop.
    links, keyevents, app lifecycle commands.
 2. **Ground truth from inside the app, not from pixels.** The plugin can tell
    the harness what happened; the screen is a last resort.
-3. **When we must tap, aim closed-loop:** screenshot → locate on *that*
+3. **When we must tap, aim closed-loop:** screenshot → locate on _that_
    screenshot → tap → re-screenshot → confirm state changed → retry ladder.
 4. **No AI in the control loop.** VLM is demoted to offline triage of failure
    artifacts. Every runtime decision is deterministic.
@@ -58,7 +58,7 @@ proven in another project):
 
 - Stable RPC to the device (hierarchy, screenshots, input injection, app
   lifecycle) instead of ad-hoc `adb exec-out` + Handsets dumps.
-- UIAutomator-level hierarchy from the *system* side — often sees what
+- UIAutomator-level hierarchy from the _system_ side — often sees what
   Handsets' dump misses, and system surfaces (notification shade, permission
   dialogs) always have real nodes.
 - Screenshots without the `screencap -p` corruption dance.
@@ -72,12 +72,12 @@ Disconnect control that Handsets couldn't find.
 
 ### Layer 1 — Navigation without taps
 
-| Need | v1 (taps) | v2 (no taps) |
-|------|-----------|--------------|
-| Go to a guild/channel | Sidebar scroll + tap ladder | `am start -a android.intent.action.VIEW -d "https://discord.com/channels/<guild>/<channel>"` — the exact path the plugin itself uses and that is device-proven |
-| Reset app state | Navigate back N times | `am force-stop app.revenge` + relaunch + deep link |
+| Need                                 | v1 (taps)                      | v2 (no taps)                                                                                                                                                                                                                  |
+| ------------------------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Go to a guild/channel                | Sidebar scroll + tap ladder    | `am start -a android.intent.action.VIEW -d "https://discord.com/channels/<guild>/<channel>"` — the exact path the plugin itself uses and that is device-proven                                                                |
+| Reset app state                      | Navigate back N times          | `am force-stop app.revenge` + relaunch + deep link                                                                                                                                                                            |
 | Leave voice channel (the v1 blocker) | `tap_text("Show Chat")` → hang | (a) deep-link to a text channel, then disconnect via the **ongoing-call notification action button** in the shade (system UI, real a11y nodes, reachable via FireRPA); (b) fallback: KEYCODE ladder with postcondition checks |
-| Dismiss transient UI | Blind taps | KEYCODE_BACK with a screen-classifier postcondition after each press |
+| Dismiss transient UI                 | Blind taps                     | KEYCODE_BACK with a screen-classifier postcondition after each press                                                                                                                                                          |
 
 This alone removes most of the surface where v1 failed: if we never tap the
 sidebar, its off-screen-bounds problem is irrelevant.
@@ -117,7 +117,7 @@ get a **locator ladder**, each rung verified against a fresh screenshot:
 4. **Fail** with artifacts (screenshot + hierarchy + OCR TSV) — never a blind
    coordinate tap from a config file.
 
-After *every* tap: re-screenshot and check the expected state transition via
+After _every_ tap: re-screenshot and check the expected state transition via
 the screen classifier (below). A tap whose postcondition fails is retried once
 down the ladder, then the step fails cleanly.
 
@@ -128,9 +128,9 @@ down the ladder, then the step fails cleanly.
   OCR fingerprint → named screen state. Run it as the pre/postcondition of
   every step.
 - Rebuild the flow as explicit steps: `Step(name, precondition, action,
-  postcondition, deadline, recovery)`. A pytest scenario is a list of steps;
-  the runner enforces deadlines with hard timeouts so *no step can hang the
-  suite* (the class of bug that killed v1 runs becomes structurally
+postcondition, deadline, recovery)`. A pytest scenario is a list of steps;
+  the runner enforces deadlines with hard timeouts so _no step can hang the
+  suite_ (the class of bug that killed v1 runs becomes structurally
   impossible).
 - Report stays `report.json` + PNG artifacts per step, same layout as v1.
 
@@ -147,7 +147,7 @@ env becomes triage-only.
   DM-thread block, allowlisted typing only (Filter field, install URL),
   settings-path-first (slash only behind `QSS_ALLOW_SLASH=1`). Typing now also
   requires the screen classifier to positively identify an allowlisted input
-  surface *from the current screenshot* before injection.
+  surface _from the current screenshot_ before injection.
 - `scripts/ocr_gate.py` check patterns (become the screen classifier).
 - Artifact layout (`artifacts/qss-qa/<date>/<device>/`), `report.json` shape.
 - The device lessons table in OPTIONS.md (bounds checks, half-screen scrolls)
@@ -156,11 +156,13 @@ env becomes triage-only.
 ## Phases
 
 **Phase 0 — Spike (½–1 day, kill-or-commit):**
+
 1. FireRPA agent on the s24; hierarchy + tap + screenshot round-trip.
 2. Reproduce the v1 killer: device parked in the Stream Room voice overlay.
    Prove **any** of: (a) FireRPA hierarchy exposes Disconnect; (b) notification
    shade action disconnects; (c) deep-link nav works while the overlay is up.
 3. OCR word-box POC: locate and tap "Filter servers" purely from a screenshot.
+
 - **Kill criteria:** FireRPA won't run on this device, or none of 2(a–c)
   works. Then fall back to the same architecture on plain adb (uiautomator
   dump + input tap) — the layers above don't actually require FireRPA, it's
@@ -182,7 +184,7 @@ FireRPA transport binding, deep-link nav actions, screen classifier port, and
 the ported `wait_discord_ready` / switcher scenarios asserting logcat-first.
 
 **Phase 3 — A1 as code:** encode the TESTING.md device checklist as pytest
-scenarios; `make qa` runs it end-to-end; v1 `device_qa_qss.py` is archived
+scenarios; `just qa` runs it end-to-end; v1 `device_qa_qss.py` is archived
 (not deleted) once v2 passes A1 twice consecutively.
 
 ## Open questions
@@ -195,4 +197,4 @@ scenarios; `make qa` runs it end-to-end; v1 `device_qa_qss.py` is archived
    Phase 0 item 3 before committing.
 4. Deep links while the app is cold vs warm: does `am start -d` route
    correctly from a killed state? (v1 evidence says relaunch reconnects to
-   voice — the deep link may need to land *after* `wait_discord_ready`.)
+   voice — the deep link may need to land _after_ `wait_discord_ready`.)

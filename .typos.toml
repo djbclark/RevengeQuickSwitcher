@@ -1,0 +1,10 @@
+[files]
+extend-exclude = ["dist/", "node_modules/", "package-lock.json", "*.lock"]
+
+[default.extend-words]
+# carried from stayturgid where relevant
+PN = "PN"
+PNG = "PNG"
+lamda = "lamda"
+unparseable = "unparseable"
+mis = "mis"

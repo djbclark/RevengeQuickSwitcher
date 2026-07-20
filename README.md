@@ -6,15 +6,15 @@ A high-performance server navigation utility built natively for the **Revenge** 
 
 ## Documentation
 
-| Document | Purpose |
-|----------|---------|
-| [HANDOFF.md](HANDOFF.md) | Maintainer / AI cold-start — current state, nav invariants, gotchas |
-| [HACKING.md](HACKING.md) | Developer setup, Hermes/IIFE constraints, debug loop |
-| [OPTIONS.md](OPTIONS.md) | Open work menu (reference IDs like `A1`, `C4`) |
-| [TESTING.md](TESTING.md) | Local `make verify` + Revenge device checklist |
-| [VLM.md](VLM.md) | Local UI-TARS-1.5-7B vision gates for Android screenshots |
-| [PATHS.md](PATHS.md) | Runtime directories, `launchctl` commands, AI ops |
-| [CHANGELOG.md](CHANGELOG.md) | Release notes and semver policy |
+| Document                         | Purpose                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| [HANDOFF.md](HANDOFF.md)         | Maintainer / AI cold-start — current state, nav invariants, gotchas       |
+| [HACKING.md](HACKING.md)         | Developer setup, Hermes/IIFE constraints, debug loop                      |
+| [OPTIONS.md](OPTIONS.md)         | Open work menu (reference IDs like `A1`, `C4`)                            |
+| [TESTING.md](TESTING.md)         | Local `just verify` + Revenge device checklist                            |
+| [VLM.md](VLM.md)                 | Local UI-TARS-1.5-7B vision gates for Android screenshots                 |
+| [PATHS.md](PATHS.md)             | Runtime directories, `launchctl` commands, AI ops                         |
+| [CHANGELOG.md](CHANGELOG.md)     | Release notes and semver policy                                           |
 | [.cursor/rules/](.cursor/rules/) | Cursor agent rules (`.mdc`) — persistent AI instructions; read on handoff |
 
 ---
@@ -67,7 +67,7 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 1. **Safe Mode** — Revenge Settings → disable Safe Mode if enabled (plugins do not start in safe mode).
 2. **Developer settings** — Revenge Settings → Developer (may require tapping the version repeatedly). Useful: debugger URL, React DevTools, Eval command.
 3. **`/debug`** — built-in Revenge command; prints client/Revenge/React versions to chat.
-4. **In-plugin debug buffer (easiest to share)** — open Quick Server Switcher settings → **Copy debug logs**, then paste into chat/GitHub. The paste is a single line (` | `-separated) because Discord mobile clipboard often drops newlines. Logs persist across restarts and are stamped with the plugin version.
+4. **In-plugin debug buffer (easiest to share)** — open Quick Server Switcher settings → **Copy debug logs**, then paste into chat/GitHub. The paste is a single line (`|`-separated) because Discord mobile clipboard often drops newlines. Logs persist across restarts and are stamped with the plugin version.
 5. **Logcat (Android)** — with USB debugging: `adb logcat | grep -iE 'revenge|vendetta|Quick|plugin|hermes'`. Plugin start errors are logged as `Plugin <id> errored whilst loading`. Switcher lines are tagged `[QuickSwitcher]`.
 6. **Plugin info sheet** — the `i` icon → Refetch after a main-branch update; Delete + reinstall if the hash is stuck.
 
@@ -89,19 +89,19 @@ Full setup, Hermes constraints, and device debug loop: **[HACKING.md](HACKING.md
 ```bash
 git clone https://github.com/djbclark/RevengeQuickSwitcher.git
 cd RevengeQuickSwitcher
-make install   # or: npm install
+just install   # or: npm install
 ```
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `make build` | Bundle `src/` to `dist/index.js` via esbuild |
-| `make test` | Run unit tests (96) |
-| `make typecheck` | Type-check all `src/` modules (including `index.tsx`) |
-| `make verify` | Run typecheck, tests, build, and manifest validation |
-| `make clean` | Remove `node_modules/` (keeps committed `dist/`) |
-| `make clean-all` | Remove `dist/` and `node_modules/` |
+| Command          | Description                                           |
+| ---------------- | ----------------------------------------------------- |
+| `just build`     | Bundle `src/` to `dist/index.js` via esbuild          |
+| `just test`      | Run unit tests (96)                                   |
+| `just typecheck` | Type-check all `src/` modules (including `index.tsx`) |
+| `just verify`    | Run typecheck, tests, build, and manifest validation  |
+| `just clean`     | Remove `node_modules/` (keeps committed `dist/`)      |
+| `just clean-all` | Remove `dist/` and `node_modules/`                    |
 
 Or use npm directly:
 
@@ -141,7 +141,7 @@ TESTING.md           # Local + device test plan
 CHANGELOG.md         # Release notes
 ```
 
-After changing source files, run `make build` (or `make verify`) and commit the updated `dist/index.js` so the plugin loads correctly from GitHub.
+After changing source files, run `just build` (or `just verify`) and commit the updated `dist/index.js` so the plugin loads correctly from GitHub.
 
 ---
 
@@ -161,12 +161,12 @@ See **[OPTIONS.md](OPTIONS.md)** for open work (and closed IDs) and **[CHANGELOG
 
 ## Testing
 
-See **[TESTING.md](TESTING.md)** for local verification (`make verify`) and the full Revenge device test plan.
+See **[TESTING.md](TESTING.md)** for local verification (`just verify`) and the full Revenge device test plan.
 
 Quick pre-release check:
 
 ```bash
-make verify
+just verify
 ```
 
 Then walk the checklist at the bottom of `TESTING.md` on your device (**OPTIONS A1**).
@@ -176,7 +176,7 @@ Then walk the checklist at the bottom of `TESTING.md` on your device (**OPTIONS 
 ## Contributing
 
 1. Fork the repo and create a branch.
-2. Make changes in `src/`, run `make verify`.
+2. Make changes in `src/`, run `just verify`.
 3. Update docs (`CHANGELOG.md` / `OPTIONS.md` / handoff notes) when behavior changes.
 4. Open a pull request with a clear description of the change.
 

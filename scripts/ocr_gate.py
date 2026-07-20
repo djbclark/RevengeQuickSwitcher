@@ -5,10 +5,9 @@ the VLM call is skipped entirely.
 
 Requires: brew install tesseract && pip3 install pytesseract
 """
+
 from __future__ import annotations
 
-import os
-import re
 import time
 from pathlib import Path
 from typing import Any
@@ -61,9 +60,19 @@ def _ocr_contains(text: str, keywords: list[str], *, min_match: int = 1) -> list
 CHECK_PATTERNS: dict[str, dict[str, Any]] = {
     "discord_not_launcher": {
         "positive": (
-            "Discord", "Revenge", "Quick Server Switcher", "Server",
-            "Plugins", "Settings", "dc-general", "ogden", "dc-games",
-            "college", "Messages", "Channel", "Online",
+            "Discord",
+            "Revenge",
+            "Quick Server Switcher",
+            "Server",
+            "Plugins",
+            "Settings",
+            "dc-general",
+            "ogden",
+            "dc-games",
+            "college",
+            "Messages",
+            "Channel",
+            "Online",
         ),
         "negative": ("Niagara", "Launcher", "Android System"),
         "min_match": 2,

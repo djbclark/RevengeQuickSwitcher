@@ -6,7 +6,7 @@
 > REVIEW-CONTINUATION.md. Read that file first, pick up at the first unchecked
 > item under 'Review plan', keep this file updated as you go, and commit a
 > checkpoint after each batch of fixes. Focus on the non-QA plugin code
-> (src/*.ts, src/*.tsx); ignore scripts/ device-QA automation (build.mjs /
+> (src/_.ts, src/_.tsx); ignore scripts/ device-QA automation (build.mjs /
 > check-manifest.mjs ARE in scope). Verify with `npm run verify` before each
 > commit."
 
@@ -23,8 +23,8 @@
 ## Review plan / progress
 
 - [x] **Checkpoint 1 (commit 82355bd) — repo hygiene:** stray `tsc` emit
-  (`src/*.js`) shadowed sources and broke 2 test files. Deleted, gitignored
-  `src/*.js`, `noEmit: true` in tsconfig.json. 96 tests green.
+      (`src/*.js`) shadowed sources and broke 2 test files. Deleted, gitignored
+      `src/*.js`, `noEmit: true` in tsconfig.json. 96 tests green.
 - [x] Review `src/utils.ts` — clean; added `truncateForDisplay`, clamped pick-list header.
 - [x] Review `src/aliases.ts`, `src/excludes.ts`, `src/recents.ts` — clean, no changes.
 - [x] Review `src/command.ts` — fixed nav-failure handling + no-guilds return (see findings).
@@ -32,15 +32,15 @@
 - [x] Review `src/sidebar.ts` — clean, no changes.
 - [x] Review `src/sheets.tsx` — theme-aware colors, pager clamp, NFKC filter.
 - [x] Review `src/index.tsx` — removed sendMessage fallback, wired nav boolean,
-  clamped sheet title query, version fallback bump.
+      clamped sheet title query, version fallback bump.
 - [x] Review `scripts/build.mjs` + `scripts/check-manifest.mjs` — build now syncs
-  manifest.version from package.json; check enforces manifest/package version match.
+      manifest.version from package.json; check enforces manifest/package version match.
 - [x] Regression tests added (96 → 102), CHANGELOG 4.5.10 entry, version bump.
 - [x] **Checkpoint 2** — all of the above committed, `npm run verify` green.
 - [x] **Checkpoint 3** — optional polish: `unwrapArgValue` depth cap (cyclic arg
-  guard, with test), `resolveSwitchRow` fallback uses theme color. 103 tests.
-  Deliberately NOT changed: digit-only guild names (≥5 digits) can't be excluded
-  by name — they parse as id rules, which is the documented excludes format.
+      guard, with test), `resolveSwitchRow` fallback uses theme color. 103 tests.
+      Deliberately NOT changed: digit-only guild names (≥5 digits) can't be excluded
+      by name — they parse as id rules, which is the documented excludes format.
 
 ## Findings log
 
@@ -71,4 +71,4 @@
 npm run verify   # typecheck + 103 tests + build + manifest check — all green as of ckpt 3
 ```
 
-## Status: review COMPLETE (checkpoints 1–3 committed). Nothing left open.
+## Status: review COMPLETE (checkpoints 1–3 committed). Nothing left open

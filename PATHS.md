@@ -61,18 +61,18 @@ scripts/vlm_service.sh install
 
 Shared local vision server — usable by any project, not branded after QSS or stayturgid.
 
-| What | Default path | Override env |
-|------|----------------|--------------|
-| Home | `~/.local/share/ui-tars/` | `UI_TARS_HOME` |
-| Model weights (GGUF + mmproj) | `~/.local/share/ui-tars/models/1.5-7b/` | `UI_TARS_MODEL_DIR` |
-| Server working dir / manual pid | `~/.local/share/ui-tars/server/` | `UI_TARS_PID_FILE` |
-| Server log (macOS) | `~/Library/Logs/ui-tars/server.log` | `UI_TARS_LOG` |
-| HTTP health | `http://127.0.0.1:8081/health` | `UI_TARS_PORT` or `QSS_VLM_PORT` |
-| `llama-server` binary | `$(brew --prefix llama.cpp)/bin/llama-server` | `UI_TARS_LLAMA_SERVER` |
-| LaunchAgent label | `homebrew.mxcl.ui-tars` | — |
-| LaunchAgent plist | `~/Library/LaunchAgents/homebrew.mxcl.ui-tars.plist` | — |
-| Install script | `RevengeQuickSwitcher/scripts/vlm_install.sh` | — |
-| Run script (launchd entry) | `RevengeQuickSwitcher/scripts/ui_tars_server_run.sh` | — |
+| What                            | Default path                                         | Override env                     |
+| ------------------------------- | ---------------------------------------------------- | -------------------------------- |
+| Home                            | `~/.local/share/ui-tars/`                            | `UI_TARS_HOME`                   |
+| Model weights (GGUF + mmproj)   | `~/.local/share/ui-tars/models/1.5-7b/`              | `UI_TARS_MODEL_DIR`              |
+| Server working dir / manual pid | `~/.local/share/ui-tars/server/`                     | `UI_TARS_PID_FILE`               |
+| Server log (macOS)              | `~/Library/Logs/ui-tars/server.log`                  | `UI_TARS_LOG`                    |
+| HTTP health                     | `http://127.0.0.1:8081/health`                       | `UI_TARS_PORT` or `QSS_VLM_PORT` |
+| `llama-server` binary           | `$(brew --prefix llama.cpp)/bin/llama-server`        | `UI_TARS_LLAMA_SERVER`           |
+| LaunchAgent label               | `homebrew.mxcl.ui-tars`                              | —                                |
+| LaunchAgent plist               | `~/Library/LaunchAgents/homebrew.mxcl.ui-tars.plist` | —                                |
+| Install script                  | `RevengeQuickSwitcher/scripts/vlm_install.sh`        | —                                |
+| Run script (launchd entry)      | `RevengeQuickSwitcher/scripts/ui_tars_server_run.sh` | —                                |
 
 Model files (after `scripts/vlm_install.sh`):
 
@@ -92,12 +92,12 @@ One-time migration from old `~/.config/stayturgid/models/ui-tars-*` layout:
 
 ## RevengeQuickSwitcher (this project)
 
-| What | Default path | Override env |
-|------|----------------|--------------|
-| Data home | `~/.local/share/RevengeQuickSwitcher/` | `QSS_DATA_HOME` |
-| QA artifacts | `~/.local/share/RevengeQuickSwitcher/artifacts/qss-qa/<date>/<host>/` | — |
-| QA log | `~/.local/share/RevengeQuickSwitcher/logs/qss-qa.log` | — |
-| Cloud VLM API keys | `~/.config/RevengeQuickSwitcher/secrets.env` (`chmod 600`) | `QSS_SECRETS` |
+| What               | Default path                                                          | Override env    |
+| ------------------ | --------------------------------------------------------------------- | --------------- |
+| Data home          | `~/.local/share/RevengeQuickSwitcher/`                                | `QSS_DATA_HOME` |
+| QA artifacts       | `~/.local/share/RevengeQuickSwitcher/artifacts/qss-qa/<date>/<host>/` | —               |
+| QA log             | `~/.local/share/RevengeQuickSwitcher/logs/qss-qa.log`                 | —               |
+| Cloud VLM API keys | `~/.config/RevengeQuickSwitcher/secrets.env` (`chmod 600`)            | `QSS_SECRETS`   |
 
 Copy `secrets.env.example` → `~/.config/RevengeQuickSwitcher/secrets.env`. **Never commit** real keys. Loaded automatically by `scripts/load_qss_secrets.py` when running QA or `vlm_cloud.py`.
 
@@ -109,9 +109,9 @@ VLM gate JSON from QA runs: `…/artifacts/qss-qa/<date>/<host>/vlm/`.
 
 ## stayturgid (separate project — read only)
 
-| What | Path |
-|------|------|
-| Fleet device map | `~/.config/stayturgid/devices.conf` |
+| What                  | Path                                   |
+| --------------------- | -------------------------------------- |
+| Fleet device map      | `~/.config/stayturgid/devices.conf`    |
 | stayturgid logs/state | `~/.config/stayturgid/logs/`, `state/` |
 
 QSS harness reads `devices.conf` via `STAYTURGID_DEVICES_CONF` but does **not** write QA artifacts there.
@@ -182,11 +182,11 @@ Healthy = HTTP 200 from `/health` and launchd `state = running`.
 
 1. `scripts/vlm_smoke.sh` — stop → start → health (requires launchctl on the Mac, not a sandbox).
 2. `tail -50 ~/Library/Logs/ui-tars/server.log` — OOM, missing model, port conflict.
-2. Confirm weights exist under `~/.local/share/ui-tars/models/1.5-7b/`. If not: `scripts/vlm_install.sh`.
-3. `launchctl kickstart -k "gui/$(id -u)/homebrew.mxcl.ui-tars"`.
-4. If plist missing or repo moved: `scripts/vlm_service.sh install` (rewrites plist paths).
-5. Port conflict: `lsof -i :8081` — stop other listener or set `UI_TARS_PORT` and reinstall.
-6. `brew install llama.cpp` if `llama-server` missing.
+3. Confirm weights exist under `~/.local/share/ui-tars/models/1.5-7b/`. If not: `scripts/vlm_install.sh`.
+4. `launchctl kickstart -k "gui/$(id -u)/homebrew.mxcl.ui-tars"`.
+5. If plist missing or repo moved: `scripts/vlm_service.sh install` (rewrites plist paths).
+6. Port conflict: `lsof -i :8081` — stop other listener or set `UI_TARS_PORT` and reinstall.
+7. `brew install llama.cpp` if `llama-server` missing.
 
 ### Bypass vision gates (emergency QA)
 

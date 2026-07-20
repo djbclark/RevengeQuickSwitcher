@@ -9,6 +9,7 @@ at the deadline, records a timeout failure, and moves to recovery/abort.
 Abandoned threads are daemonic; a hung adb call may linger in the background,
 but the runner — and its report — always completes.
 """
+
 from __future__ import annotations
 
 import json

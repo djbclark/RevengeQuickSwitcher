@@ -11,7 +11,7 @@ from step_runner import Step, run_step, run_steps
 # ---- qss_events (mirror of src/qabridge.test.ts) ----
 
 LOGCAT_LINE = (
-    '07-19 22:00:00.000  1234  5678 I ReactNativeJS: '
+    "07-19 22:00:00.000  1234  5678 I ReactNativeJS: "
     'QSSQA|{"v":"4.6.0","msg":"navigateToGuild openUrl ok","args":[{"id":"123"}]}'
 )
 
@@ -41,6 +41,7 @@ def test_find_event_version_pinning():
 
 
 # ---- step_runner ----
+
 
 def test_run_step_success_and_postcondition_failure():
     ok = run_step(Step("ok", action=lambda: None, postcondition=lambda: True))
