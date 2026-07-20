@@ -32,16 +32,16 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-11 (evening).** Released on `main`: **v4.5.9**. **Active QA device:** **s24** (Galaxy S24, USB `RFCX219CHKA`). **QSS plugin:** operator installed on s24 from raw URL (2026-07-10). p7a artifacts archived under `artifacts/qss-qa/p7a-final-archive/` — do not use p7a unless operator asks.
+**As of 2026-07-19 (evening).** Released on `main`: **v4.5.10**. **Active QA device:** **s24** (Galaxy S24, USB `RFCX219CHKA`). **QSS plugin:** operator installed on s24 from raw URL (2026-07-10). p7a artifacts archived under `artifacts/qss-qa/p7a-final-archive/` — do not use p7a unless operator asks.
 
 | Field | Value |
 |-------|-------|
-| Package / manifest version | `4.5.9` |
+| Package / manifest version | `4.5.10` |
 | Display name | Quick Server Switcher |
 | Bundle | Vendetta IIFE, ES2015 target, `__QSS_VERSION__` injected |
-| Unit tests | **96** Vitest tests (`make verify`) |
+| Unit tests | **103** Vitest tests (`make verify`) |
 | Open human gate | **A1** — device QA on Revenge Android (s24) |
-| D1 harness | `scripts/device_qa_qss.py` + `make qa` — **uncommitted changes** on `main` |
+| D1 harness | `scripts/device_qa_qss.py` + `make qa` — committed in `5306fb3` |
 | Latest s24 QA | Partial — `audit_host` starts, reaches `leave_voice_channel`, then hangs (voice overlay) |
 
 **Working navigation (device-proven):**
@@ -62,6 +62,7 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 | 4.5.7 | Harder dismiss before `openUrl` | Still dead taps (leftover overlay) |
 | 4.5.8 | Native `ActionSheet` + `hideActionSheet` then `openUrl` | Jump + taps OK; keyboard covered bottom sheet |
 | 4.5.9 | Restore **top-docked** panel; keep dismiss-then-`openUrl`; no full-screen scrim; Filter not auto-focused | Keyboard-safe; taps OK |
+| 4.5.10 | Code-review fixes (2026-07-19, see `REVIEW-CONTINUATION.md`): failed jumps no longer record recents / false success toast; removed real-`sendMessage` reply fallback; sheet Filter/Close/pager use semantic theme colors (light-theme readable); query truncation; build syncs `manifest.version` + verify enforces it | **Not yet device-tested** — needs A1 pass |
 
 **Known device facts:**
 
@@ -76,11 +77,13 @@ https://raw.githubusercontent.com/djbclark/RevengeQuickSwitcher/main/smoke/
 
 ## Device QA handoff (s24, 2026-07-11)
 
+> **⚠️ BLOCKER:** The full `audit_host()` run hangs in `leave_voice_channel()` when the device is in a voice channel overlay (Stream Room). Handsets `tap_text`/`tap_desc` time out because the voice overlay elements aren't found. See [OPTIONS.md](OPTIONS.md) Track D for unblock approaches. Individual component tests (ScreenControlSession, VLM, OCR, ADB) all pass in isolation.
+
 ### What passed
 
 | Step | Status |
 |------|--------|
-| `make verify` / CI | Green (96 tests) |
+| `make verify` / CI | Green (103 tests) |
 | Revenge package `app.revenge` on s24 | OK |
 | Cloud VLM (Anthropic Haiku 4.5 / Gemini 3.5 Flash) | OK — `QSS_VLM_CLOUD=anthropic,google` |
 | Tesseract OCR gate (`scripts/ocr_gate.py`) | OK — fast pre-check before VLM |
@@ -122,9 +125,7 @@ Full runbook: [VLM.md](VLM.md) (Safety-first automation section).
 1. **Stray `,` DM to kuriboh** — device on DM thread; coord/wordle probes typed into composer with VLM off.
 2. **`//servers` in channel** — slash path typed `/` then `tap_text("/ servers")` doubled the slash; old path could tap Send.
 
-### D1 harness changes (2026-07-11 session)
-
-All changes are **uncommitted** in working tree:
+### D1 harness changes shipped in this commit (`5306fb3`)
 
 | Change | Files |
 |--------|-------|
@@ -158,27 +159,71 @@ adb -s $serial shell settings put global animator_duration_scale 1
 
 Use `restore_screen=False` during QA so session exit does not land on Termux/other prior app.
 
-### Commands for next agent
+### First-hour playbook for the next AI agent
 
 ```bash
-# Verify plugin builds
+# 0. Confirm working tree is clean (should be after 5306fb3)
+git status
+
+# 1. Verify plugin builds + all 103 tests pass
 make verify
 
-# Full QA run (will hit leave_voice_channel hang)
+# 2. Check ADB + device are reachable
+adb devices -l | grep e1q           # S24 should show
+python3 -c "
+import sys; sys.path.insert(0, 'scripts')
+import device_qa_qss as dq
+ok, serial = dq.reachable('s24')
+print('reachable:', ok, 'serial:', serial)
+"
+
+# 3. Run the full QA harness (WILL HANG at leave_voice_channel)
+#    This is the known blocker — see OPTIONS.md for unblock approaches
 QSS_VLM=1 QSS_SAFE_MODE=1 \
   make qa QSS_DEVICE=s24 QSS_GUILD=dcs
 
-# Debug leave_voice_channel — step-by-step
-cd ~/src/RevengeQuickSwitcher
-PYTHONUNBUFFERED=1 python3 -c "
-import sys; sys.path.insert(0, 'scripts')
-import device_qa_qss as dq
-# ... replicate audit_host up to ScreenControlSession,
-# then manually inspect hs.ui() to see what Handsets sees
+# 4. Debug the hang — inspect what Handsets sees during voice overlay
+PYTHONUNBUFFERED=1 timeout 60 python3 -c "
+import sys, os
+sys.path.insert(0, 'scripts')
+os.environ.update(
+    STAYTURGID_PRESENCE_QUIET='1', QSS_VLM='1',
+    QSS_VLM_CLOUD='anthropic,google',
+    DEVICE_SCREEN_CONTROL_PROJECT='RevengeQuickSwitcher',
+    STAYTURGID_SCREEN_PURPOSE='qss-qa',
+    STAYTURGID_SCREEN_LEASE_FORCE='1')
+
+import device_qa_qss as dq, stayturgid.control.lib.screen_control as sc
+import stayturgid.control.lib.ui_driver as uid
+
+with sc.ScreenControlSession('s24', label='QSS QA', restore_screen=False) as s:
+    dq.launch_discord(dq.resolve_device_serial('s24'), 'app.revenge')
+    import time; time.sleep(3)
+    with uid.try_handsets(dq.resolve_device_serial('s24'), 's24') as hs:
+        ui = hs.ui()
+        print(ui)
+        print('---')
+        print('voice disconn btn:', 'Disconnect' in ui)
+        print('show chat btn:', 'Show Chat' in ui)
+        print('unmute in ui:', 'unmute' in ui.lower())
 "
+
+# 5. After fixing the hang, run the full suite:
+QSS_VLM=1 QSS_SAFE_MODE=1 \
+  make qa QSS_DEVICE=s24 QSS_GUILD=dcs QSS_SERVER_NAME='LL/DC'
 ```
 
-**Uncommitted harness work (2026-07-11):** `scripts/device_qa_qss.py`, `scripts/ocr_gate.py` (new), `scripts/vlm_cloud.py`, `OPTIONS.md` — not committed; operator has not requested commit.
+**Key environment variables to know:**
+
+| Env | Purpose | Default |
+|-----|---------|---------|
+| `QSS_VLM` | Enable vision gates (OCR + VLM) | `1` (on) |
+| `QSS_VLM_CLOUD` | Cloud VLM providers, comma-sep | `anthropic,google` |
+| `QSS_SAFE_MODE` | Block typing outside safe channels | `1` (on) |
+| `QSS_DEVICE` | Device alias | `s24` |
+| `QSS_GUILD` | Test guild key | `dcs` |
+| `QSS_SERVER_NAME` | Switcher row to jump | `LL/DC` |
+| `STAYTURGID_SCREEN_LEASE_FORCE` | Steal stale screen leases | `1` in harness |
 
 ---
 
@@ -186,7 +231,7 @@ import device_qa_qss as dq
 
 ```bash
 make install   # once
-make verify    # typecheck + 96 tests + build + manifest hash
+make verify    # typecheck + 103 tests + build + manifest hash + manifest/package version match
 ```
 
 After source edits: commit updated `dist/index.js` + `manifest.json` `hash` (verify rewrites hash). Bump `package.json` + `manifest.json` `version` together; update `CHANGELOG.md`.
@@ -372,10 +417,11 @@ Related lab / automation context (separate repo): [stayturgid](https://github.co
 
 ## Changelog (condensed — see CHANGELOG.md)
 
-- **2026-07-11** — OCR gate (Tesseract) integration; cloud VLM promoted to primary; screenshot validation; voice channel markers; scroll/nav/lease fixes; `leave_voice_channel` still hangs in voice overlay.
+- **2026-07-11 (5306fb3)** — OCR gate (Tesseract) integration; cloud VLM promoted to primary; screenshot validation; voice channel markers; scroll/nav/lease fixes; `leave_voice_channel` still hangs in voice overlay.
 - **2026-07-10** — D1 harness on s24; QSS plugin installed; safety gates (`QSS_SAFE_MODE`, `after_type`); quest bar still blocks profile on some runs; uncommitted harness docs/code.
 - **2026-07-10** — Docs: HANDOFF / HACKING / README index; VLM.md runbook.
 - **4.5.9** — Top-docked switcher above keyboard; keep dismiss-then-`openUrl`.
+- **4.5.10** — Code-review fixes: nav-failure handling, reply safety, light-theme sheet colors, release checks (2026-07-19; details in `REVIEW-CONTINUATION.md` / CHANGELOG).
 - **4.5.8** — Native ActionSheet host (Stealmoji); fixed dead taps.
 - **4.5.6–4.5.7** — `openUrl` jump; dismiss-before-navigate.
 - **4.5.2–4.5.5** — Overlay dismiss iterations; Copy debug logs; version-stamped ring.
@@ -388,7 +434,7 @@ Related lab / automation context (separate repo): [stayturgid](https://github.co
 
 | Track | Summary | Best when… |
 |-------|---------|------------|
-| **A — Device QA** | Close **A1** on v4.5.9; capture Copy debug logs | Operator has Revenge phone |
+| **A — Device QA** | Close **A1** on v4.5.10; capture Copy debug logs | Operator has Revenge phone |
 | **B — Switcher polish** | Pins (**C4**), paging UX, settings entry points | A1 green; sheet path stable |
 | **C — High-risk Metro** | Channel jump (**C2**), folder-aware sort (**C3**) | Explicit ask; expect client churn |
 | **D — Harness** | Unattended `device_qa_qss.py` + Handsets (**D1** Phases 0–3) | Repeatable device regression; Desktop Mac + ADB |
