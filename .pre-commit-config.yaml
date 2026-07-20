@@ -37,7 +37,7 @@ repos:
         entry: biome
         args: [check, --no-errors-on-unmatched]
         language: system
-        files: '^(src/.*\.(ts|tsx)|scripts/.*\.mjs|smoke/index\.js)$'
+        files: '^(src/|scripts/|smoke/).*\.(ts|tsx|js|mjs|cjs|jsx)$'
 
   - repo: local
     hooks:
