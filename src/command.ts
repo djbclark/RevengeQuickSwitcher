@@ -30,14 +30,15 @@ export type ServersCommandDeps = {
 type CommandArg = { name?: string; value?: unknown; type?: number; [key: string]: unknown };
 
 /** Discord/Revenge option values are usually primitives, but clients sometimes nest them. */
-export const unwrapArgValue = (value: unknown): unknown => {
+export const unwrapArgValue = (value: unknown, depth = 0): unknown => {
   if (value == null) return null;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return value;
   }
-  if (typeof value === "object") {
+  // Depth cap guards against pathological self-referencing option objects.
+  if (typeof value === "object" && depth < 8) {
     const record = value as Record<string, unknown>;
-    if ("value" in record) return unwrapArgValue(record.value);
+    if ("value" in record) return unwrapArgValue(record.value, depth + 1);
     if (typeof record.text === "string") return record.text;
     if (typeof record.label === "string") return record.label;
   }

@@ -665,7 +665,7 @@ const resolveSwitchRow = (): React.ComponentType<SwitchRowProps> => {
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Text style={{ color: "#DBDEE1", fontWeight: "600" }}>
+      <Text style={{ color: getSettingsThemeColors().textNormal, fontWeight: "600" }}>
         {label}: {value ? "On" : "Off"} (tap to toggle)
       </Text>
     </Pressable>

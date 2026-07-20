@@ -37,12 +37,10 @@
   manifest.version from package.json; check enforces manifest/package version match.
 - [x] Regression tests added (96 → 102), CHANGELOG 4.5.10 entry, version bump.
 - [x] **Checkpoint 2** — all of the above committed, `npm run verify` green.
-- [ ] Optional remaining (small, deliberately skipped as low-value/risky):
-  - `unwrapArgValue` could infinite-loop on a cyclic `{value: self}` arg (never
-    seen in practice).
-  - Guild names that are all digits (≥5) can't be excluded by name (parsed as id
-    rule) — documented behavior in excludes format.
-  - `resolveSwitchRow` fallback row uses hardcoded `#DBDEE1` (fallback path only).
+- [x] **Checkpoint 3** — optional polish: `unwrapArgValue` depth cap (cyclic arg
+  guard, with test), `resolveSwitchRow` fallback uses theme color. 103 tests.
+  Deliberately NOT changed: digit-only guild names (≥5 digits) can't be excluded
+  by name — they parse as id rules, which is the documented excludes format.
 
 ## Findings log
 
@@ -70,7 +68,7 @@
 ## Verification commands
 
 ```sh
-npm run verify   # typecheck + 102 tests + build + manifest check — all green as of ckpt 2
+npm run verify   # typecheck + 103 tests + build + manifest check — all green as of ckpt 3
 ```
 
-## Status: review COMPLETE. Remaining work is only the optional low-value items above.
+## Status: review COMPLETE (checkpoints 1–3 committed). Nothing left open.

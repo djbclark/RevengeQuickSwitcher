@@ -71,6 +71,14 @@ describe("parseCommandArgs", () => {
   });
 });
 
+describe("unwrapArgValue cycle guard", () => {
+  it("terminates on self-referencing option objects", () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.value = cyclic;
+    expect(() => parseCommandArgs([{ name: "query", value: cyclic }])).not.toThrow();
+  });
+});
+
 describe("executeServersCommand", () => {
   it("shows a toast when no guilds are available", () => {
     const deps = createDeps({ getGuilds: () => [] });
