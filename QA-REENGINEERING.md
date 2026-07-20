@@ -166,8 +166,11 @@ env becomes triage-only.
   dump + input tap) — the layers above don't actually require FireRPA, it's
   just the best transport.
 
-**Phase 1 — QA bridge in the plugin** (small QSS release, e.g. 4.6.0): logcat
-mirror behind `storage.qaBridge`, unit-tested; no behavior change when off.
+**Phase 1 — QA bridge in the plugin** — **DONE, shipped in v4.6.0** (2026-07-19):
+`src/qabridge.ts` (format + parser contract, unit-tested), mirror wired into
+`debugLog` behind `storage.qaBridge` (off by default), settings toggle "QA
+Bridge (mirror debug log to logcat)". Harness greps
+`adb logcat -s ReactNativeJS` for `QSSQA|<json>` lines.
 
 **Phase 2 — Harness core:** new `scripts/qa/` driver implementing layers 1–4;
 port `wait_discord_ready`, guild nav, switcher open/pick/close as step

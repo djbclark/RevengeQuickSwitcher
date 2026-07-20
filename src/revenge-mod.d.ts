@@ -59,6 +59,7 @@ declare module "@revenge-mod/plugin" {
     recentHistorySize?: number;
     excludes?: string;
     hideExcludedFromList?: boolean;
+    qaBridge?: boolean;
   };
 }
 

@@ -20,6 +20,7 @@ import {
 } from "./recents";
 import { createSidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
 import { truncateForDisplay } from "./utils";
+import { formatQaBridgeLine } from "./qabridge";
 import { openSwitcherUi, type SwitcherItem } from "./sheets";
 import { getSettingsThemeColors } from "./theme";
 
@@ -136,7 +137,7 @@ const postCommandReply = (channelId: string | undefined, content: string) => {
 
 /** Injected at build time from package.json; keep fallback in sync when bumping. */
 const PLUGIN_VERSION =
-  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.10";
+  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.6.0";
 
 const ensureStorageDefaults = () => {
   try {
@@ -147,6 +148,7 @@ const ensureStorageDefaults = () => {
     if (storage.recentHistorySize === undefined) storage.recentHistorySize = DEFAULT_RECENT_HISTORY_SIZE;
     if (storage.excludes === undefined) storage.excludes = "";
     if (storage.hideExcludedFromList === undefined) storage.hideExcludedFromList = false;
+    if (storage.qaBridge === undefined) storage.qaBridge = false;
   } catch (error) {
     logger.error?.("Failed to initialize plugin storage", error);
   }
@@ -292,6 +294,12 @@ const copyDebugLogs = () => {
 const debugLog = (message: string, ...args: unknown[]) => {
   try {
     pushDebugRing(message, ...args);
+    try {
+      // QA bridge: mirror to logcat (ReactNativeJS tag) for the device harness.
+      if (storage.qaBridge) console.log(formatQaBridgeLine(PLUGIN_VERSION, message, args));
+    } catch {
+      /* ignore */
+    }
     try {
       if (typeof logger.info === "function") {
         logger.info(`[QuickSwitcher] ${message}`, ...args);
@@ -731,6 +739,15 @@ const plugin: PluginInstance = {
             storage.debugLogging = value;
             showToast(`Debug logging ${value ? "on" : "off"}`);
             if (value) debugLog("debug logging enabled");
+          }}
+        />
+        <FormSwitchRow
+          label="QA Bridge (mirror debug log to logcat)"
+          value={storage.qaBridge ?? false}
+          onValueChange={(value: boolean) => {
+            storage.qaBridge = value;
+            showToast(`QA bridge ${value ? "on" : "off"}`);
+            if (value) debugLog("qa bridge enabled");
           }}
         />
         <FormSwitchRow

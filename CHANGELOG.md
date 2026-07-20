@@ -15,6 +15,10 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 - Docs: add stayturgid-style `HANDOFF.md` / `HACKING.md`; README documentation index; cross-links from OPTIONS/TESTING
 - Docs: reshape `OPTIONS.md` to stayturgid open-work format (tracks, open IDs only, closed summary)
 
+## 4.6.0
+
+- Add **QA Bridge** setting (off by default): mirrors the existing debug-ring lines to `console.log` with a `QSSQA|<json>` prefix so a device harness can assert on structured events via `adb logcat -s ReactNativeJS` instead of screenshots (Phase 1 of [QA-REENGINEERING.md](QA-REENGINEERING.md)). No behavior change when off; no new data logged beyond what the ring already records.
+
 ## 4.5.10
 
 - Fix: a failed jump no longer records the server into recent history or shows a false "Jumped to" success toast (navigation outcome now flows back into the command layer)
