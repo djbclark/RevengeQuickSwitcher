@@ -72,3 +72,24 @@ describe("resolveRecentEntries / formatRecentList", () => {
     expect(formatRecentList([]).content).toContain("No recent jumps yet");
   });
 });
+
+describe("parseRecentIds robustness", () => {
+  it("handles JSON non-arrays, arrays with falsy entries, and blank input", () => {
+    // JSON non-arrays fall through to the newline format: kept as an opaque
+    // string (never matches a real guild id), not an error.
+    expect(parseRecentIds('{"a":1}')).toEqual(['{"a":1}']);
+    // String() runs before the falsy filter, so null survives as "null" —
+    // harmless (never matches a guild id) but pinned here intentionally.
+    expect(parseRecentIds(["1", "", null as unknown as string, "2"])).toEqual(["1", "null", "2"]);
+    expect(parseRecentIds("   ")).toEqual([]);
+    expect(parseRecentIds(42 as unknown as string)).toEqual([]);
+  });
+});
+
+describe("pushRecentId clamping", () => {
+  it("clamps invalid max sizes and drops empty ids", () => {
+    expect(pushRecentId(["1", "2"], "", 0)).toEqual(["1"]);
+    expect(pushRecentId([], "9", "junk" as unknown as number)).toEqual(["9"]);
+    expect(pushRecentId(["1"], "2", 99).length).toBeLessThanOrEqual(15);
+  });
+});

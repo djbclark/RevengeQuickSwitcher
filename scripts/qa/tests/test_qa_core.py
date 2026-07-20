@@ -123,3 +123,43 @@ def test_locate_phrase_requires_same_line_and_order():
     assert locate_phrase(FIXTURE_TSV, "servers Filter") is None
     assert locate_phrase(FIXTURE_TSV, "Filter Alpha") is None
     assert locate_phrase(FIXTURE_TSV, "Ghost") is None  # low-confidence word
+
+
+# ---- added edge coverage ----
+
+
+def test_recovery_failure_is_reported_not_raised():
+    def bad_recovery():
+        raise RuntimeError("recovery also broken")
+
+    result = run_step(
+        Step("r", action=lambda: (_ for _ in ()).throw(ValueError("x")), recovery=bad_recovery, deadline_s=1)
+    )
+    assert not result.ok and result.phase == "action"
+    assert not result.recovered
+
+
+def test_precondition_false_skips_action_and_recovery():
+    ran = {"action": False}
+    result = run_step(
+        Step(
+            "pre",
+            precondition=lambda: False,
+            action=lambda: ran.__setitem__("action", True),
+            recovery=lambda: ran.__setitem__("action", True),
+        )
+    )
+    assert not result.ok and result.phase == "pre"
+    assert not ran["action"]
+
+
+def test_parse_tsv_rejects_missing_header_and_short_rows():
+    assert parse_tsv("") == []
+    assert parse_tsv("bogus\theader\nrow\tdata") == []
+    truncated = TSV_HEADER + "\n5\t1\t1"
+    assert parse_tsv(truncated) == []
+
+
+def test_locate_phrase_empty_query_and_no_match():
+    assert locate_phrase(FIXTURE_TSV, "   ") is None
+    assert locate_phrase(FIXTURE_TSV, "nonexistent words") is None

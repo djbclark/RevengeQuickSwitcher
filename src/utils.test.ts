@@ -279,3 +279,37 @@ describe("formatServerListPage", () => {
     expect(currentPage).toBe(1);
   });
 });
+
+describe("formatMatchPickList truncation branch", () => {
+  it("keeps a prefix of names and reports the omitted count", () => {
+    const names = Array.from({ length: 200 }, (_, i) => `Server Number ${i + 1} With A Long Name`);
+    const { content, count } = formatMatchPickList("alpha", names);
+    expect(count).toBe(200);
+    expect(content.length).toBeLessThanOrEqual(MAX_CONTENT_LENGTH);
+    expect(content).toContain("• Server Number 1 With A Long Name");
+    expect(content).toMatch(/…and \d+ more/);
+    expect(content).toContain("Refine your query");
+  });
+});
+
+describe("formatServerListPage overflow", () => {
+  it("splits at PAGE_SIZE and clamps requested pages", () => {
+    const names = Array.from({ length: 90 }, (_, i) => `G${i + 1}`);
+    const page1 = formatServerListPage(names, 1);
+    expect(page1.totalPages).toBe(3);
+    expect(page1.content).toContain("• G1");
+    expect(page1.content).not.toContain("• G41");
+    expect(page1.content).toContain("/servers 2");
+    const last = formatServerListPage(names, 99);
+    expect(last.currentPage).toBe(3);
+    expect(last.content).toContain("• G90");
+    expect(last.content).toContain("/servers 1");
+    expect(formatServerListPage(names, -5).currentPage).toBe(1);
+  });
+
+  it("handles an empty list without crashing", () => {
+    const empty = formatServerListPage([], null);
+    expect(empty.totalPages).toBe(1);
+    expect(empty.content).toContain("### Servers (0)");
+  });
+});

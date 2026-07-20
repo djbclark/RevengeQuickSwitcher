@@ -39,3 +39,21 @@ describe("countExcludeRules", () => {
     expect(countExcludeRules("")).toBe(0);
   });
 });
+
+describe("parseExcludeRules edges", () => {
+  it("skips comments, short ~patterns, and classifies snowflakes as id rules", () => {
+    const rules = parseExcludeRules("# note\n123456789012345678\n~a\n~ok\n  \nReal Name");
+    expect(rules).toEqual([
+      { type: "id", value: "123456789012345678" },
+      { type: "name", value: "ok", mode: "contains" },
+      { type: "name", value: "real name", mode: "exact" },
+    ]);
+  });
+
+  it("id rules never match names and empty names never match name rules", () => {
+    const rules = parseExcludeRules("123456789012345678\n~spam");
+    expect(isGuildExcluded("123456789012345678", "whatever", rules)).toBe(true);
+    expect(isGuildExcluded("999", "", rules)).toBe(false);
+    expect(isGuildExcluded("", "big spam server", rules)).toBe(true);
+  });
+});
