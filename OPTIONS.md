@@ -106,6 +106,10 @@ assumptions scramble the sidebar. Needs defensive parsing + device tests
 
 #### D1 — Unattended device QA harness (stayturgid + Handsets) · Risk: **Low–Medium**
 
+> **2026-07-19:** v1 approach below is proposed for replacement — see
+> [QA-REENGINEERING.md](QA-REENGINEERING.md) (FireRPA transport, deep-link
+> navigation, OCR-as-locator, logcat ground truth, AI out of the loop).
+
 Replace "human taps → pastes Copy debug logs → agent guesses" with a Mac-side
 script that arms a stayturgid UI session, drives Discord through the failing
 flow, captures screenshots + hierarchy + plugin debug ring, and emits a
