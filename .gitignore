@@ -8,3 +8,6 @@ __pycache__/
 secrets.env
 !secrets.env.example
 **/secrets.env
+
+# tsc must never emit into src/ (breaks vitest resolution); build output goes to dist/
+src/*.js
