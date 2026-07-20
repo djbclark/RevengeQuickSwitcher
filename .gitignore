@@ -11,3 +11,4 @@ secrets.env
 
 # tsc must never emit into src/ (breaks vitest resolution); build output goes to dist/
 src/*.js
+scripts/qa/.venv/

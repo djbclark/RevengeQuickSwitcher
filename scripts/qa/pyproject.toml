@@ -1,0 +1,12 @@
+[project]
+name = "qss-qa"
+version = "0.1.0"
+description = "RevengeQuickSwitcher v2 device QA harness (QA-REENGINEERING.md)"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

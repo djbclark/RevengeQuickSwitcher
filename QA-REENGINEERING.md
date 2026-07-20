@@ -172,9 +172,14 @@ env becomes triage-only.
 Bridge (mirror debug log to logcat)". Harness greps
 `adb logcat -s ReactNativeJS` for `QSSQA|<json>` lines.
 
-**Phase 2 — Harness core:** new `scripts/qa/` driver implementing layers 1–4;
-port `wait_discord_ready`, guild nav, switcher open/pick/close as step
-scenarios asserting via logcat-first, classifier-second.
+**Phase 2 — Harness core:** new `scripts/qa/` driver implementing layers 1–4.
+**Device-free core landed 2026-07-19** (uv project, `cd scripts/qa && uv run
+--group dev pytest`): `qss_events.py` (logcat bridge parser, version-pinned),
+`step_runner.py` (deadline-enforced steps — a hung action is abandoned at its
+deadline, verified by test), `ocr_locator.py` (Tesseract TSV → phrase → tap
+center, pure logic + thin `ocr_tsv()` shell). **Remaining (needs device):**
+FireRPA transport binding, deep-link nav actions, screen classifier port, and
+the ported `wait_discord_ready` / switcher scenarios asserting logcat-first.
 
 **Phase 3 — A1 as code:** encode the TESTING.md device checklist as pytest
 scenarios; `make qa` runs it end-to-end; v1 `device_qa_qss.py` is archived
