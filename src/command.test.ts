@@ -111,6 +111,30 @@ describe("executeServersCommand", () => {
     expect(result?.content).toContain("Wayland High School");
   });
 
+  it("does not record recents or claim success when navigation fails", () => {
+    const recordRecent = vi.fn();
+    const deps = createDeps({ navigateToGuild: vi.fn(() => false), recordRecent });
+    const result = executeServersCommand({ query: "wsh" }, deps);
+    expect(recordRecent).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("Could not navigate to server", "danger");
+    expect(deps.showToast).not.toHaveBeenCalledWith("Jumped to Wayland High School", "success");
+    expect(result?.kind).toBe("error");
+  });
+
+  it("returns an error payload when no guilds are available", () => {
+    const deps = createDeps({ getGuilds: () => [] });
+    const result = executeServersCommand({}, deps);
+    expect(result?.kind).toBe("error");
+    expect(result?.content).toContain("No servers found");
+  });
+
+  it("truncates very long queries in the no-match reply", () => {
+    const deps = createDeps();
+    const result = executeServersCommand({ query: "z".repeat(500) }, deps);
+    expect(result?.kind).toBe("error");
+    expect(result!.content!.length).toBeLessThan(200);
+  });
+
   it("returns visible content when no match is found", () => {
     const deps = createDeps();
     const result = executeServersCommand({ query: "zzzznotaserver" }, deps);

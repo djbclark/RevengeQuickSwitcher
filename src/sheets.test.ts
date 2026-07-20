@@ -74,6 +74,11 @@ describe("sheet paging helpers", () => {
     expect(getSheetPageItems(items, 0, 8).page).toBe(1);
   });
 
+  it("filters with NFKC normalization (full-width input matches ascii names)", () => {
+    const items = [{ id: "1", name: "Alpha" }];
+    expect(filterSwitcherItems(items, "\uFF21lpha")).toEqual(items);
+  });
+
   it("filters switcher items case-insensitively", () => {
     const items = [
       { id: "1", name: "Alpha" },

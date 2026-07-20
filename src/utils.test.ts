@@ -4,6 +4,7 @@ import {
   findBestMatchIndex,
   findBestMatches,
   formatMatchPickList,
+  truncateForDisplay,
   formatServerListPage,
   getArrayChecksum,
   isSubsequence,
@@ -214,7 +215,21 @@ describe("findBestMatches", () => {
   });
 });
 
+describe("truncateForDisplay", () => {
+  it("passes short text through and truncates long text with an ellipsis", () => {
+    expect(truncateForDisplay("alpha")).toBe("alpha");
+    const long = "x".repeat(200);
+    expect(truncateForDisplay(long).length).toBe(81);
+    expect(truncateForDisplay(long).endsWith("\u2026")).toBe(true);
+  });
+});
+
 describe("formatMatchPickList", () => {
+  it("clamps huge queries so the header cannot blow the content budget", () => {
+    const { content } = formatMatchPickList("q".repeat(5000), ["Alpha"]);
+    expect(content.length).toBeLessThanOrEqual(MAX_CONTENT_LENGTH);
+  });
+
   it("lists tied matches and a refine hint", () => {
     const { content, count } = formatMatchPickList("alpha", ["Alpha One", "Alpha Two"]);
     expect(count).toBe(2);

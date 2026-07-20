@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { getSheetColors } from "./theme";
+import { normalizeText } from "./utils";
 
 export type SwitcherItem = {
   id: string;
@@ -70,9 +71,9 @@ export const getSheetPageItems = <T,>(
 };
 
 export const filterSwitcherItems = (items: SwitcherItem[], query: string) => {
-  const q = query.trim().toLowerCase();
+  const q = normalizeText(query.trim());
   if (!q) return items;
-  return items.filter((item) => item.name.toLowerCase().includes(q));
+  return items.filter((item) => normalizeText(item.name).includes(q));
 };
 
 let _lazySheet: LazyActionSheetHost | undefined;
@@ -265,14 +266,14 @@ export const SwitcherTopPanel: React.ComponentType<
         }}
       >
         <Pressable
-          onPress={() => setPage((p) => Math.max(1, p - 1))}
+          onPress={() => setPage(Math.max(1, safePage - 1))}
           disabled={safePage <= 1}
           style={{
             flex: 1,
             marginRight: 6,
             paddingVertical: 10,
             borderRadius: 8,
-            backgroundColor: safePage <= 1 ? "#3A3C41" : colors.accent,
+            backgroundColor: safePage <= 1 ? colors.chip : colors.accent,
             alignItems: "center",
             opacity: safePage <= 1 ? 0.5 : 1,
           }}
@@ -285,14 +286,14 @@ export const SwitcherTopPanel: React.ComponentType<
           {safePage} / {totalPages}
         </Text>
         <Pressable
-          onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+          onPress={() => setPage(Math.min(totalPages, safePage + 1))}
           disabled={safePage >= totalPages}
           style={{
             flex: 1,
             marginLeft: 6,
             paddingVertical: 10,
             borderRadius: 8,
-            backgroundColor: safePage >= totalPages ? "#3A3C41" : colors.accent,
+            backgroundColor: safePage >= totalPages ? colors.chip : colors.accent,
             alignItems: "center",
             opacity: safePage >= totalPages ? 0.5 : 1,
           }}
@@ -334,7 +335,7 @@ export const SwitcherTopPanel: React.ComponentType<
               paddingHorizontal: 12,
               paddingVertical: 8,
               borderRadius: 8,
-              backgroundColor: "#3A3C41",
+              backgroundColor: colors.chip,
             }}
           >
             <Text style={{ color: colors.text, fontSize: 15, fontWeight: "600" }}>Close</Text>
@@ -351,7 +352,7 @@ export const SwitcherTopPanel: React.ComponentType<
           // Never auto-focus — keyboard must not cover the list until the user taps Filter.
           autoFocus={false}
           style={{
-            backgroundColor: "#1E1F22",
+            backgroundColor: colors.inputBg,
             color: colors.text,
             borderRadius: 8,
             paddingHorizontal: 12,

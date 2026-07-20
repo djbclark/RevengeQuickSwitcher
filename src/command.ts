@@ -17,7 +17,8 @@ export type SwitcherListItem = {
 export type ServersCommandDeps = {
   getGuilds: () => GuildRecord[];
   aliases: string;
-  navigateToGuild: (id: string) => void;
+  /** Return false when navigation failed; void/true are treated as success. */
+  navigateToGuild: (id: string) => void | boolean;
   showToast: (message: string, type?: string) => void;
   debugLog?: (message: string, ...args: unknown[]) => void;
   getRecentIds?: () => string[];
@@ -99,7 +100,11 @@ const jumpToGuild = (
     deps.showToast("Could not resolve server id", "danger");
     return { kind: "error" as const, content: "Could not resolve server id" };
   }
-  deps.navigateToGuild(id);
+  const navigated = deps.navigateToGuild(id);
+  if (navigated === false) {
+    deps.showToast("Could not navigate to server", "danger");
+    return { kind: "error" as const, content: "Could not navigate to server" };
+  }
   deps.recordRecent?.(id);
   const name = Utils.sanitizeName(guild.name);
   const message = successMessage ?? `Jumped to ${name}`;
@@ -122,7 +127,7 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
 
   if (!guilds.length) {
     deps.showToast("No servers found", "danger");
-    return;
+    return { kind: "error" as const, content: "No servers found" };
   }
 
   const mappedGuilds = guilds
@@ -190,7 +195,10 @@ export const executeServersCommand = (rawArgs: unknown, deps: ServersCommandDeps
 
     if (matches.length === 0) {
       deps.showToast("No match found", "danger");
-      return { kind: "error" as const, content: `No match for \`${Utils.escapeMarkdown(trimmed)}\`` };
+      return {
+        kind: "error" as const,
+        content: `No match for \`${Utils.escapeMarkdown(Utils.truncateForDisplay(trimmed))}\``,
+      };
     }
 
     if (matches.length > 1) {

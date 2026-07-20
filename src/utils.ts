@@ -173,11 +173,15 @@ export const PAGE_SIZE = 40;
 /** Hard cap so Discord command responses stay under the 2000-character limit. */
 export const MAX_CONTENT_LENGTH = 1900;
 
+/** Cap user-supplied query text before interpolating into replies (Discord options allow huge strings). */
+export const truncateForDisplay = (text: string, max = 80) =>
+  text.length > max ? `${text.slice(0, max)}…` : text;
+
 export const formatMatchPickList = (
   query: string,
   sanitizedNames: string[]
 ) => {
-  const header = `### Multiple matches for \`${escapeMarkdown(query)}\`\n`;
+  const header = `### Multiple matches for \`${escapeMarkdown(truncateForDisplay(query))}\`\n`;
   const lines = sanitizedNames.map((name) => `• ${escapeMarkdown(name)}`);
   const hint = "\n\n*Refine your query or use a custom alias.*";
   let content = header + lines.join("\n") + hint;

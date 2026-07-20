@@ -19,6 +19,7 @@ import {
   serializeRecentIds,
 } from "./recents";
 import { createSidebarCache, transformFlatSidebar, type SidebarNode } from "./sidebar";
+import { truncateForDisplay } from "./utils";
 import { openSwitcherUi, type SwitcherItem } from "./sheets";
 import { getSettingsThemeColors } from "./theme";
 
@@ -128,16 +129,14 @@ const postCommandReply = (channelId: string | undefined, content: string) => {
     messageUtil.sendBotMessage(channelId, content);
     return;
   }
-  if (messageUtil?.sendMessage) {
-    messageUtil.sendMessage(channelId, { content }, void 0, { nonce: Date.now().toString() });
-    return;
-  }
+  // Never fall back to sendMessage — that posts a REAL message visible to the
+  // whole channel (leaking the server list), unlike the local-only bot reply.
   showToast("Could not post /servers reply in this channel", "danger");
 };
 
 /** Injected at build time from package.json; keep fallback in sync when bumping. */
 const PLUGIN_VERSION =
-  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.9";
+  typeof __QSS_VERSION__ !== "undefined" && __QSS_VERSION__ ? __QSS_VERSION__ : "4.5.10";
 
 const ensureStorageDefaults = () => {
   try {
@@ -510,12 +509,8 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
           name: guild.name ?? "",
         })),
       aliases: storage.aliases || "",
-      navigateToGuild: (id) => {
-        navigated.ok = navigateToGuild(id);
-        if (!navigated.ok) {
-          showToast("Could not navigate to server", "danger");
-        }
-      },
+      // Return the outcome so the command layer skips recents + success toast on failure.
+      navigateToGuild: (id) => (navigated.ok = navigateToGuild(id)),
       showToast,
       debugLog,
       getRecentIds: getStoredRecentIds,
@@ -551,7 +546,9 @@ const handleExec = (rawArgs: unknown, ctx?: CommandContext) => {
     // C5: ambiguous search → tappable pick sheet (fallback: markdown pick list).
     if (result.kind === "pick-list" && Array.isArray(result.items) && result.items.length > 0) {
       const queryLabel =
-        "query" in result && typeof result.query === "string" ? result.query : "your query";
+        "query" in result && typeof result.query === "string"
+          ? truncateForDisplay(result.query, 40)
+          : "your query";
       const opened = openSwitcherUi({
         title: `Matches for “${queryLabel}”`,
         subtitle: "Tap a server to jump",
@@ -616,9 +613,7 @@ const openSwitcherFromSettings = () => {
             name: guild.name ?? "",
           })),
         aliases: storage.aliases || "",
-        navigateToGuild: (id) => {
-          if (!navigateToGuild(id)) showToast("Could not navigate to server", "danger");
-        },
+        navigateToGuild: (id) => navigateToGuild(id),
         showToast,
         debugLog,
         getRecentIds: getStoredRecentIds,

@@ -77,6 +77,10 @@ export type SheetColors = {
   panel: string;
   border: string;
   accent: string;
+  /** Neutral button background (Close, disabled pager). */
+  chip: string;
+  /** Filter TextInput background. */
+  inputBg: string;
 };
 
 /** Resolve colors for the top-docked switcher sheet. */
@@ -87,6 +91,8 @@ export const getSheetColors = (): SheetColors => ({
   panel: resolveSemantic(["BACKGROUND_SECONDARY", "BG_BASE_SECONDARY", "BACKGROUND_SECONDARY_ALT"], "#2B2D31"),
   border: resolveSemantic(["BACKGROUND_TERTIARY", "BACKGROUND_ACCENT", "BACKGROUND_SECONDARY"], "#1E1F22"),
   accent: resolveSemantic(["BRAND_NEW_500", "BRAND_500", "BUTTON_PRIMARY_BACKGROUND"], "#5865F2"),
+  chip: resolveSemantic(["BACKGROUND_MODIFIER_ACCENT", "BACKGROUND_ACCENT", "BACKGROUND_TERTIARY"], "#3A3C41"),
+  inputBg: resolveSemantic(["BACKGROUND_TERTIARY", "BACKGROUND_SECONDARY_ALT", "BACKGROUND_SECONDARY"], "#1E1F22"),
 });
 
 /** Resolve settings colors from Discord semantic tokens, with dark-mode fallbacks. */

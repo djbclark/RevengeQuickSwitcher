@@ -81,6 +81,7 @@ writeFileSync("dist/index.js", wrapped);
 const hash = createHash("sha256").update(wrapped).digest("hex");
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
 manifest.hash = hash;
+manifest.version = pluginVersion;
 manifest.main = "dist/index.js";
 writeFileSync("manifest.json", `${JSON.stringify(manifest, null, 2)}\n`);
 

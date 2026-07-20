@@ -30,6 +30,14 @@ if (!existsSync(distPath)) {
   process.exit(1);
 }
 
+const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+if (manifest.version !== pkg.version) {
+  console.error(
+    `manifest.json version (${manifest.version}) does not match package.json (${pkg.version}) — run npm run build`
+  );
+  process.exit(1);
+}
+
 const dist = readFileSync(distPath);
 const expectedHash = createHash("sha256").update(dist).digest("hex");
 if (manifest.hash !== expectedHash) {

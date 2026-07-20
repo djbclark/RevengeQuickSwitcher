@@ -15,6 +15,18 @@ Keep this file updated in the same PR/commit as the code. GitHub Releases should
 - Docs: add stayturgid-style `HANDOFF.md` / `HACKING.md`; README documentation index; cross-links from OPTIONS/TESTING
 - Docs: reshape `OPTIONS.md` to stayturgid open-work format (tracks, open IDs only, closed summary)
 
+## 4.5.10
+
+- Fix: a failed jump no longer records the server into recent history or shows a false "Jumped to" success toast (navigation outcome now flows back into the command layer)
+- Fix: remove the `sendMessage` fallback in command replies — it could post a real, channel-visible message with your server list instead of the local-only bot reply
+- Fix: switcher sheet Filter input, Close button, and disabled pager buttons now use Discord semantic theme colors instead of hardcoded dark values (readable in light theme)
+- Fix: sheet pager buttons step from the clamped page (previously could need repeated taps after the list shrank)
+- Fix: sheet filter uses NFKC normalization, matching `/servers` search behavior for unicode server names
+- Fix: very long queries are truncated in "Multiple matches" / "No match" replies so output stays under Discord's content budget
+- Fix: `/servers` with zero servers returns a visible error reply instead of a second misleading toast
+- Internal: purge stray `tsc` output from `src/` (shadowed sources broke 2 test files); gitignore `src/*.js` and set `noEmit` in tsconfig.json
+- Tests: 96 → 102 (regression coverage for the fixes above)
+
 ## 4.5.9
 
 - Restore **top-docked** switcher so the Android keyboard no longer covers the list (v4.5.8 bottom ActionSheet regression)
